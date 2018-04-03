@@ -30,7 +30,7 @@ class TorusPolynomialArray:
 class LagrangeHalfCPolynomialArray:
     def __init__(self, N, shape):
         assert N % 2 == 0
-        self.coefsC = numpy.empty(shape + (N // 2,), numpy.complex128)
+        self.coefsC = numpy.empty(shape + (N // 2,), Complex)
         self.polynomial_size = N
         self.shape = shape
 
