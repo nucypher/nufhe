@@ -50,6 +50,12 @@ class TGswSampleFFTArray:
         self.l = params.l
         self.samples = TLweSampleFFTArray(params.tlwe_params, shape + (self.k + 1, self.l))
 
+    def to_gpu(self, thr):
+        self.samples.to_gpu(thr)
+
+    def from_gpu(self):
+        self.samples.from_gpu()
+
 
 # Result += mu*H, mu integer
 def tGswAddMuIntH(result: TGswSampleArray, messages, params: TGswParams):

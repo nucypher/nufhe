@@ -46,10 +46,32 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     params = tfhe_parameters(cloud_key)
     result = empty_ciphertext(params, ciphertext1.shape)
 
+    from reikna.cluda import ocl_api
+    api = ocl_api()
+    thr = api.Thread.create()
+
+    cloud_key.to_gpu(thr)
+    ciphertext1.to_gpu(thr)
+    ciphertext2.to_gpu(thr)
+    ciphertext3.to_gpu(thr)
+    result.to_gpu(thr)
+
+    #import cProfile
+    #cProfile.runctx("tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)",
+    #    locals=locals(), globals=globals(), sort='cumtime')
+
+    tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
+
     print("Processing:")
     t = time.time()
     tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
     print(time.time() - t)
+
+    cloud_key.from_gpu()
+    ciphertext1.from_gpu()
+    ciphertext2.from_gpu()
+    ciphertext3.from_gpu()
+    result.from_gpu()
 
     return result
 

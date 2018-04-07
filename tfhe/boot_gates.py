@@ -294,9 +294,13 @@ def tfhe_gate_MUX_(
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
     temp_result = LweSampleArray(in_out_params, result.shape)
+    temp_result.to_gpu(a.a.thread)
     temp_result1 = LweSampleArray(extracted_params, result.shape)
+    temp_result1.to_gpu(a.a.thread)
     u1 = LweSampleArray(extracted_params, result.shape)
+    u1.to_gpu(a.a.thread)
     u2 = LweSampleArray(extracted_params, result.shape)
+    u2.to_gpu(a.a.thread)
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)

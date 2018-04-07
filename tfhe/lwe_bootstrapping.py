@@ -3,6 +3,10 @@ import numpy
 from .lwe import *
 from .tgsw import *
 
+from .gpu_polynomials import *
+from .gpu_tlwe import *
+from .gpu_tgsw import *
+
 
 def lwe_bootstrapping_key(
         rng, ks_t: int, ks_basebit: int, key_in: LweKey, rgsw_key: TGswKey):
@@ -52,22 +56,31 @@ class LweBootstrappingKeyFFT:
         self.bkFFT = bkFFT # the bootstrapping key (s->s")
         self.ks = ks # the keyswitch key (s'->s)
 
+    def to_gpu(self, thr):
+        self.bkFFT.to_gpu(thr)
+        self.ks.to_gpu(thr)
+
+    def from_gpu(self):
+        self.bkFFT.from_gpu()
+        self.ks.from_gpu()
+
 
 def tfhe_MuxRotate_FFT(
         result: TLweSampleArray, accum: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int,
-        barai, bk_params: TGswParams, tmpa: TLweSampleFFTArray,
-        deca: IntPolynomialArray, decaFFT: LagrangeHalfCPolynomialArray):
+        barai, bk_params: TGswParams):
 
     # TYPING: barai::Array{Int32}
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
-    tLweMulByXaiMinusOne(result, barai, accum, bk_params.tlwe_params)
+    tLweMulByXaiMinusOne_gpu(result, barai, accum, bk_params.tlwe_params)
 
     # temp *= BKi
-    tGswFFTExternMulToTLwe(result, bki, bk_idx, bk_params, tmpa, deca, decaFFT)
+    #print(result.a.coefsT.get().sum(-1))
+
+    tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params)
 
     # ACC += temp
-    tLweAddTo(result, accum, bk_params.tlwe_params)
+    tLweAddTo_gpu(result, accum, bk_params.tlwe_params)
 
 
 """
@@ -80,31 +93,29 @@ def tfhe_MuxRotate_FFT(
 def tfhe_blindRotate_FFT(
         accum: TLweSampleArray, bkFFT: TGswSampleFFTArray, bara, n: int, bk_params: TGswParams):
 
+    thr = accum.a.coefsT.thread
+
     # TYPING: bara::Array{Int32}
     temp = TLweSampleArray(bk_params.tlwe_params, accum.shape)
+    temp.to_gpu(thr)
     temp2 = temp
     temp3 = accum
 
     accum_in_temp3 = True
 
-    # For use in tGswFFTExternMulToTLwe(), so that we don't have to allocate them `n` times
-    tmpa = TLweSampleFFTArray(bk_params.tlwe_params, accum.shape)
-    deca = IntPolynomialArray(bk_params.tlwe_params.N, accum.a.shape + (bk_params.l,))
-    decaFFT = LagrangeHalfCPolynomialArray(
-        bk_params.tlwe_params.N, accum.shape + (bk_params.tlwe_params.k + 1, bk_params.l))
-
     for i in range(n):
-        # GPU: will have to be passed as a pair `bara`, `i`
-        barai = bara[:,i] # !!! assuming the ciphertext is 1D
+        # FIXME: need to pass the full array and the index ---
+        # even though Reikna can handle the views, it will require recompilation each time
+        # (and n is 500)
+        barai = thr.to_device(numpy.ascontiguousarray(bara.get()[:,i]))
 
-        # FIXME: We could pass the view bkFFT[i] here, but on the current Julia it's too slow
-        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, barai, bk_params, tmpa, deca, decaFFT)
+        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, barai, bk_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
 
     if not accum_in_temp3: # temp3 != accum
-        tLweCopy(accum, temp3, bk_params.tlwe_params)
+        tLweCopy_gpu(accum, temp3, bk_params.tlwe_params)
 
 
 """
@@ -127,22 +138,26 @@ def tfhe_blindRotateAndExtract_FFT(
     extract_params = accum_params.extracted_lweparams
     N = accum_params.N
 
+    thr = result.a.thread
+
     # Test polynomial
     testvectbis = TorusPolynomialArray(N, result.shape)
+    testvectbis.to_gpu(thr)
+
     # Accumulator
     acc = TLweSampleArray(accum_params, result.shape)
+    acc.to_gpu(thr)
 
     # testvector = X^{2N-barb}*v
-    # GPU: array operations or a custom kernel
-    tp_mul_by_xai_(testvectbis, 2 * N - barb, v)
+    tp_mul_by_xai_gpu(testvectbis, barb, v, invert_ais=True)
 
-    tLweNoiselessTrivial(acc, testvectbis, accum_params)
+    tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
     # Blind rotation
     tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
 
     # Extraction
-    tLweExtractLweSample(result, acc, extract_params, accum_params)
+    tLweExtractLweSample_gpu(result, acc, extract_params, accum_params)
 
 
 """
@@ -161,12 +176,17 @@ def tfhe_bootstrap_woKS_FFT(
     N = accum_params.N
     n = in_params.n
 
+    thr = result.a.thread
     testvect = TorusPolynomialArray(N, result.shape)
+    testvect.to_gpu(thr)
 
     # Modulus switching
     # GPU: array operations or a custom kernel
-    barb = modSwitchFromTorus32(x.b, 2 * N)
-    bara = modSwitchFromTorus32(x.a, 2 * N)
+    barb = thr.array(x.b.shape, Torus32)
+    bara = thr.array(x.a.shape, Torus32)
+
+    modSwitchFromTorus32_gpu(barb, x.b, 2 * N)
+    modSwitchFromTorus32_gpu(bara, x.a, 2 * N)
 
     # the initial testvec = [mu,mu,mu,...,mu]
     # TODO: use an appropriate method

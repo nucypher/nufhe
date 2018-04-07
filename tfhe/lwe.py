@@ -1,6 +1,8 @@
 import numpy
 
 from .numeric_functions import *
+from .gpu_numeric_functions import *
+from .gpu_lwe import *
 
 
 class LweParams:
@@ -56,6 +58,16 @@ class LweSampleArray:
 
         return res
 
+    def to_gpu(self, thr):
+        self.a = thr.to_device(self.a)
+        self.b = thr.to_device(self.b)
+        self.current_variances = thr.to_device(self.current_variances)
+
+    def from_gpu(self):
+        self.a = self.a.get()
+        self.b = self.b.get()
+        self.current_variances = self.current_variances.get()
+
 
 def vec_mul_mat(b, a):
     return (a * b).sum(-1, dtype=numpy.int32)
@@ -104,7 +116,13 @@ def lweNoiselessTrivial(result: LweSampleArray, mus, params: LweParams):
     # TYPING: mus: Union{Array{Torus32}, Torus32}
     # GPU: array operations
     result.a.fill(0)
-    numpy.copyto(result.b, mus)
+    if isinstance(mus, numpy.ndarray):
+        raise NotImplementedError()
+    elif hasattr(mus, 'thread'):
+        thr = mus.thread
+        thr.copy_array(mus, dest=result.b)
+    else:
+        result.b.fill(mus)
     result.current_variances.fill(0)
 
 
@@ -211,6 +229,12 @@ class LweKeySwitchKey:
         self.ks = ks # the keyswitch elements: a n.l.base matrix
         # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
 
+    def to_gpu(self, thr):
+        self.ks.to_gpu(thr)
+
+    def from_gpu(self):
+        self.ks.from_gpu()
+
 
 """
  * translates the message of the result sample by -sum(a[i].s[i]) where s is the secret
@@ -260,5 +284,5 @@ def lweKeySwitch(result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSampleA
     t = ks.t
 
     lweNoiselessTrivial(result, sample.b, params)
-    lweKeySwitchTranslate_fromArray(result, ks.ks, params, sample.a, n, t, basebit)
+    lweKeySwitchTranslate_fromArray_gpu(result, ks.ks, params, sample.a, n, t, basebit)
 

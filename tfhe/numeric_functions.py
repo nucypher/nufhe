@@ -26,10 +26,6 @@ def rand_gaussian_torus32(rng, message: Torus32, sigma: float, shape):
     return message + dtot32(rng.normal(size=shape, scale=sigma))
 
 
-# Used to approximate the phase to the nearest message possible in the message space
-# The constant Msize will indicate on which message space we are working (how many messages possible)
-#
-# "work on 63 bits instead of 64, because in our practical cases, it's more precise"
 def modSwitchFromTorus32(phase: Torus32, Msize: int):
     # TODO: check if it can be simplified (wrt type conversions)
     interv = (1 << 63) // Msize * 2 # width of each intervall

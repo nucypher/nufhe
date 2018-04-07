@@ -6,48 +6,8 @@ from reikna.algorithms import PureParallel
 import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
 
-
-# p: Int (coeff=2)/Torus (coeff=2^33)
-# result: Complex
-def ip_ifft_reference(p, coeff):
-    a = p.reshape(numpy.prod(p.shape[:-1]), p.shape[-1])
-    N = a.shape[-1]
-
-    res = numpy.empty((a.shape[0], N//2), numpy.complex128)
-
-    in_arr = numpy.empty((a.shape[0], 2 * N), numpy.float64)
-
-    in_arr[:,:N] = a / coeff
-    in_arr[:,N:] = -in_arr[:,:N]
-
-    out_arr = numpy.fft.rfft(in_arr)
-
-    res[:,:N//2] = out_arr[:,1:N+1:2]
-
-    return res.reshape(p.shape[:-1] + (N//2,))
-
-
-# p: Complex
-# result: Torus
-def tp_fft_reference(p):
-    a = p.reshape(numpy.prod(p.shape[:-1]), p.shape[-1])
-    N = a.shape[-1] * 2
-
-    res = numpy.empty((a.shape[0], N), numpy.int32)
-
-    in_arr = numpy.empty((res.shape[0], N + 1), numpy.complex128)
-    in_arr[:,0:N+1:2] = 0
-    in_arr[:,1:N+1:2] = a
-
-    out_arr = numpy.fft.irfft(in_arr)
-
-    # the first part is from the original libtfhe;
-    # the second part is from a different FFT scaling in Julia
-    coeff = (2**32 / N) * (2 * N)
-
-    res[:,:] = numpy.round(out_arr[:,:N] * coeff).astype(numpy.int64).astype(numpy.int32)
-
-    return res.reshape(p.shape[:-1] + (N,))
+from .polynomials import TorusPolynomialArray
+from .computation_cache import get_computation
 
 
 def transform_i2c_input(arr, output_dtype, coeff):
@@ -246,40 +206,6 @@ class C2I_FFT(Computation):
         return plan
 
 
-# result = (X^ai-1) * source
-def tp_mul_by_xai_minus_one_(out, ais, in_):
-    out_c = out #.coefsT
-    in_c = in_ #.coefsT
-
-    N = out_c.shape[-1]
-    for i in range(out.shape[0]):
-        ai = ais[i]
-        if ai < N:
-            out_c[i,:,:ai] = -in_c[i,:,(N-ai):N] - in_c[i,:,:ai] # sur que i-a<0
-            out_c[i,:,ai:N] = in_c[i,:,:(N-ai)] - in_c[i,:,ai:N] # sur que N>i-a>=0
-        else:
-            aa = ai - N
-            out_c[i,:,:aa] = in_c[i,:,(N-aa):N] - in_c[i,:,:aa] # sur que i-a<0
-            out_c[i,:,aa:N] = -in_c[i,:,:(N-aa)] - in_c[i,:,aa:N] # sur que N>i-a>=0
-
-
-# result= X^{a}*source
-def tp_mul_by_xai_(out, ais, in_):
-    out_c = out #.coefsT
-    in_c = in_ #.coefsT
-
-    N = out_c.shape[-1]
-    for i in range(out.shape[0]):
-        ai = ais[i]
-        if ai < N:
-            out_c[i,:ai] = -in_c[i,(N-ai):N] # sur que i-a<0
-            out_c[i,ai:N] = in_c[i,:(N-ai)] # sur que N>i-a>=0
-        else:
-            aa = ai - N
-            out_c[i,:aa] = in_c[i,(N-aa):N] # sur que i-a<0
-            out_c[i,aa:N] = -in_c[i,:(N-aa)] # sur que N>i-a>=0
-
-
 def transform_mul_by_xai(ais, arr, minus_one=False, invert_ais=False):
     # arr: ... x N
     # ais: arr.shape[0], int
@@ -364,98 +290,17 @@ class TPMulByXai(Computation):
         return plan
 
 
-def test_mul_by_xai():
-
-    from reikna.cluda import ocl_api
-
-    numpy.random.seed(125)
-
-    N = 16
-
-    api = ocl_api()
-    thr = api.Thread.create()
+# result= X^{a}*source
+def tp_mul_by_xai_gpu(out: TorusPolynomialArray, ais, in_: TorusPolynomialArray, invert_ais=False):
+    thr = out.coefsT.thread
+    comp = get_computation(
+        thr, TPMulByXai, ais, in_.coefsT, minus_one=False, invert_ais=invert_ais)
+    comp(out.coefsT, ais, in_.coefsT)
 
 
-    data = numpy.random.randint(0, 10000, size=(300, N))
-    ais = numpy.random.randint(0, 2 * N, size=300)
-    data_dev = thr.to_device(data)
-    ais_dev = thr.to_device(ais)
-
-    comp = TPMulByXai(ais, data, minus_one=False).compile(thr)
-    res_dev = thr.empty_like(comp.parameter.output)
-
-    comp(res_dev, ais_dev, data_dev)
-    res_reikna = res_dev.get()
-
-    res_ref = numpy.empty_like(data)
-    tp_mul_by_xai_(res_ref, ais, data)
-
-    assert numpy.allclose(res_reikna, res_ref)
-
-
-    data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=300)
-    data_dev = thr.to_device(data)
-    ais_dev = thr.to_device(ais)
-
-    comp = TPMulByXai(ais, data, minus_one=True).compile(thr)
-    res_dev = thr.empty_like(comp.parameter.output)
-
-    comp(res_dev, ais_dev, data_dev)
-    res_reikna = res_dev.get()
-
-    res_ref = numpy.empty_like(data)
-    tp_mul_by_xai_minus_one_(res_ref, ais, data)
-
-    assert numpy.allclose(res_reikna, res_ref)
-
-
-
-def test_fft():
-    from reikna.cluda import ocl_api
-
-    numpy.random.seed(125)
-    N = 1024
-
-    api = ocl_api()
-    thr = api.Thread.create()
-
-    data = numpy.random.randint(-2**31, 2**31, size=(500, 2, 2, N), dtype=numpy.int32)
-
-    ipfft = I2C_FFT(data, 2).compile(thr)
-
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(ipfft.parameter.output)
-
-    ipfft(res_dev, data_dev)
-    res_reikna = res_dev.get()
-    res_ref = ip_ifft_reference(data, 2)
-
-    assert numpy.allclose(res_reikna, res_ref)
-
-
-    #size = (500, 2, 2, N//2)
-    size = (2, 1024)
-    data = (
-        numpy.random.normal(size=size)
-        + 1j * numpy.random.normal(size=size))
-
-    pfft = C2I_FFT(data).compile(thr)
-
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(pfft.parameter.output)
-
-    pfft(res_dev, data_dev)
-    res_reikna = res_dev.get()
-    res_ref = tp_fft_reference(data)
-
-    print(res_reikna)
-    print(res_ref)
-
-    assert numpy.allclose(res_reikna, res_ref)
-
-
-if __name__ == '__main__':
-
-    test_mul_by_xai()
-
+# result = (X^ai-1) * source
+def tp_mul_by_xai_minus_one_gpu(out: TorusPolynomialArray, ais, in_: TorusPolynomialArray):
+    thr = out.coefsT.thread
+    comp = get_computation(
+        thr, TPMulByXai, ais, in_.coefsT, minus_one=True, invert_ais=False)
+    comp(out.coefsT, ais, in_.coefsT)

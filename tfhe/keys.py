@@ -51,6 +51,12 @@ class TFHECloudKey:
         self.params = params
         self.bkFFT = bkFFT
 
+    def to_gpu(self, thr):
+        self.bkFFT.to_gpu(thr)
+
+    def from_gpu(self):
+        self.bkFFT.from_gpu()
+
 
 def tfhe_parameters(key): # union(TFHESecretKey, TFHECloudKey)
     return key.params

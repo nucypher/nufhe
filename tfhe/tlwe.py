@@ -40,6 +40,14 @@ class TLweSampleArray:
 
         self.shape = shape
 
+    def to_gpu(self, thr):
+        self.a.to_gpu(thr)
+        self.current_variances = thr.to_device(self.current_variances)
+
+    def from_gpu(self):
+        self.a.from_gpu()
+        self.current_variances = self.current_variances.get()
+
 
 class TLweSampleFFTArray:
 
@@ -53,6 +61,15 @@ class TLweSampleFFTArray:
         self.current_variances = numpy.zeros(shape, numpy.float64)
 
         self.shape = shape
+
+    def to_gpu(self, thr):
+        self.a.to_gpu(thr)
+        self.current_variances = thr.to_device(self.current_variances)
+
+    def from_gpu(self):
+        self.a.from_gpu()
+        self.current_variances = self.current_variances.get()
+
 
 
 def tLweExtractLweSampleIndex(

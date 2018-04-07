@@ -5,15 +5,16 @@ _computations = {}
 
 
 def clean_arg(arg):
-    if hasattr(arg, 'shape') and not isinstance(arg, Type):
-        return Type(arg.dtype, arg.shape)
+    if hasattr(arg, 'shape'):
+        return ('Type', arg.dtype, arg.shape)
     else:
         return arg
 
 
 def get_computation(thr, cls, *args, **kwds):
-    args = tuple(map(clean_arg, args))
-    key = (id(thr), args, kwds)
+    hashable_args = tuple(map(clean_arg, args))
+    hashable_kwds = tuple((key, kwds[key]) for key in sorted(kwds))
+    key = (id(thr), id(cls), hashable_args, hashable_kwds)
     if key in _computations:
         return _computations[key]
     else:

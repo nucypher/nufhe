@@ -24,6 +24,12 @@ class TorusPolynomialArray:
         obj.coefsT = arr
         return obj
 
+    def to_gpu(self, thr):
+        self.coefsT = thr.to_device(self.coefsT)
+
+    def from_gpu(self):
+        self.coefsT = self.coefsT.get()
+
 
 # This structure is used for FFT operations, and is a representation
 # over C of a polynomial in R[X]/X^N+1
@@ -33,6 +39,12 @@ class LagrangeHalfCPolynomialArray:
         self.coefsC = numpy.empty(shape + (N // 2,), Complex)
         self.polynomial_size = N
         self.shape = shape
+
+    def to_gpu(self, thr):
+        self.coefsC = thr.to_device(self.coefsC)
+
+    def from_gpu(self):
+        self.coefsC = self.coefsC.get()
 
 
 def _coefs(p):
