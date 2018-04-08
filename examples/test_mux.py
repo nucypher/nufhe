@@ -4,13 +4,13 @@ import time
 from tfhe import *
 
 
-def int_to_bitarray(x):
-    return numpy.array([((x >> i) & 1 != 0) for i in range(16)])
+def int_to_bitarray(x, size=16):
+    return numpy.array([((x >> i) & 1 != 0) for i in range(size)])
 
 
 def bitarray_to_int(x):
     int_answer = 0
-    for i in range(16):
+    for i in range(x.size):
         int_answer = int_answer | (x[i] << i)
     return int_answer
 
@@ -28,9 +28,11 @@ def encrypt():
     secret_key, cloud_key = tfhe_key_pair(rng)
     print(time.time() - t)
 
-    bits1 = int_to_bitarray(2017)
-    bits2 = int_to_bitarray(42)
-    bits3 = int_to_bitarray(12345)
+    size = 32
+
+    bits1 = int_to_bitarray(2017, size=size)
+    bits2 = int_to_bitarray(42, size=size)
+    bits3 = int_to_bitarray(12345, size=size)
 
     print("Encryption:")
     t = time.time()
