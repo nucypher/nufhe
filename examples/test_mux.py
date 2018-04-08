@@ -65,6 +65,7 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     print("Processing:")
     t = time.time()
     tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
+    thr.synchronize()
     print(time.time() - t)
 
     cloud_key.from_gpu()
