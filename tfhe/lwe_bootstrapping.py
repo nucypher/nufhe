@@ -72,7 +72,7 @@ def tfhe_MuxRotate_FFT(
     # TYPING: barai::Array{Int32}
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
-    tLweMulByXaiMinusOne_gpu(result, barai, accum, bk_params.tlwe_params)
+    tLweMulByXaiMinusOne_gpu(result, barai, bk_idx, accum, bk_params.tlwe_params)
 
     # temp *= BKi
     #print(result.a.coefsT.get().sum(-1))
@@ -104,12 +104,10 @@ def tfhe_blindRotate_FFT(
     accum_in_temp3 = True
 
     for i in range(n):
-        # FIXME: need to pass the full array and the index ---
-        # even though Reikna can handle the views, it will require recompilation each time
-        # (and n is 500)
-        barai = thr.to_device(numpy.ascontiguousarray(bara.get()[:,i]))
-
-        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, barai, bk_params)
+        # TODO: here we only need to pass bkFFT[i] and bara[:,i],
+        # but Reikna kernels have to be recompiled for every set of strides/offsets,
+        # so for now we are just passing full arrays and an index.
+        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, bara, bk_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3

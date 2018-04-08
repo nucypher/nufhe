@@ -121,9 +121,9 @@ def tLweExtractLweSample_gpu(
     comp(result.a, result.b, x.a.coefsT)
 
 
-def tLweMulByXaiMinusOne_gpu(result:TLweSampleArray, ai, bk: TLweSampleArray, params: TLweParams):
+def tLweMulByXaiMinusOne_gpu(result:TLweSampleArray, ai, ai_idx, bk: TLweSampleArray, params: TLweParams):
     # TYPING: ai::Array{Int32}
-    tp_mul_by_xai_minus_one_gpu(result.a, ai, bk.a)
+    tp_mul_by_xai_minus_one_gpu(result.a, ai, ai_idx, bk.a)
 
 
 # result = result + sample

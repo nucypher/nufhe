@@ -60,7 +60,9 @@ def tp_fft_reference(res, p):
 
 # minus_one=True: result = (X^ai-1) * source
 # minus_one=False: result = X^{a} * source
-def tp_mul_by_xai_reference(out_c, ais, in_c, minus_one=False):
+def tp_mul_by_xai_reference(
+        out_c, ais, ai_idx, in_c, ai_view=False, invert_ais=False, minus_one=False):
+
     assert out_c.dtype == in_c.dtype
     assert out_c.shape == in_c.shape
     assert ais.shape == (out_c.shape[0],)
@@ -70,6 +72,13 @@ def tp_mul_by_xai_reference(out_c, ais, in_c, minus_one=False):
     in_c = in_c.reshape(bc_shape)
 
     N = out_c.shape[-1]
+
+    if ai_view:
+        ais = ais[:,ai_idx]
+
+    if invert_ais:
+        ais = 2 * N - ais
+
     for i in range(out_c.shape[0]):
         ai = ais[i]
         if ai < N:
@@ -95,10 +104,10 @@ def test_mul_by_xai(thread):
 
     comp = TPMulByXai(ais, data, minus_one=False).compile(thread)
 
-    comp(res_dev, ais_dev, data_dev)
+    comp(res_dev, ais_dev, 0, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, ais, data, minus_one=False)
+    tp_mul_by_xai_reference(res_ref, ais, 0, data, minus_one=False)
 
     assert numpy.allclose(res_test, res_ref)
 
@@ -117,10 +126,10 @@ def test_mul_by_xai_invert_ais(thread):
 
     comp = TPMulByXai(ais, data, minus_one=False, invert_ais=True).compile(thread)
 
-    comp(res_dev, ais_dev, data_dev)
+    comp(res_dev, ais_dev, 0, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, 2 * N - ais, data, minus_one=False)
+    tp_mul_by_xai_reference(res_ref, ais, 0, data, invert_ais=True, minus_one=False)
 
     assert numpy.allclose(res_test, res_ref)
 
@@ -139,10 +148,10 @@ def test_mul_by_xai_minus_one(thread):
 
     comp = TPMulByXai(ais, data, minus_one=True).compile(thread)
 
-    comp(res_dev, ais_dev, data_dev)
+    comp(res_dev, ais_dev, 0, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, ais, data, minus_one=True)
+    tp_mul_by_xai_reference(res_ref, ais, 0, data, minus_one=True)
 
     assert numpy.allclose(res_test, res_ref)
 
