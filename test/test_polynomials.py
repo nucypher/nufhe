@@ -1,7 +1,9 @@
+import time
+
 import numpy
 
 from tfhe.numeric_functions import Torus32, Complex, Float
-from tfhe.gpu_polynomials import I2C_FFT, C2I_FFT, TPMulByXai
+from tfhe.gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, TPMulByXai
 
 
 def int_prod(arr):
@@ -167,14 +169,30 @@ def test_i2c_fft(thread):
     data_dev = thread.to_device(data)
     res_dev = thread.empty_like(res_ref)
 
-    ipfft = I2C_FFT(data, 2).compile(thread)
-
-    ipfft(res_dev, data_dev)
-    res_test = res_dev.get()
+    classes = [I2C_FFT, I2C_FFT_v2, I2C_FFT_v3]
 
     ip_ifft_reference(res_ref, data, 2)
 
-    assert numpy.allclose(res_test, res_ref)
+    print()
+
+    for cls in classes:
+        ipfft = cls(data, 2).compile(thread)
+
+        times = []
+
+        thread.synchronize()
+
+        for i in range(5):
+            t1 = time.time()
+            ipfft(res_dev, data_dev)
+            thread.synchronize()
+            times.append(time.time() - t1)
+
+        print(cls.__name__, min(times))
+
+        res_test = res_dev.get()
+
+        assert numpy.allclose(res_test, res_ref)
 
 
 def test_c2i_fft(thread):

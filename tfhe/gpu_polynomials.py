@@ -9,6 +9,7 @@ from reikna.cluda import dtypes, functions
 from .polynomials import TorusPolynomialArray, FFT_COEFF
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float
+from .fft_specialized import RFFT, RTFFT
 
 
 def transform_i2c_input(arr, output_dtype, coeff):
@@ -41,6 +42,24 @@ def transform_i2c_input(arr, output_dtype, coeff):
         connectors=['output'])
 
 
+def transform_i2c_v2_input(arr, output_dtype, coeff):
+    # input: int, ... x N
+    # output: float, ... x N
+
+    result_arr = Type(output_dtype, arr.shape)
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(result_arr, 'o')),
+            Parameter('input', Annotation(arr, 'i')),
+        ],
+        """
+        ${output.store_same}((${output.ctype})(${input.load_same}) / ${coeff});
+        """,
+        render_kwds=dict(coeff=coeff),
+        connectors=['output', 'input'])
+
+
 def transform_i2c_output(arr):
     # input: complex, ... x 2N
     # output: complex, ... x N//2
@@ -65,6 +84,30 @@ def transform_i2c_output(arr):
         render_kwds=dict(N=N),
         connectors=['input'])
 
+
+def transform_i2c_output_v3(input_):
+    # input: complex, ... x (N + 1)
+    # output: complex, ... x N//2
+
+    N = input_.shape[-1] - 1
+    result_arr = Type(input_.dtype, input_.shape[:-1] + (N // 2,))
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(result_arr, 'o')),
+            Parameter('input', Annotation(input_, 'i')),
+        ],
+        """
+        if (${idxs[-1]} % 2 == 1)
+        {
+            ${output.store_idx}(
+                ${", ".join(idxs[:-1])}, (${idxs[-1]} - 1) / 2,
+                ${input.load_same}
+            );
+        }
+        """,
+        render_kwds=dict(N=N),
+        connectors=['input'])
 
 
 def transform_c2i_input(arr):
@@ -166,6 +209,73 @@ class I2C_FFT(Computation):
         plan = plan_factory()
         plan.computation_call(self._fft, output, input_)
         return plan
+
+
+class I2C_FFT_v2(Computation):
+    """
+    I2C FFT using a real-to-complex FFT
+    that takes into account the translational symmetry we have.
+    """
+
+    def __init__(self, arr, coeff):
+        # coeff=2 to replicate ip_ifft
+        # coeff=2^33 to replicate tp_ifft
+
+        N = arr.shape[-1]
+
+        fft_arr = Type(Float, arr.shape)
+        tr_input = transform_i2c_v2_input(arr, Float, coeff)
+
+        rtfft = RTFFT(fft_arr)
+        rtfft.parameter.input.connect(
+            tr_input, tr_input.output, input_poly=tr_input.input)
+
+        self._rtfft = rtfft
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(rtfft.parameter.output, 'o')),
+            Parameter('input', Annotation(arr, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        plan.computation_call(self._rtfft, output, input_)
+        return plan
+
+
+class I2C_FFT_v3(Computation):
+    """
+    I2C FFT using a real-to-complex FFT.
+    """
+
+    def __init__(self, arr, coeff):
+        # coeff=2 to replicate ip_ifft
+        # coeff=2^33 to replicate tp_ifft
+
+        output_r_dtype = Float
+        N = arr.shape[-1]
+
+        fft_arr = Type(output_r_dtype, arr.shape[:-1] + (2*N,))
+        fft = RFFT(fft_arr)
+
+        tr_input = transform_i2c_input(arr, output_r_dtype, coeff)
+        tr_output = transform_i2c_output_v3(fft.parameter.output)
+
+        fft.parameter.input.connect(
+            tr_input, tr_input.output, input_poly=tr_input.input)
+        fft.parameter.output.connect(
+            tr_output, tr_output.input, output_poly=tr_output.output)
+
+        self._fft = fft
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(self._fft.parameter.output_poly, 'o')),
+            Parameter('input', Annotation(self._fft.parameter.input_poly, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        plan.computation_call(self._fft, output, input_)
+        return plan
+
 
 
 class C2I_FFT(Computation):
