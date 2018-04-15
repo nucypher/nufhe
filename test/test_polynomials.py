@@ -1,6 +1,6 @@
 import numpy
 
-from tfhe.numeric_functions import Torus32, Complex
+from tfhe.numeric_functions import Torus32, Complex, Float
 from tfhe.gpu_polynomials import I2C_FFT, C2I_FFT, TPMulByXai
 
 
@@ -22,7 +22,7 @@ def ip_ifft_reference(res, p, coeff):
     p = p.reshape(batch, N)
     res = res.reshape(batch, N // 2)
 
-    in_arr = numpy.empty((batch, 2 * N), numpy.float64)
+    in_arr = numpy.empty((batch, 2 * N), Float)
 
     in_arr[:,:N] = p / coeff
     in_arr[:,N:] = -in_arr[:,:N]
@@ -184,7 +184,7 @@ def test_c2i_fft(thread):
 
     data = (
         numpy.random.normal(size=batch_shape + (N//2,))
-        + 1j * numpy.random.normal(size=batch_shape + (N//2,)))
+        + 1j * numpy.random.normal(size=batch_shape + (N//2,))).astype(Complex)
     res_ref = numpy.empty(batch_shape + (N,), Torus32)
 
     data_dev = thread.to_device(data)

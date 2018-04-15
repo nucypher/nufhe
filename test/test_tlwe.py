@@ -1,6 +1,6 @@
 import numpy
 
-from tfhe.numeric_functions import Torus32
+from tfhe.numeric_functions import Torus32, Float
 from tfhe.gpu_tlwe import TLweNoiselessTrivial, TLweExtractLweSample
 
 
@@ -29,7 +29,7 @@ def test_tLweNoiselessTrivial(thread):
 
     mu = numpy.random.randint(-2**31, 2**31, size=(l, n), dtype=Torus32)
     a_ref = numpy.empty((l, k+1, n), Torus32)
-    cv_ref = numpy.empty((l, k+1), numpy.float64)
+    cv_ref = numpy.empty((l, k+1), Float)
 
     a_dev = thread.to_device(a_ref)
     cv_dev = thread.empty_like(cv_ref)

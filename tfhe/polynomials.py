@@ -41,10 +41,10 @@ class LagrangeHalfCPolynomialArray:
         self.shape = shape
 
     def to_gpu(self, thr):
-        self.coefsC = thr.to_device(self.coefsC)
+        self.coefsC = thr.to_device(self.coefsC.astype(Complex))
 
     def from_gpu(self):
-        self.coefsC = self.coefsC.get()
+        self.coefsC = self.coefsC.get().astype(numpy.complex128)
 
 
 def _coefs(p):
@@ -81,10 +81,13 @@ def ip_ifft_(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    in_arr = numpy.empty((res.shape[0], 2 * N), numpy.float64)
+    in_arr = numpy.empty((res.shape[0], 2 * N), Float)
     prepare_ifft_input_(in_arr, a, 1/2, N)
     out_arr = numpy.fft.rfft(in_arr)
     prepare_ifft_output_(res, out_arr, N)
+
+
+FFT_COEFF = 2**33
 
 
 def tp_ifft_(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
@@ -92,8 +95,8 @@ def tp_ifft_(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    in_arr = numpy.empty((res.shape[0], 2 * N), numpy.float64)
-    prepare_ifft_input_(in_arr, a, 1 / 2**33, N)
+    in_arr = numpy.empty((res.shape[0], 2 * N), Float)
+    prepare_ifft_input_(in_arr, a, 1 / FFT_COEFF, N)
     out_arr = numpy.fft.rfft(in_arr)
     prepare_ifft_output_(res, out_arr, N)
 
@@ -118,7 +121,7 @@ def tp_fft_(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
 
     # the first part is from the original libtfhe;
     # the second part is from a different FFT scaling in Julia
-    coeff = (2**32 / N) * (2 * N)
+    coeff = FFT_COEFF
     prepare_fft_output_(res, out_arr, coeff, N)
 
 

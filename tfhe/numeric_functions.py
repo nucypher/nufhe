@@ -3,6 +3,7 @@ import numpy
 
 Torus32 = numpy.int32
 Complex = numpy.complex128
+Float = numpy.float64
 
 
 def rand_uniform_int32(rng, shape):

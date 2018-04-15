@@ -3,7 +3,7 @@ import numpy
 from tfhe.tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32, Complex
+from tfhe.numeric_functions import Torus32, Complex, Float
 
 from tfhe.gpu_tgsw import TGswTorus32PolynomialDecompH, TLweFFTAddMulRTo, TGswFFTExternMulToTLwe
 
@@ -167,7 +167,7 @@ def test_TGswFFTExternMulToTLwe(thread):
     gsw_shape = (10, k + 1, l, k + 1, N//2)
     bk_idx = 2
 
-    gsw = numpy.random.normal(size=gsw_shape) + 1j * numpy.random.normal(size=gsw_shape)
+    gsw = (numpy.random.normal(size=gsw_shape) + 1j * numpy.random.normal(size=gsw_shape)).astype(Complex)
     accum_a = numpy.random.randint(-1000, 1000, size=accum_a_shape, dtype=Torus32)
 
     gsw_dev = thread.to_device(gsw)

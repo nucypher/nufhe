@@ -6,8 +6,9 @@ from reikna.algorithms import PureParallel
 import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
 
-from .polynomials import TorusPolynomialArray
+from .polynomials import TorusPolynomialArray, FFT_COEFF
 from .computation_cache import get_computation
+from .numeric_functions import Torus32, Float
 
 
 def transform_i2c_input(arr, output_dtype, coeff):
@@ -106,9 +107,6 @@ def transform_c2i_output(arr, output_dtype):
 
     N = arr.shape[-1] // 2
 
-    assert (2**32) % N == 0
-    coeff = (2**32 // N) * (2 * N)
-
     result_arr = Type(output_dtype, arr.shape[:-1] + (N,))
 
     return Transformation(
@@ -126,7 +124,7 @@ def transform_c2i_output(arr, output_dtype):
         """,
         render_kwds=dict(
             N=N, out_ctype=dtypes.ctype(output_dtype),
-            coeff=coeff, i64_ctype=dtypes.ctype(numpy.int64)),
+            coeff=FFT_COEFF, i64_ctype=dtypes.ctype(numpy.int64)),
         connectors=['input'])
 
 
@@ -136,7 +134,7 @@ class I2C_FFT(Computation):
         # coeff=2 to replicate ip_ifft
         # coeff=2^33 to replicate tp_ifft
 
-        output_r_dtype = numpy.float64
+        output_r_dtype = Float
         output_c_dtype = dtypes.complex_for(output_r_dtype)
         N = arr.shape[-1]
 
@@ -174,7 +172,7 @@ class C2I_FFT(Computation):
 
     def __init__(self, arr):
 
-        output_dtype = numpy.int32 # FIXME: technically, should be Torus32
+        output_dtype = Torus32
 
         N = arr.shape[-1] * 2
 

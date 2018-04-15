@@ -19,7 +19,7 @@ class TLweNoiselessTrivial(Computation):
 
         assert len(a.shape) == 3
 
-        cv_type = Type(numpy.float64, a.shape[:-1])
+        cv_type = Type(Float, a.shape[:-1])
         mu_type = Type(a.dtype, (a.shape[0], a.shape[-1]))
 
         self._fill_a = PureParallel(

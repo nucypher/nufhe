@@ -18,7 +18,7 @@ from reikna.algorithms import PureParallel, Reduce, predicate_sum
 from reikna.cluda import dtypes, functions
 
 from .computation_cache import get_computation
-from .numeric_functions import Torus32
+from .numeric_functions import Torus32, Float
 
 
 def prepare_aijs_trf(ai, t, basebit):
@@ -131,10 +131,10 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         a = Type(Torus32, batch_shape + (inner_n,))
         b = Type(Torus32, batch_shape)
-        cv = Type(numpy.float64, batch_shape)
+        cv = Type(Float, batch_shape)
         ks_a = Type(Torus32, (outer_n, t, base, inner_n))
         ks_b = Type(Torus32, (outer_n, t, base))
-        ks_cv = Type(numpy.float64, (outer_n, t, base))
+        ks_cv = Type(Float, (outer_n, t, base))
         ai = Type(Torus32, batch_shape + (outer_n,))
 
         self._prepare_aijs = PureParallel.from_trf(prepare_aijs_trf(ai, t, basebit))

@@ -42,7 +42,7 @@ class LweSampleArray:
     def __init__(self, params: LweParams, shape):
         self.a = numpy.empty(shape + (params.n,), Torus32)
         self.b = numpy.empty(shape, Torus32)
-        self.current_variances = numpy.empty(shape, numpy.float64)
+        self.current_variances = numpy.empty(shape, Float)
         self.shape = shape
         self.params = params
 
