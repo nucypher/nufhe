@@ -48,9 +48,9 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     params = tfhe_parameters(cloud_key)
     result = empty_ciphertext(params, ciphertext1.shape)
 
-    from reikna.cluda import ocl_api
-    api = ocl_api()
-    thr = api.Thread.create()
+    from reikna.cluda import cuda_api
+    api = cuda_api()
+    thr = api.Thread.create(async=True)
 
     cloud_key.to_gpu(thr)
     ciphertext1.to_gpu(thr)
