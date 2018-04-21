@@ -9,7 +9,7 @@ from reikna.cluda import dtypes, functions
 from .polynomials import TorusPolynomialArray, FFT_COEFF
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float
-from .fft_specialized import RFFT, RTFFT
+from .fft_specialized import RFFT, IRFFT, RTFFT
 
 
 def transform_i2c_input(arr, output_dtype, coeff):
@@ -311,6 +311,93 @@ class C2I_FFT(Computation):
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
         plan.computation_call(self._fft, output, input_, inverse=True)
+        return plan
+
+
+
+def transform_c2i_input_v2(arr):
+    # input: complex, ... x N//2
+    # output: complex, ... x N+1
+
+    N = arr.shape[-1] * 2
+    result_arr = Type(arr.dtype, arr.shape[:-1] + (N + 1,))
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(result_arr, 'o')),
+            Parameter('input', Annotation(arr, 'i')),
+        ],
+        """
+        if (${idxs[-1]} % 2 == 0)
+        {
+            ${output.store_same}(COMPLEX_CTR(${ctype})(0, 0));
+        }
+        else
+        {
+            ${output.store_same}(
+                ${input.load_idx}(${", ".join(idxs[:-1])}, (${idxs[-1]} - 1) / 2)
+            );
+        }
+        """,
+        render_kwds=dict(N=N, ctype=dtypes.ctype(arr.dtype), conj=functions.conj(arr.dtype)),
+        connectors=['output'])
+
+
+def transform_c2i_output_v2(arr, output_dtype):
+    # input: real, ... x 2N
+    # output: Torus, ... x N
+
+    N = arr.shape[-1] // 2
+
+    result_arr = Type(output_dtype, arr.shape[:-1] + (N,))
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(result_arr, 'o')),
+            Parameter('input', Annotation(arr, 'i')),
+        ],
+        """
+        if (${idxs[-1]} < ${N})
+        {
+            ${output.store_same}(
+                (${out_ctype})((${i64_ctype})(round(${input.load_same} * ${coeff})))
+            );
+        }
+        """,
+        render_kwds=dict(
+            N=N, out_ctype=dtypes.ctype(output_dtype),
+            coeff=FFT_COEFF, i64_ctype=dtypes.ctype(numpy.int64)),
+        connectors=['input'])
+
+
+class C2I_FFT_v2(Computation):
+
+    def __init__(self, arr):
+
+        output_dtype = Torus32
+
+        N = arr.shape[-1] * 2
+
+        fft_arr = Type(arr.dtype, arr.shape[:-1] + (N + 1,))
+
+        fft = IRFFT(fft_arr)
+
+        tr_input = transform_c2i_input_v2(arr)
+        tr_output = transform_c2i_output_v2(fft.parameter.output, output_dtype)
+
+        fft.parameter.input.connect(tr_input, tr_input.output, input_poly=tr_input.input)
+        fft.parameter.output.connect(
+            tr_output, tr_output.input, output_poly=tr_output.output)
+
+        self._fft = fft
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(self._fft.parameter.output_poly, 'o')),
+            Parameter('input', Annotation(self._fft.parameter.input_poly, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        plan.computation_call(self._fft, output, input_)
         return plan
 
 

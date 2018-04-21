@@ -1,6 +1,6 @@
 import numpy
 
-from tfhe.fft_specialized import RFFT, RTFFT
+from tfhe.fft_specialized import RFFT, IRFFT, RTFFT
 
 
 def test_rfft(thread):
@@ -14,6 +14,24 @@ def test_rfft(thread):
     res_dev = thread.empty_like(res_ref)
 
     rfft = RFFT(a_dev).compile(thread)
+
+    rfft(res_dev, a_dev)
+    res_test = res_dev.get()
+
+    assert numpy.allclose(res_test, res_ref)
+
+
+def test_irfft(thread):
+
+    N = 1024
+    a = numpy.random.normal(size=(10, N // 2 + 1)) + 1j * numpy.random.normal(size=(10, N // 2 + 1))
+
+    res_ref = numpy.fft.irfft(a)
+
+    a_dev = thread.to_device(a)
+    res_dev = thread.empty_like(res_ref)
+
+    rfft = IRFFT(a_dev).compile(thread)
 
     rfft(res_dev, a_dev)
     res_test = res_dev.get()

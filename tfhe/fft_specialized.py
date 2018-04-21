@@ -106,6 +106,75 @@ class RFFT(Computation):
         return plan
 
 
+def prepare_irfft_output(arr):
+    res = Type(dtypes.real_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] * 2,))
+    return Transformation(
+        [
+            Parameter('output', Annotation(res, 'o')),
+            Parameter('input', Annotation(arr, 'i')),
+        ],
+        """
+        ${input.ctype} x = ${input.load_same};
+        ${output.store_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]} * 2, x.x);
+        ${output.store_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]} * 2 + 1, x.y);
+        """,
+        connectors=['output'])
+
+
+class IRFFT(Computation):
+
+    def __init__(self, arr_t):
+
+        output_size = (arr_t.shape[-1] - 1) * 2
+
+        out_arr = Type(
+            dtypes.real_for(arr_t.dtype),
+            arr_t.shape[:-1] + (output_size,))
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(out_arr, 'o')),
+            Parameter('input', Annotation(arr_t, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+
+        plan = plan_factory()
+
+        N = (input_.shape[-1] - 1) * 2
+
+        WNmk = numpy.exp(-2j * numpy.pi * numpy.arange(N//2) / N)
+        A = 0.5 * (1 - 1j * WNmk)
+        B = 0.5 * (1 + 1j * WNmk)
+
+        A_arr = plan.persistent_array(A.conj())
+        B_arr = plan.persistent_array(B.conj())
+
+        cfft_arr = Type(input_.dtype, input_.shape[:-1] + (N // 2,))
+        cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
+
+        prepare_output = prepare_irfft_output(cfft.parameter.output)
+
+        cfft.parameter.output.connect(
+            prepare_output, prepare_output.input, real_output=prepare_output.output)
+
+        temp = plan.temp_array_like(cfft.parameter.input)
+
+        batch_size = helpers.product(output.shape[:-1])
+
+        plan.kernel_call(
+            TEMPLATE.get_def('prepare_irfft_input'),
+                [temp, input_, A_arr, B_arr],
+                global_size=(batch_size, N // 2),
+                render_kwds=dict(
+                    slices=(len(input_.shape) - 1, 1),
+                    N=N,
+                    mul=functions.mul(input_.dtype, input_.dtype),
+                    conj=functions.conj(input_.dtype)))
+
+        plan.computation_call(cfft, output, temp, inverse=True)
+
+        return plan
+
+
 def get_multiply(output):
     return Transformation(
         [
