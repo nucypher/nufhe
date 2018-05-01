@@ -3,7 +3,8 @@ import time
 import numpy
 
 from tfhe.numeric_functions import Torus32, Complex, Float
-from tfhe.gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2, TPMulByXai
+from tfhe.gpu_polynomials import (
+    I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3, TPMulByXai)
 
 
 def int_prod(arr):
@@ -210,7 +211,7 @@ def test_c2i_fft(thread):
 
     tp_fft_reference(res_ref, data)
 
-    classes = [C2I_FFT, C2I_FFT_v2]
+    classes = [C2I_FFT, C2I_FFT_v2, C2I_FFT_v3]
 
     print()
 

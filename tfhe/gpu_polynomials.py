@@ -9,7 +9,7 @@ from reikna.cluda import dtypes, functions
 from .polynomials import TorusPolynomialArray, FFT_COEFF
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float
-from .fft_specialized import RFFT, IRFFT, RTFFT
+from .fft_specialized import RFFT, IRFFT, RTFFT, IRTFFT
 
 
 def transform_i2c_input(arr, output_dtype, coeff):
@@ -394,6 +394,55 @@ class C2I_FFT_v2(Computation):
         Computation.__init__(self, [
             Parameter('output', Annotation(self._fft.parameter.output_poly, 'o')),
             Parameter('input', Annotation(self._fft.parameter.input_poly, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        plan.computation_call(self._fft, output, input_)
+        return plan
+
+
+def transform_c2i_output_v3(arr, output_dtype):
+    # input: real, ... x N
+    # output: Torus, ... x N
+
+    result_arr = Type(output_dtype, arr.shape)
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(result_arr, 'o')),
+            Parameter('input', Annotation(arr, 'i')),
+        ],
+        """
+        ${output.store_same}(
+            (${out_ctype})((${i64_ctype})(round(${input.load_same} * ${coeff})))
+        );
+        """,
+        render_kwds=dict(
+            out_ctype=dtypes.ctype(output_dtype),
+            coeff=FFT_COEFF, i64_ctype=dtypes.ctype(numpy.int64)),
+        connectors=['input'])
+
+
+class C2I_FFT_v3(Computation):
+
+    def __init__(self, arr):
+
+        output_dtype = Torus32
+
+        N = arr.shape[-1] * 2
+
+        fft = IRTFFT(arr)
+
+        tr_output = transform_c2i_output_v3(fft.parameter.output, output_dtype)
+
+        fft.parameter.output.connect(
+            tr_output, tr_output.input, output_poly=tr_output.output)
+
+        self._fft = fft
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(self._fft.parameter.output_poly, 'o')),
+            Parameter('input', Annotation(arr, 'i'))])
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()

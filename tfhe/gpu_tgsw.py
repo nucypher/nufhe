@@ -10,7 +10,7 @@ from .polynomials import TorusPolynomialArray
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .numeric_functions import Complex
-from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2
+from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3
 from .computation_cache import get_computation
 
 
@@ -91,7 +91,7 @@ class TGswFFTExternMulToTLwe(Computation):
         self._tGswTorus32PolynomialDecompH = TGswTorus32PolynomialDecompH(self._deca_type, params)
         self._ip_ifft = I2C_FFT_v2(self._deca_type, 2)
         self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
-        self._tp_fft = C2I_FFT_v2(self._tmpa_a_type)
+        self._tp_fft = C2I_FFT_v3(self._tmpa_a_type)
 
         Computation.__init__(self,
             [Parameter('accum_a', Annotation(accum_a, 'io')),

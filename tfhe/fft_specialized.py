@@ -280,3 +280,141 @@ class RTFFT(Computation):
         plan.computation_call(sc, output, Y, re_X_0)
 
         return plan
+
+
+def get_prepare_irtfft_input(X):
+    # Input: size N//4
+    # Output: size N//4+1
+
+    N = X.shape[-1] * 4
+    Y = Type(X.dtype, X.shape[:-1] + (N // 4 + 1,))
+
+    return Transformation(
+        [
+            Parameter('Y', Annotation(Y, 'o')),
+            Parameter('X', Annotation(X, 'i')),
+        ],
+        """
+        ${Y.ctype} Y;
+        if (${idxs[-1]} == 0)
+        {
+            ${X.ctype} X = ${X.load_idx}(${", ".join(idxs[:-1])}, 0);
+            Y = COMPLEX_CTR(${Y.ctype})(-2 * X.y, 0);
+        }
+        else if (${idxs[-1]} == ${N//4})
+        {
+            ${X.ctype} X = ${X.load_idx}(${", ".join(idxs[:-1])}, ${N//4-1});
+            Y = COMPLEX_CTR(${Y.ctype})(2 * X.y, 0);
+        }
+        else
+        {
+            ${X.ctype} X = ${X.load_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]});
+            ${X.ctype} X_prev = ${X.load_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]} - 1);
+            ${X.ctype} diff = X - X_prev;
+            Y = COMPLEX_CTR(${Y.ctype})(-diff.y, diff.x);
+        }
+
+        ${Y.store_same}(Y);
+        """,
+        connectors=['Y'],
+        render_kwds=dict(N=N)
+        )
+
+
+def get_prepare_irtfft_output(y):
+    # Input: size N//4
+    # Output: size N//4
+
+    N = y.shape[-1] * 2
+
+    return Transformation(
+        [
+            Parameter('x', Annotation(y, 'o')),
+            Parameter('y', Annotation(y, 'i')),
+            Parameter('x0', Annotation(Type(y.dtype, y.shape[:-1]), 'i')),
+            Parameter('coeffs', Annotation(Type(y.dtype, (N//2,)), 'i')),
+        ],
+        """
+        ${y.ctype} y = ${y.load_same};
+        ${coeffs.ctype} coeff = ${coeffs.load_idx}(${idxs[-1]});
+
+        ${x.ctype} x;
+
+        if (${idxs[-1]} == 0)
+        {
+            ${x0.ctype} x0 = ${x0.load_idx}(${", ".join(idxs[:-1])});
+            x = x0 / ${N // 2};
+        }
+        else
+        {
+            x = y * coeff;
+        }
+
+        ${x.store_same}(x);
+        """,
+        connectors=['y'],
+        render_kwds=dict(N=N)
+        )
+
+
+class IRTFFT(Computation):
+    """
+    IFFT of a real signal with translational anti-symmetry (x[k] = -x[N/2+k]).
+    """
+
+    def __init__(self, arr_t):
+
+        out_arr = Type(
+            dtypes.real_for(arr_t.dtype),
+            arr_t.shape[:-1] + (arr_t.shape[-1] * 2,))
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(out_arr, 'o')),
+            Parameter('input', Annotation(arr_t, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+
+        plan = plan_factory()
+
+        N = input_.shape[-1] * 4
+        batch_shape = input_.shape[:-1]
+        batch_size = helpers.product(batch_shape)
+
+        # The first element is unused
+        coeffs = numpy.concatenate(
+            [[0], 1 / (4 * numpy.sin(2 * numpy.pi * numpy.arange(1, N//2) / N))])
+        coeffs_arr = plan.persistent_array(coeffs)
+
+        prepare_irtfft_input = get_prepare_irtfft_input(input_)
+        prepare_irtfft_output = get_prepare_irtfft_output(output)
+
+        irfft = IRFFT(prepare_irtfft_input.Y)
+        irfft.parameter.input.connect(
+            prepare_irtfft_input, prepare_irtfft_input.Y,
+            X=prepare_irtfft_input.X)
+        irfft.parameter.output.connect(
+            prepare_irtfft_output, prepare_irtfft_output.y,
+            x=prepare_irtfft_output.x,
+            x0=prepare_irtfft_output.x0, coeffs=prepare_irtfft_output.coeffs)
+
+        real = Transformation(
+            [
+                Parameter('output', Annotation(Type(dtypes.real_for(input_.dtype), input_.shape), 'o')),
+                Parameter('input', Annotation(input_, 'i')),
+            ],
+            """
+            ${output.store_same}((${input.load_same}).x);
+            """,
+            connectors=['output']
+            )
+
+        rd_t = Type(output.dtype, input_.shape)
+        rd = Reduce(rd_t, predicate_sum(rd_t.dtype), axes=(len(input_.shape)-1,))
+        rd.parameter.input.connect(real, real.output, X=real.input)
+
+        x0 = plan.temp_array_like(rd.parameter.output)
+
+        plan.computation_call(rd, x0, input_)
+        plan.computation_call(irfft, output, x0, coeffs_arr, input_)
+
+        return plan
