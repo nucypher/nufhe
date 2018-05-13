@@ -2,7 +2,7 @@ import numpy
 
 
 Torus32 = numpy.int32
-Complex = numpy.complex128
+Complex = numpy.uint64
 Float = numpy.float64
 
 

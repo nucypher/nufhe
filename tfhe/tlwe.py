@@ -107,10 +107,10 @@ def tLweSymEncryptZero(rng, result: TLweSampleArray, alpha: float, key: TLweKey)
     tmp3 = LagrangeHalfCPolynomialArray(N, result.shape + (k,))
     tmpr = TorusPolynomialArray(N, result.shape + (k,))
 
-    ip_ifft_(tmp1, key.key)
-    tp_ifft_(tmp2, TorusPolynomialArray.from_arr(result.a.coefsT[:, :, :, :k, :]))
+    ip_ifft_ntt(tmp1, key.key)
+    tp_ifft_ntt(tmp2, TorusPolynomialArray.from_arr(result.a.coefsT[:, :, :, :k, :]))
     lp_mul_(tmp3, tmp1, tmp2)
-    tp_fft_(tmpr, tmp3)
+    tp_fft_ntt(tmpr, tmp3)
 
     for i in range(k):
         result.a.coefsT[:,:,:,k,:] += tmpr.coefsT[:,:,:,i,:]
@@ -152,13 +152,13 @@ def tLweMulByXaiMinusOne(result:TLweSampleArray, ai, bk: TLweSampleArray, params
 
 # Computes the inverse FFT of the coefficients of the TLWE sample
 def tLweToFFTConvert(result: TLweSampleFFTArray, source: TLweSampleArray, params: TLweParams):
-    tp_ifft_(result.a, source.a)
+    tp_ifft_ntt(result.a, source.a)
     numpy.copyto(result.current_variances, source.current_variances)
 
 
 # Computes the FFT of the coefficients of the TLWEfft sample
 def tLweFromFFTConvert(result: TLweSampleArray, source: TLweSampleFFTArray, params: TLweParams):
-    tp_fft_(result.a, source.a)
+    tp_fft_ntt(result.a, source.a)
     numpy.copyto(result.current_variances, source.current_variances)
 
 # Arithmetic operations on TLwe samples

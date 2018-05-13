@@ -3,6 +3,14 @@ import time
 
 from tfhe import *
 
+from reikna.cluda import cuda_api
+api = cuda_api()
+thr = api.Thread.create(async=True)
+
+
+import tfhe.polynomials
+tfhe.polynomials.global_thread = thr
+
 
 def int_to_bitarray(x, size=16):
     return numpy.array([((x >> i) & 1 != 0) for i in range(size)])
@@ -47,10 +55,6 @@ def encrypt():
 def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     params = tfhe_parameters(cloud_key)
     result = empty_ciphertext(params, ciphertext1.shape)
-
-    from reikna.cluda import cuda_api
-    api = cuda_api()
-    thr = api.Thread.create(async=True)
 
     cloud_key.to_gpu(thr)
     ciphertext1.to_gpu(thr)
