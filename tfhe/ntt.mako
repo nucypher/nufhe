@@ -1384,3 +1384,65 @@ ${kernel_declaration}
     }
 }
 </%def>
+
+
+<%def name="TLweFFTAddMulRTo(kernel_declaration, tmpa_a, decaFFT, gsw, bk_idx)">
+
+${ffp_shared()}
+
+${kernel_declaration}
+{
+    VIRTUAL_SKIP_THREADS;
+
+    VSIZE_T batch_id = virtual_global_id(0);
+    VSIZE_T gid1 = virtual_global_id(1);
+    VSIZE_T gid2 = virtual_global_id(2);
+
+    FFP tmpa_a((uint64_t)0);
+
+    %for i in range(k + 1):
+    %for j in range(l):
+    {
+        FFP a((uint64_t)${decaFFT.load_idx}(batch_id, ${i}, ${j}, gid2));
+        FFP b((uint64_t)${gsw.load_idx}(${bk_idx}, ${i}, ${j}, gid1, gid2));
+        tmpa_a = tmpa_a + a * b;
+    }
+    %endfor
+    %endfor
+
+    ${tmpa_a.store_idx}(batch_id, gid1, gid2, tmpa_a.val());
+}
+</%def>
+
+
+
+<%def name="NTTMul(kernel_declaration, output, a, b)">
+
+${ffp_shared()}
+
+${kernel_declaration}
+{
+    VIRTUAL_SKIP_THREADS;
+
+    %for dim in range(len(output.shape)):
+    VSIZE_T gid${dim} = virtual_global_id(${dim});
+    %endfor
+
+    FFP a((uint64_t)${a.load_idx}(
+        %for dim in range(len(output.shape) - len(a.shape), len(output.shape)):
+        gid${dim}${"," if dim != len(output.shape) - 1 else ""}
+        %endfor
+        ));
+    FFP b((uint64_t)${b.load_idx}(
+        %for dim in range(len(output.shape) - len(b.shape), len(output.shape)):
+        gid${dim}${"," if dim != len(output.shape) - 1 else ""}
+        %endfor
+        ));
+
+    ${output.store_idx}(
+        %for dim in range(len(output.shape)):
+        gid${dim},
+        %endfor
+        (a * b).val());
+}
+</%def>

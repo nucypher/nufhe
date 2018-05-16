@@ -107,6 +107,67 @@ class NTTInv(Computation):
         return plan
 
 
+class TLweFFTAddMulRTo_NTT(Computation):
+
+    def __init__(self, tmpa_a, gsw):
+        # tmpa_a: Complex, (batch, k+1, N)
+        # decaFFT: Complex, (batch, k+1, l, N)
+        # gsw: Complex, (n, k+1, l, k+1, N)
+
+        N = tmpa_a.shape[-1]
+        self._k = tmpa_a.shape[-2] - 1
+        self._l = gsw.shape[-3]
+        batch = tmpa_a.shape[:-2]
+
+        assert len(batch) == 1
+
+        decaFFT = Type(tmpa_a.dtype, batch + (self._k + 1, self._l, N))
+
+        Computation.__init__(self,
+            [Parameter('tmpa_a', Annotation(tmpa_a, 'o')),
+            Parameter('decaFFT', Annotation(decaFFT, 'i')),
+            Parameter('gsw', Annotation(gsw, 'i')),
+            Parameter('bk_idx', Annotation(numpy.int32))])
+
+
+    def _build_plan(self, plan_factory, device_params, tmpa_a, decaFFT, gsw, bk_idx):
+
+        plan = plan_factory()
+
+        plan.kernel_call(
+            TEMPLATE.get_def('TLweFFTAddMulRTo'),
+            [tmpa_a, decaFFT, gsw, bk_idx],
+            global_size=(helpers.product(tmpa_a.shape[:-2]),) + tuple(tmpa_a.shape[-2:]),
+            render_kwds=dict(
+                k=self._k, l=self._l,
+                batch_len=len(tmpa_a.shape) - 2))
+
+        return plan
+
+
+
+class NTTMul(Computation):
+
+    def __init__(self, r_shape, a_shape, b_shape):
+        Computation.__init__(self,
+            [Parameter('output', Annotation(Type(numpy.uint64, r_shape), 'o')),
+            Parameter('a', Annotation(Type(numpy.uint64, a_shape), 'i')),
+            Parameter('b', Annotation(Type(numpy.uint64, b_shape), 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, a, b):
+
+        plan = plan_factory()
+
+        plan.kernel_call(
+            TEMPLATE.get_def('NTTMul'),
+            [output, a, b],
+            global_size=output.shape
+            )
+
+        return plan
+
+
+
 def generate_twiddle_factors():
 
     from reikna.cluda import cuda_api

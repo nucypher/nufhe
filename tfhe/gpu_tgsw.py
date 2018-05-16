@@ -13,7 +13,7 @@ from .numeric_functions import Complex
 from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3
 from .computation_cache import get_computation
 
-from .ntt import NTT, NTTInv
+from .ntt import NTT, NTTInv, TLweFFTAddMulRTo_NTT
 
 
 class TGswTorus32PolynomialDecompH(PureParallel):
@@ -92,10 +92,11 @@ class TGswFFTExternMulToTLwe(Computation):
         # TODO: can be made a transformation for the ip_ifft
         self._tGswTorus32PolynomialDecompH = TGswTorus32PolynomialDecompH(self._deca_type, params)
         #self._ip_ifft = I2C_FFT_v2(self._deca_type, 2)
-        self._ip_ifft = NTT(self._deca_type.shape, i32_input=True)
-
-        self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
+        #self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
         #self._tp_fft = C2I_FFT_v3(self._tmpa_a_type)
+
+        self._ip_ifft = NTT(self._deca_type.shape, i32_input=True)
+        self._tLweFFTAddMulRTo = TLweFFTAddMulRTo_NTT(self._tmpa_a_type, gsw)
         self._tp_fft = NTTInv(self._tmpa_a_type.shape, i32_output=True)
 
         Computation.__init__(self,

@@ -2,7 +2,7 @@ import numpy
 
 from .numeric_functions import *
 
-from .ntt import NTT, NTTInv
+from .ntt import NTT, NTTInv, NTTMul
 
 
 global_thread = None
@@ -67,7 +67,7 @@ def _coefs(p):
 
 def flat_coefs(p):
     cp = _coefs(p)
-    return numpy.ascontiguousarray(cp.reshape(numpy.prod(p.shape), cp.shape[-1]))
+    return cp.reshape(numpy.prod(p.shape), cp.shape[-1])
 
 
 def polynomial_size(p):
@@ -86,7 +86,7 @@ def prepare_ifft_output_(res, rev_out, N):
 
 def ip_ifft_(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
     res = flat_coefs(result)
-    a = flat_coefs(p)
+    a = numpy.ascontiguousarray(flat_coefs(p))
     N = polynomial_size(p)
 
     in_arr = numpy.empty((res.shape[0], 2 * N), Float)
@@ -96,7 +96,7 @@ def ip_ifft_(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
 
 def ip_ifft_ntt(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
     res = flat_coefs(result)
-    a = flat_coefs(p)
+    a = numpy.ascontiguousarray(flat_coefs(p))
     N = polynomial_size(p)
 
     global_thread = get_global_thread()
@@ -123,7 +123,7 @@ def tp_ifft_(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
 
 def tp_ifft_ntt(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
     res = flat_coefs(result)
-    a = flat_coefs(p)
+    a = numpy.ascontiguousarray(flat_coefs(p))
     N = polynomial_size(p)
 
     global_thread = get_global_thread()
@@ -159,7 +159,7 @@ def tp_fft_(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
 
 def tp_fft_ntt(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
     res = flat_coefs(result)
-    a = flat_coefs(p)
+    a = numpy.ascontiguousarray(flat_coefs(p))
     N = polynomial_size(p)
 
     global_thread = get_global_thread()
@@ -199,6 +199,19 @@ def lp_mul_(
         b: LagrangeHalfCPolynomialArray):
 
     numpy.copyto(result.coefsC, a.coefsC * b.coefsC)
+
+def lp_mul_ntt(
+        result: LagrangeHalfCPolynomialArray,
+        a: LagrangeHalfCPolynomialArray,
+        b: LagrangeHalfCPolynomialArray):
+
+    global_thread = get_global_thread()
+    c = NTTMul(result.coefsC.shape, a.coefsC.shape, b.coefsC.shape).compile(global_thread)
+    a_dev = global_thread.to_device(a.coefsC)
+    b_dev = global_thread.to_device(b.coefsC)
+    res_dev = global_thread.empty_like(result.coefsC)
+    c(res_dev, a_dev, b_dev)
+    numpy.copyto(result.coefsC, res_dev.get())
 
 
 # Torus polynomial functions

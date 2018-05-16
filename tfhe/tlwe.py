@@ -109,7 +109,7 @@ def tLweSymEncryptZero(rng, result: TLweSampleArray, alpha: float, key: TLweKey)
 
     ip_ifft_ntt(tmp1, key.key)
     tp_ifft_ntt(tmp2, TorusPolynomialArray.from_arr(result.a.coefsT[:, :, :, :k, :]))
-    lp_mul_(tmp3, tmp1, tmp2)
+    lp_mul_ntt(tmp3, tmp1, tmp2)
     tp_fft_ntt(tmpr, tmp3)
 
     for i in range(k):
