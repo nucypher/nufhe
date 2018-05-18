@@ -7,6 +7,10 @@ from .gpu_polynomials import *
 from .gpu_tlwe import *
 from .gpu_tgsw import *
 
+import time
+
+to_gpu_time = 0
+
 
 def lwe_bootstrapping_key(
         rng, ks_t: int, ks_basebit: int, key_in: LweKey, rgsw_key: TGswKey):
@@ -95,9 +99,16 @@ def tfhe_blindRotate_FFT(
 
     thr = accum.a.coefsT.thread
 
+    global to_gpu_time
+
     # TYPING: bara::Array{Int32}
+    t = time.time()
+    thr.synchronize()
     temp = TLweSampleArray(bk_params.tlwe_params, accum.shape)
     temp.to_gpu(thr)
+    thr.synchronize()
+    to_gpu_time += time.time() - t
+
     temp2 = temp
     temp3 = accum
 
@@ -132,6 +143,12 @@ def tfhe_blindRotateAndExtract_FFT(
     # TYPING: barb::Array{Int32},
     # TYPING: bara::Array{Int32}
 
+    # tfhe_blindRotate_FFT - 0.623s
+    # all the function - 0.766s
+    # it seems that the difference is mainly in copying of arrays to gpu
+
+    global to_gpu_time
+
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
     N = accum_params.N
@@ -139,12 +156,16 @@ def tfhe_blindRotateAndExtract_FFT(
     thr = result.a.thread
 
     # Test polynomial
+    t = time.time()
+    thr.synchronize()
     testvectbis = TorusPolynomialArray(N, result.shape)
     testvectbis.to_gpu(thr)
 
     # Accumulator
     acc = TLweSampleArray(accum_params, result.shape)
     acc.to_gpu(thr)
+    thr.synchronize()
+    to_gpu_time += time.time() - t
 
     # testvector = X^{2N-barb}*v
     tp_mul_by_xai_gpu(testvectbis, barb, v, invert_ais=True)
@@ -174,9 +195,15 @@ def tfhe_bootstrap_woKS_FFT(
     N = accum_params.N
     n = in_params.n
 
+    global to_gpu_time
+
     thr = result.a.thread
+    t = time.time()
+    thr.synchronize()
     testvect = TorusPolynomialArray(N, result.shape)
     testvect.to_gpu(thr)
+    thr.synchronize()
+    to_gpu_time += time.time() - t
 
     # Modulus switching
     # GPU: array operations or a custom kernel
@@ -205,7 +232,14 @@ def tfhe_bootstrap_woKS_FFT(
 def tfhe_bootstrap_FFT(
         result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
 
+    global to_gpu_time
+
+    t = time.time()
+    x.a.thread.synchronize()
     u = LweSampleArray(bk.accum_params.extracted_lweparams, result.shape)
+    u.to_gpu(x.a.thread)
+    x.a.thread.synchronize()
+    to_gpu_time += time.time() - t
 
     tfhe_bootstrap_woKS_FFT(u, bk, mu, x)
 

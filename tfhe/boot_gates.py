@@ -1,5 +1,7 @@
 from .keys import *
 
+import time
+from . import lwe_bootstrapping
 
 #*#*****************************************
 # zones on the torus -> to see
@@ -16,7 +18,12 @@ def tfhe_gate_NAND_(
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
+    t = time.time()
+    ca.a.thread.synchronize()
     temp_result = LweSampleArray(in_out_params, result.shape)
+    temp_result.to_gpu(ca.a.thread)
+    ca.a.thread.synchronize()
+    lwe_bootstrapping.to_gpu_time += time.time() - t
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
