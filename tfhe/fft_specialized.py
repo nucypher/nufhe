@@ -418,3 +418,88 @@ class IRTFFT(Computation):
         plan.computation_call(irfft, output, x0, coeffs_arr, input_)
 
         return plan
+
+
+def preprocess_trf(oarr, iarr):
+    N = iarr.shape[-1]
+    return Transformation(
+        [
+            Parameter('output', Annotation(oarr, 'o')),
+            Parameter('input', Annotation(iarr, 'i')),
+        ],
+        """
+        ${input.ctype} x = ${input.load_same};
+        ${output.ctype} coeff = ${polar}(${-2 * numpy.pi / N / 2} * ${idxs[-1]});
+        ${output.store_same}(${mul}(x, coeff));
+        """,
+        connectors=['output'],
+        render_kwds=dict(
+            N=N,
+            polar=functions.polar_unit(dtypes.real_for(oarr.dtype)),
+            mul=functions.mul(iarr.dtype, oarr.dtype)))
+
+
+def postprocess_trf(oarr, iarr):
+    N = iarr.shape[-1]
+    return Transformation(
+        [
+            Parameter('output', Annotation(oarr, 'o')),
+            Parameter('input', Annotation(iarr, 'i')),
+        ],
+        """
+        ${input.ctype} x = ${input.load_same};
+        ${input.ctype} coeff = ${polar}(${-2 * numpy.pi / N / 2} * ((${2 * N} - ${idxs[-1]}) % ${2 * N}));
+        ${output.store_same}(x.x * coeff.x - x.y * coeff.y);
+        """,
+        connectors=['output'],
+        render_kwds=dict(
+            N=N,
+            polar=functions.polar_unit(dtypes.real_for(iarr.dtype))))
+
+
+class ProcessedFFT(Computation):
+    """
+    FFT with pre/post-processing designed for polynomial multiplication.
+    """
+
+    def __init__(self, iarr_t):
+        oarr_t = Type(dtypes.complex_for(iarr_t.dtype), iarr_t.shape)
+        Computation.__init__(self, [
+            Parameter('output', Annotation(oarr_t, 'o')),
+            Parameter('input', Annotation(iarr_t, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+
+        plan = plan_factory()
+
+        fft = FFT(output, axes=(len(input_.shape) - 1,))
+        process = preprocess_trf(output, input_)
+        fft.parameter.input.connect(process, process.output, r_input=process.input)
+
+        plan.computation_call(fft, output, input_)
+
+        return plan
+
+
+class ProcessedIFFT(Computation):
+    """
+    IFFT with pre/post-processing designed for polynomial multiplication.
+    """
+
+    def __init__(self, iarr_t):
+        oarr_t = Type(dtypes.real_for(iarr_t.dtype), iarr_t.shape)
+        Computation.__init__(self, [
+            Parameter('output', Annotation(oarr_t, 'o')),
+            Parameter('input', Annotation(iarr_t, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+
+        plan = plan_factory()
+
+        fft = FFT(input_, axes=(len(input_.shape) - 1,))
+        process = postprocess_trf(output, input_)
+        fft.parameter.output.connect(process, process.input, r_output=process.output)
+
+        plan.computation_call(fft, output, input_, inverse=True)
+
+        return plan

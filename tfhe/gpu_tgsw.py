@@ -10,7 +10,7 @@ from .polynomials import TorusPolynomialArray
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .numeric_functions import Complex
-from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3
+from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, I2C_FFT_v4, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3, C2I_FFT_v4
 from .computation_cache import get_computation
 
 from .ntt import NTT, NTTInv, TLweFFTAddMulRTo_NTT
