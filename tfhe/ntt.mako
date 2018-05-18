@@ -1,5 +1,10 @@
 <%def name="ffp_shared()">
 
+typedef unsigned char uint8_t;
+typedef unsigned short int uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long int uint64_t;
+
 enum ConvKind: int32_t {
   LINEAR_CONVOLUTION =  0,
   POSITIVE_CYCLIC_CONVOLUTION =  1,
@@ -1261,7 +1266,8 @@ void NTTInv1024Core(FFP* r,
 
 template <typename T>
 __device__
-void NTT1024(FFP* out,
+void NTT1024(FFP *r,
+              FFP* out,
              T* in,
              FFP* temp_shared,
              FFP* twd,
@@ -1270,20 +1276,23 @@ void NTT1024(FFP* out,
   uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
   Index3DFrom1D<8, 8, 2>(t3d, t1d);
-  register FFP r[8];
-  #pragma unroll
-  for (int i = 0; i < 8; i ++)
-    r[i] = FFP((T)in[(i << 7) | t1d]);
+  //register FFP r[8];
+  //#pragma unroll
+  //for (int i = 0; i < 8; i ++)
+  //  r[i] = FFP((T)in[(i << 7) | t1d]);
+  //LOCAL_BARRIER;
   NTT1024Core(r, temp_shared, twd, twd_sqrt, t1d, t3d);
-  #pragma unroll
-  for (int i = 0; i < 8; i ++)
-    out[(i << 7) | t1d] = r[i];
+  //LOCAL_BARRIER;
+  //#pragma unroll
+  //for (int i = 0; i < 8; i ++)
+  //  out[(i << 7) | t1d] = r[i];
 }
 
 
 template <typename T>
 __device__
-void NTTInv1024(T* out,
+void NTTInv1024(FFP *r,
+                T* out,
                 FFP* in,
                 FFP* temp_shared,
                 FFP* twd_inv,
@@ -1292,14 +1301,17 @@ void NTTInv1024(T* out,
   uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
   Index3DFrom1D<8, 8, 2>(t3d, t1d);
-  register FFP r[8];
-  #pragma unroll
-  for (int i = 0; i < 8; i ++)
-    r[i] = in[(i << 7) | t1d];
+  //register FFP r[8];
+  //#pragma unroll
+  //for (int i = 0; i < 8; i ++)
+  //  r[i] = in[(i << 7) | t1d];
+  //LOCAL_BARRIER;
   NTTInv1024Core(r, temp_shared, twd_inv, twd_sqrt_inv, t1d, t3d);
-  #pragma unroll
-  for (int i = 0; i < 8; i ++)
-    out[(i << 7) | t1d] = (T)r[i].val(); // here there was a conversion to i32, which seems error-prone, since T may not be i32. Moved to a separate operator.
+  //LOCAL_BARRIER;
+  //#pragma unroll
+  //for (int i = 0; i < 8; i ++)
+  //  out[(i << 7) | t1d] = (T)(r[i]);
+    // here there was a conversion to i32, which seems error-prone, since T may not be i32. Moved to a separate operator.
 }
 
 </%def>
@@ -1317,31 +1329,81 @@ ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    LOCAL_MEM FFP sh[1024];
+    LOCAL_MEM FFP sh[1024 * ${ntt_per_block}];
 
     LOCAL_MEM FFP twd[1024];
     LOCAL_MEM FFP twd_sqrt[1024];
 
+    register FFP r[8];
+
     VSIZE_T tid = virtual_local_id(1);
+    int ntt_id = tid / 128;
+    int elem_id = tid % 128;
     VSIZE_T batch_id = virtual_group_id(0);
 
+    if (ntt_id == 0)
+    {
+      #pragma unroll
+      for (int i = 0; i < 8; i++)
+      {
+          twd[elem_id + i * 128] = FFP((uint64_t)${twd.load_idx}(elem_id + i * 128));
+          twd_sqrt[elem_id + i * 128] = FFP((uint64_t)${twd_sqrt.load_idx}(elem_id + i * 128));
+      }
+    }
+
+    %if batch_size % ntt_per_block != 0:
+    bool active_thread = (batch_id < ${blocks_num - 1} || ntt_id < ${batch_size % ntt_per_block});
+    %endif
+
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+    #pragma unroll
     for (int i = 0; i < 8; i++)
     {
-        sh[tid + i * 128] = FFP((${input_ctype})${input_.load_combined_idx(slices)}(batch_id, tid + i * 128));
-        twd[tid + i * 128] = FFP((uint64_t)${twd.load_idx}(tid + i * 128));
-        twd_sqrt[tid + i * 128] = FFP((uint64_t)${twd_sqrt.load_idx}(tid + i * 128));
+        r[i] = FFP((${input_ctype})${input_.load_combined_idx(slices)}(batch_id * ${ntt_per_block} + ntt_id, elem_id + i * 128));
     }
+    %if batch_size % ntt_per_block != 0:
+    }
+    %endif
 
     LOCAL_BARRIER;
 
-    NTT1024<FFP>(sh, sh, sh, twd, twd_sqrt, tid >> 7 << 7);
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+      FFP *ntt_shared = sh + 1024 * ntt_id;
+      NTT1024<FFP>(r, ntt_shared, ntt_shared, ntt_shared, twd, twd_sqrt, tid >> 7 << 7);
+    %if batch_size % ntt_per_block != 0:
+    }
+    else
+    {
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+    }
+    %endif
 
     LOCAL_BARRIER;
 
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+    #pragma unroll
     for (int i = 0; i < 8; i++)
     {
-        ${output.store_combined_idx(slices)}(batch_id, tid + i * 128, sh[tid + i * 128].val());
+        ${output.store_combined_idx(slices)}(
+          batch_id * ${ntt_per_block} + ntt_id, elem_id + i * 128,
+          r[i].val());
     }
+    %if batch_size % ntt_per_block != 0:
+    }
+    %endif
 }
 </%def>
 
@@ -1358,30 +1420,80 @@ ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    LOCAL_MEM FFP sh[1024];
+    LOCAL_MEM FFP sh[1024 * ${ntt_per_block}];
+    LOCAL_MEM FFP sh_res[1024 * ${ntt_per_block}];
     LOCAL_MEM FFP twd_inv[1024];
     LOCAL_MEM FFP twd_sqrt_inv[1024];
 
+    register FFP r[8];
+
     VSIZE_T tid = virtual_local_id(1);
+    int ntt_id = tid / 128;
+    int elem_id = tid % 128;
     VSIZE_T batch_id = virtual_group_id(0);
 
-    for (int i = 0; i < 8; i++)
+    int sh_offset = ntt_id * 1024;
+
+    if (ntt_id == 0)
     {
-        sh[tid + i * 128] = FFP((uint64_t)${input_.load_combined_idx(slices)}(batch_id, tid + i * 128));
-        twd_inv[tid + i * 128] = FFP((uint64_t)${twd_inv.load_idx}(tid + i * 128));
-        twd_sqrt_inv[tid + i * 128] = FFP((uint64_t)${twd_sqrt_inv.load_idx}(tid + i * 128));
+      #pragma unroll
+      for (int i = 0; i < 8; i++)
+      {
+        twd_inv[elem_id + i * 128] = FFP((uint64_t)${twd_inv.load_idx}(elem_id + i * 128));
+        twd_sqrt_inv[elem_id + i * 128] = FFP((uint64_t)${twd_sqrt_inv.load_idx}(elem_id + i * 128));
+      }
     }
 
-    LOCAL_BARRIER;
+    %if batch_size % ntt_per_block != 0:
+    bool active_thread = (batch_id < ${blocks_num - 1} || ntt_id < ${batch_size % ntt_per_block});
+    %endif
 
-    NTTInv1024<FFP>(sh, sh, sh, twd_inv, twd_sqrt_inv, tid >> 7 << 7);
-
-    LOCAL_BARRIER;
-
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+    #pragma unroll
     for (int i = 0; i < 8; i++)
     {
-        ${output.store_combined_idx(slices)}(batch_id, tid + i * 128, (${output_ctype})(sh[tid + i * 128]));
+        r[i] = FFP((uint64_t)${input_.load_combined_idx(slices)}(
+          batch_id * ${ntt_per_block} + ntt_id, elem_id + i * 128));
     }
+    %if batch_size % ntt_per_block != 0:
+    }
+    %endif
+
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+      FFP *ntt_shared = sh + sh_offset;
+      NTTInv1024<FFP>(r, ntt_shared, ntt_shared, ntt_shared, twd_inv, twd_sqrt_inv, tid >> 7 << 7);
+    %if batch_size % ntt_per_block != 0:
+    }
+    else
+    {
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+      LOCAL_BARRIER;
+    }
+    %endif
+
+    %if batch_size % ntt_per_block != 0:
+    if (active_thread)
+    {
+    %endif
+    #pragma unroll
+    for (int i = 0; i < 8; i++)
+    {
+        ${output.store_combined_idx(slices)}(
+          batch_id * ${ntt_per_block} + ntt_id, elem_id + i * 128,
+          (${output_ctype})(r[i]));
+    }
+    %if batch_size % ntt_per_block != 0:
+    }
+    %endif
 }
 </%def>
 

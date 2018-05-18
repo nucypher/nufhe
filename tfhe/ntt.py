@@ -8,7 +8,7 @@ from reikna.core import Computation, Parameter, Annotation, Type, Transformation
 import reikna.cluda.functions as functions
 
 from tfhe import ntt_twiddle
-
+#import ntt_twiddle
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -43,11 +43,12 @@ class NTTTwiddleFactors(Computation):
 
 class NTT(Computation):
 
-    def __init__(self, shape, i32_input=False):
+    def __init__(self, shape, i32_input=False, ntt_per_block=2):
 
         assert shape[-1] == 1024
 
         self._i32_input = i32_input
+        self._ntt_per_block = ntt_per_block
         oarr = Type(numpy.uint64, shape)
         iarr = Type(numpy.int32, shape) if i32_input else oarr
 
@@ -62,13 +63,19 @@ class NTT(Computation):
         twd = plan.persistent_array(ntt_twiddle.twd)
         twd_sqrt = plan.persistent_array(ntt_twiddle.twd_sqrt)
 
+        batch_size = helpers.product(output.shape[:-1])
+        blocks_num = helpers.min_blocks(batch_size, self._ntt_per_block)
+
         plan.kernel_call(
             TEMPLATE.get_def('ntt1024'),
                 [output, input_, twd, twd_sqrt],
-                global_size=(helpers.product(output.shape[:-1]), 128),
-                local_size=(1, 128),
+                global_size=(blocks_num, 128 * self._ntt_per_block),
+                local_size=(1, 128 * self._ntt_per_block),
                 render_kwds=dict(
                     i32_input=self._i32_input,
+                    ntt_per_block=self._ntt_per_block,
+                    batch_size=batch_size,
+                    blocks_num=blocks_num,
                     slices=(len(output.shape) - 1, 1)))
 
         return plan
@@ -76,11 +83,12 @@ class NTT(Computation):
 
 class NTTInv(Computation):
 
-    def __init__(self, shape, i32_output=False):
+    def __init__(self, shape, i32_output=False, ntt_per_block=2):
 
         assert shape[-1] == 1024
 
         self._i32_output = i32_output
+        self._ntt_per_block = ntt_per_block
         iarr = Type(numpy.uint64, shape)
         oarr = Type(numpy.int32, shape) if i32_output else iarr
 
@@ -95,13 +103,19 @@ class NTTInv(Computation):
         twd_inv = plan.persistent_array(ntt_twiddle.twd_inv)
         twd_sqrt_inv = plan.persistent_array(ntt_twiddle.twd_sqrt_inv)
 
+        batch_size = helpers.product(output.shape[:-1])
+        blocks_num = helpers.min_blocks(batch_size, self._ntt_per_block)
+
         plan.kernel_call(
             TEMPLATE.get_def('ntt1024_inv'),
                 [output, input_, twd_inv, twd_sqrt_inv],
-                global_size=(helpers.product(output.shape[:-1]), 128),
-                local_size=(1, 128),
+                global_size=(blocks_num, 128 * self._ntt_per_block),
+                local_size=(1, 128 * self._ntt_per_block),
                 render_kwds=dict(
                     i32_output=self._i32_output,
+                    ntt_per_block=self._ntt_per_block,
+                    batch_size=batch_size,
+                    blocks_num=blocks_num,
                     slices=(len(output.shape) - 1, 1)))
 
         return plan
@@ -213,7 +227,7 @@ def test_ntt_i32():
     api = cuda_api()
     thr = api.Thread.create()
 
-    batch = 10
+    batch = 8
     a = numpy.random.randint(-2**31, 2**31, size=(batch, 1024), dtype=numpy.int32)
 
     c = NTT(a.shape, i32_input=True)
@@ -229,7 +243,129 @@ def test_ntt_i32():
     print((a_dev.get() == a).all())
 
 
+def reference_poly_mul(p1, p2):
+    N = p1.size
+
+    result = numpy.empty(N, numpy.int32)
+
+    for i in range(N):
+        result[i] = (p1[:i+1] * p2[i::-1]).sum() - (p1[i+1:] * p2[:i:-1]).sum()
+
+    return result
+
+
+def test_ntt_poly_mul():
+
+    from reikna.cluda import cuda_api
+
+    api = cuda_api()
+    thr = api.Thread.create()
+
+    batch = 7
+    a = numpy.random.randint(-2**31, 2**31, size=(batch, 1024), dtype=numpy.int32)
+    b = numpy.random.randint(-2**10, 2**10, size=(batch, 1024), dtype=numpy.int32)
+
+    c = NTT(a.shape, i32_input=True)
+    ci = NTTInv(a.shape, i32_output=True)
+    cc = c.compile(thr)
+    cic = ci.compile(thr)
+
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+
+    af_dev = thr.empty_like(cc.parameter.output)
+    bf_dev = thr.empty_like(cc.parameter.output)
+
+    mul = NTTMul(a.shape, a.shape, a.shape)
+    mulc = mul.compile(thr)
+
+    cc(af_dev, a_dev)
+    cc(bf_dev, b_dev)
+
+    mulc(af_dev, af_dev, bf_dev)
+
+    cic(a_dev, af_dev)
+
+    ref = numpy.empty((batch, 1024), numpy.int32)
+    for j in range(batch):
+        ref[j] = reference_poly_mul(a[j], b[j])
+
+    print((a_dev.get() == ref).all())
+
+
+def reference(a):
+    bnum = a.shape[0] // 4
+    tnum = 512
+
+    a = a.astype(numpy.uint64)
+
+    tidx = numpy.tile(numpy.arange(tnum).reshape(1, tnum), (bnum, 1))
+    t1d = tidx % 128
+    r = numpy.empty((bnum, 512, 8), a.dtype)
+
+    sh = a.reshape(bnum, 1024*4)
+    for tid in range(512):
+        ntt_id = tid // 128
+        elem_id = tid % 128
+        for i in range(8):
+            r[:,tid,i] = sh[:,ntt_id*1024 + elem_id + i*128]
+
+    for tid in range(512):
+        ntt_id = tid // 128
+        elem_id = tid % 128
+        for i in range(8):
+            sh[:,ntt_id*1024 + elem_id + i*128] = r[:,tid,i]
+
+    return sh.reshape(a.shape)
+
+
+def test_ntt_per_block():
+
+
+    from reikna.cluda import cuda_api
+
+    api = cuda_api()
+    thr = api.Thread.create()
+
+    batch = (500*2*2*16,)
+    a = numpy.random.randint(0, 2**31, size=batch + (1024,), dtype=numpy.int32)
+    a = numpy.tile(numpy.arange(1024).reshape(1, 1024), (batch[0], 1))
+
+    c1 = NTT(a.shape, i32_input=True, ntt_per_block=1).compile(thr)
+    ci1 = NTTInv(a.shape, i32_output=True, ntt_per_block=1).compile(thr)
+    c4 = NTT(a.shape, i32_input=True, ntt_per_block=4).compile(thr)
+    ci4 = NTTInv(a.shape, i32_output=True, ntt_per_block=4).compile(thr)
+
+    a_dev = thr.to_device(a)
+    af_dev = thr.empty_like(c1.parameter.output)
+
+    c1(af_dev, a_dev)
+    af1 = af_dev.get()
+
+    c4(af_dev, a_dev)
+    af4 = af_dev.get()
+
+    assert (af1 == af4).all()
+
+    ci1(a_dev, af_dev)
+    a1 = a_dev.get()
+    ci4(a_dev, af_dev)
+    a4 = a_dev.get()
+
+    print("inversion is correct:", (a1 == a).all())
+
+    for i in range(batch[0]):
+        if not (a1[i] == a4[i]).all():
+            print(i, i % 4, (a1[i] != a4[i]).sum())
+            print(numpy.where(a1[i] != a4[i]))
+            break
+
+    assert (a1 == a4).all()
+
+
 if __name__ == '__main__':
     test_ntt()
     test_ntt_i32()
-    generate_twiddle_factors()
+    #generate_twiddle_factors()
+    test_ntt_poly_mul()
+    test_ntt_per_block()
