@@ -67,6 +67,7 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     #    locals=locals(), globals=globals(), sort='cumtime')
 
     tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
+    thr.synchronize()
 
     print("Processing:")
     t = time.time()
