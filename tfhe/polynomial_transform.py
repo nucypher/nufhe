@@ -15,19 +15,20 @@ def transformed_length(N):
     return N // 2
 
 
-def process_input(oarr, iarr):
+def process_input(oarr, iarr, carr):
     N = iarr.shape[-1]
     return Transformation(
         [
             Parameter('output', Annotation(oarr, 'o')),
             Parameter('input', Annotation(iarr, 'i')),
+            Parameter('coeffs', Annotation(carr, 'i')),
         ],
         """
         ${input.ctype} x_re = ${input.load_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]});
         ${input.ctype} x_im = ${input.load_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]} + ${N//2});
 
         ${output.ctype} x = COMPLEX_CTR(${output.ctype})(x_re, -x_im);
-        ${output.ctype} coeff = ${polar}(${-2 * numpy.pi / N / 2} * ${idxs[-1]});
+        ${output.ctype} coeff = ${coeffs.load_idx}(${idxs[-1]});
         ${output.store_same}(${mul}(x, coeff));
         """,
         connectors=['output'],
@@ -55,24 +56,31 @@ class ForwardTransformFFT(Computation):
         plan = plan_factory()
 
         fft = FFT(output, axes=(len(input_.shape) - 1,))
-        process = process_input(output, input_)
-        fft.parameter.input.connect(process, process.output, r_input=process.input)
 
-        plan.computation_call(fft, output, input_)
+        N = input_.shape[-1]
+        coeffs = plan.persistent_array(
+            numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / 2 / N).astype(fft.parameter.input.dtype))
+
+        process = process_input(output, input_, coeffs)
+        fft.parameter.input.connect(
+            process, process.output, r_input=process.input, coeffs=process.coeffs)
+
+        plan.computation_call(fft, output, input_, coeffs)
 
         return plan
 
 
-def process_output(oarr, iarr):
+def process_output(oarr, iarr, carr):
     N = oarr.shape[-1]
     return Transformation(
         [
             Parameter('output', Annotation(oarr, 'o')),
             Parameter('input', Annotation(iarr, 'i')),
+            Parameter('coeffs', Annotation(carr, 'i')),
         ],
         """
         ${input.ctype} x = ${input.load_same};
-        ${input.ctype} coeff = ${polar}(${-2 * numpy.pi / N / 2} * ${idxs[-1]});
+        ${input.ctype} coeff = ${coeffs.load_idx}(${idxs[-1]});
         ${input.ctype} res = ${mul}(${conj}(x), coeff);
         ${output.store_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]}, res.x);
         ${output.store_idx}(${", ".join(idxs[:-1])}, ${idxs[-1]} + ${N//2}, res.y);
@@ -103,10 +111,16 @@ class InverseTransformFFT(Computation):
         plan = plan_factory()
 
         fft = FFT(input_, axes=(len(input_.shape) - 1,))
-        process = process_output(output, input_)
-        fft.parameter.output.connect(process, process.input, r_output=process.output)
 
-        plan.computation_call(fft, output, input_, inverse=True)
+        N = input_.shape[-1] * 2
+        coeffs = plan.persistent_array(
+            numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / 2 / N).astype(fft.parameter.output.dtype))
+
+        process = process_output(output, input_, coeffs)
+        fft.parameter.output.connect(
+            process, process.input, r_output=process.output, coeffs=process.coeffs)
+
+        plan.computation_call(fft, output, coeffs, input_, inverse=True)
 
         return plan
 
