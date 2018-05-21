@@ -9,11 +9,9 @@ from reikna.cluda import dtypes, functions
 from .polynomials import TorusPolynomialArray
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
-from .numeric_functions import Complex
-from .gpu_polynomials import I2C_FFT, I2C_FFT_v2, I2C_FFT_v3, I2C_FFT_v4, C2I_FFT, C2I_FFT_v2, C2I_FFT_v3, C2I_FFT_v4
+from .polynomial_transform import (
+    ForwardTransform, InverseTransform, transformed_dtype, transformed_length)
 from .computation_cache import get_computation
-
-from .ntt import NTT, NTTInv, TLweFFTAddMulRTo_NTT
 
 
 class TGswTorus32PolynomialDecompH(PureParallel):
@@ -85,19 +83,21 @@ class TGswFFTExternMulToTLwe(Computation):
 
         batch_shape = accum_a.shape[:-2]
 
-        self._deca_type = Type(numpy.int32, batch_shape + (k + 1, l, N))
-        self._deca_fft_type = Type(Complex, batch_shape + (k + 1, l, N))
-        self._tmpa_a_type = Type(Complex, batch_shape + (k + 1, N))
+        tdtype = transformed_dtype()
+        tlength = transformed_length(N)
+
+        deca_shape = batch_shape + (k + 1, l)
+        tmpa_shape = batch_shape + (k + 1,)
+
+        self._deca_type = Type(numpy.int32, deca_shape + (N,))
+        self._deca_fft_type = Type(tdtype, deca_shape + (tlength,))
+        self._tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
 
         # TODO: can be made a transformation for the ip_ifft
         self._tGswTorus32PolynomialDecompH = TGswTorus32PolynomialDecompH(self._deca_type, params)
-        #self._ip_ifft = I2C_FFT_v2(self._deca_type, 2)
-        #self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
-        #self._tp_fft = C2I_FFT_v3(self._tmpa_a_type)
-
-        self._ip_ifft = NTT(self._deca_type.shape, i32_input=True)
-        self._tLweFFTAddMulRTo = TLweFFTAddMulRTo_NTT(self._tmpa_a_type, gsw)
-        self._tp_fft = NTTInv(self._tmpa_a_type.shape, i32_output=True)
+        self._ip_ifft = ForwardTransform(deca_shape, N)
+        self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
+        self._tp_fft = InverseTransform(tmpa_shape, N)
 
         Computation.__init__(self,
             [Parameter('accum_a', Annotation(accum_a, 'io')),

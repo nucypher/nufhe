@@ -2,10 +2,11 @@ import numpy
 
 from .numeric_functions import *
 
-from .ntt import NTT, NTTInv, NTTMul
-
+from .polynomial_transform import (
+    ForwardTransform, InverseTransform, transformed_dtype, transformed_length)
 
 global_thread = None
+
 
 def get_global_thread():
     return global_thread
@@ -44,15 +45,15 @@ class TorusPolynomialArray:
 class LagrangeHalfCPolynomialArray:
     def __init__(self, N, shape):
         assert N % 2 == 0
-        self.coefsC = numpy.empty(shape + (N,), Complex)
+        self.coefsC = numpy.empty(shape + (transformed_length(N),), transformed_dtype())
         self.polynomial_size = N
         self.shape = shape
 
     def to_gpu(self, thr):
-        self.coefsC = thr.to_device(self.coefsC.astype(Complex))
+        self.coefsC = thr.to_device(self.coefsC.astype(transformed_dtype()))
 
     def from_gpu(self):
-        self.coefsC = self.coefsC.get().astype(Complex)
+        self.coefsC = self.coefsC.get().astype(transformed_dtype())
 
 
 def _coefs(p):
@@ -94,17 +95,16 @@ def ip_ifft_(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
     out_arr = numpy.fft.rfft(in_arr)
     prepare_ifft_output_(res, out_arr, N)
 
-def ip_ifft_ntt(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
+
+def ip_ifft_transformed(result: LagrangeHalfCPolynomialArray, p: IntPolynomialArray):
     res = flat_coefs(result)
-    a = numpy.ascontiguousarray(flat_coefs(p))
+    a = flat_coefs(p)
     N = polynomial_size(p)
 
-    global_thread = get_global_thread()
-    c = NTT(a.shape, i32_input=True).compile(global_thread)
-    a_dev = global_thread.to_device(a)
-    res_dev = global_thread.empty_like(res)
-    c(res_dev, a_dev)
-    numpy.copyto(res, res_dev.get())
+    idxs = numpy.arange(N//2)
+    in_arr = (a[:,:N//2] - 1j * a[:,N//2:]) * numpy.exp(-2j * numpy.pi * idxs / N / 2)
+    out_arr = numpy.fft.fft(in_arr)
+    numpy.copyto(res, out_arr)
 
 
 FFT_COEFF = 2**33
@@ -121,17 +121,15 @@ def tp_ifft_(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
     prepare_ifft_output_(res, out_arr, N)
 
 
-def tp_ifft_ntt(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
+def tp_ifft_transformed(result: LagrangeHalfCPolynomialArray, p: TorusPolynomialArray):
     res = flat_coefs(result)
-    a = numpy.ascontiguousarray(flat_coefs(p))
+    a = flat_coefs(p)
     N = polynomial_size(p)
 
-    global_thread = get_global_thread()
-    c = NTT(a.shape, i32_input=True).compile(global_thread)
-    a_dev = global_thread.to_device(a)
-    res_dev = global_thread.empty_like(res)
-    c(res_dev, a_dev)
-    numpy.copyto(res, res_dev.get())
+    idxs = numpy.arange(N//2)
+    in_arr = (a[:,:N//2] - 1j * a[:,N//2:]) * numpy.exp(-2j * numpy.pi * idxs / N / 2)
+    out_arr = numpy.fft.fft(in_arr)
+    numpy.copyto(res, out_arr)
 
 
 def prepare_fft_input_(fw_in, a, N):
@@ -157,32 +155,18 @@ def tp_fft_(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
     coeff = FFT_COEFF
     prepare_fft_output_(res, out_arr, coeff, N)
 
-def tp_fft_ntt(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
+
+def tp_fft_transformed(result: TorusPolynomialArray, p: LagrangeHalfCPolynomialArray):
     res = flat_coefs(result)
-    a = numpy.ascontiguousarray(flat_coefs(p))
+    a = flat_coefs(p)
     N = polynomial_size(p)
 
-    global_thread = get_global_thread()
-    c = NTTInv(a.shape, i32_output=True).compile(global_thread)
-    a_dev = global_thread.to_device(a)
-    res_dev = global_thread.empty_like(res)
-    c(res_dev, a_dev)
-    numpy.copyto(res, res_dev.get())
-
-
-def tp_add_mul_(
-        result: TorusPolynomialArray, poly1: IntPolynomialArray, poly2: TorusPolynomialArray):
-
-    N = polynomial_size(result)
-    tmp1 = LagrangeHalfCPolynomialArray(N, poly1.shape)
-    tmp2 = LagrangeHalfCPolynomialArray(N, poly2.shape)
-    tmp3 = LagrangeHalfCPolynomialArray(N, result.shape)
-    tmpr = TorusPolynomialArray(N, result.shape)
-    ip_ifft_(tmp1, poly1)
-    tp_ifft_(tmp2, poly2)
-    lp_mul_(tmp3, tmp1, tmp2)
-    tp_fft_(tmpr, tmp3)
-    tp_add_to_(result, tmpr)
+    out_arr = numpy.fft.ifft(a)
+    idxs = numpy.arange(N//2)
+    out_arr = out_arr.conj() * numpy.exp(-2j * numpy.pi * idxs / N / 2)
+    numpy.copyto(res, numpy.concatenate([
+        float_to_int32(out_arr.real),
+        float_to_int32(out_arr.imag)], axis=1))
 
 
 #MISC OPERATIONS
@@ -199,19 +183,6 @@ def lp_mul_(
         b: LagrangeHalfCPolynomialArray):
 
     numpy.copyto(result.coefsC, a.coefsC * b.coefsC)
-
-def lp_mul_ntt(
-        result: LagrangeHalfCPolynomialArray,
-        a: LagrangeHalfCPolynomialArray,
-        b: LagrangeHalfCPolynomialArray):
-
-    global_thread = get_global_thread()
-    c = NTTMul(result.coefsC.shape, a.coefsC.shape, b.coefsC.shape).compile(global_thread)
-    a_dev = global_thread.to_device(a.coefsC)
-    b_dev = global_thread.to_device(b.coefsC)
-    res_dev = global_thread.empty_like(result.coefsC)
-    c(res_dev, a_dev, b_dev)
-    numpy.copyto(result.coefsC, res_dev.get())
 
 
 # Torus polynomial functions
