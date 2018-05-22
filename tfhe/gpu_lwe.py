@@ -14,7 +14,7 @@
 import numpy
 
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.algorithms import PureParallel, Reduce, predicate_sum
+from reikna.algorithms import PureParallel, Reduce, predicate_sum, Transpose
 from reikna.cluda import dtypes, functions
 
 from .computation_cache import get_computation
@@ -42,23 +42,23 @@ def prepare_aijs_trf(ai, t, basebit):
         render_kwds=dict(basebit=basebit, mask=mask, prec_offset=prec_offset))
 
 
-def filter_by_aijs_trf(aijs, ks_a):
+def filter_by_aijs_trf(aijs, ks_a_tr):
     batch_shape = aijs.shape[:-2]
-    outer_n, t, base, inner_n = ks_a.shape
-    filtered_ks = Type(ks_a.dtype, batch_shape + (outer_n, t, inner_n))
+    base, inner_n, outer_n, t = ks_a_tr.shape
+    filtered_ks = Type(ks_a_tr.dtype, batch_shape + (inner_n, outer_n, t))
 
     return Transformation(
         [
             Parameter('output', Annotation(filtered_ks, 'o')),
             Parameter('aijs', Annotation(aijs, 'i')),
-            Parameter('full_ks_a', Annotation(ks_a, 'i'))
+            Parameter('full_ks_a', Annotation(ks_a_tr, 'i'))
         ],
         """
-        ${aijs.ctype} x = ${aijs.load_idx}(${", ".join(idxs[:-1])});
+        ${aijs.ctype} x = ${aijs.load_idx}(${", ".join(idxs[:-3])}, ${idxs[-2]}, ${idxs[-1]});
         ${output.ctype} res;
         if (x != 0)
         {
-            res = ${full_ks_a.load_idx}(${idxs[-3]}, ${idxs[-2]}, x, ${idxs[-1]});
+            res = ${full_ks_a.load_idx}(x, ${idxs[-3]}, ${idxs[-2]}, ${idxs[-1]});
         }
         else
         {
@@ -142,12 +142,15 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         # a
 
-        reduce_res = Type(ks_a.dtype, batch_shape + (outer_n, t, inner_n))
+        self._tr = Transpose(ks_a, axes=(2, 3, 0, 1))
+        ks_a_tr = self._tr.parameter.output
+
+        reduce_res = Type(ks_a.dtype, batch_shape + (inner_n, outer_n, t))
 
         l = len(reduce_res.shape)
-        self._sum_ks_a = Reduce(reduce_res, predicate_sum(ks_a.dtype), axes=(l-3, l-2))
+        self._sum_ks_a = Reduce(reduce_res, predicate_sum(ks_a.dtype), axes=(l-2, l-1))
 
-        trf = filter_by_aijs_trf(aijs, ks_a)
+        trf = filter_by_aijs_trf(aijs, ks_a_tr)
         sub_trf = sub_from(a)
 
         self._sum_ks_a.parameter.input.connect(
@@ -207,9 +210,12 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         aijs = plan.temp_array_like(self._prepare_aijs.parameter.aijs)
 
+        ks_a_tr = plan.temp_array_like(self._tr.parameter.output)
+        plan.computation_call(self._tr, ks_a_tr, ks_a)
+
         plan.computation_call(self._prepare_aijs, aijs, ai)
 
-        plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a)
+        plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a_tr)
         plan.computation_call(self._sum_ks_b, result_b, result_b, aijs, ks_b)
         plan.computation_call(self._sum_ks_cv, result_cv, result_cv, aijs, ks_cv)
 
