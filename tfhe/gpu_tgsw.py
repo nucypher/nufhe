@@ -31,42 +31,36 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
         render_kwds=dict(params=params))
 
 
-class TLweFFTAddMulRTo(PureParallel):
+def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw):
+    N = tmpa_a.shape[-1] * 2
+    k = tmpa_a.shape[-2] - 1
+    l = gsw.shape[-3]
+    batch = tmpa_a.shape[:-2]
+    decaFFT = Type(tmpa_a.dtype, batch + (k + 1, l, N//2))
 
-    def __init__(self, tmpa_a, gsw):
-        # tmpa_a: Complex, (batch, k+1, N//2)
-        # decaFFT: Complex, (batch, k+1, l, N//2)
-        # gsw: Complex, (n, k+1, l, k+1, N//2)
+    return Transformation(
+        [Parameter('tmpa_a', Annotation(tmpa_a, 'o')),
+        Parameter('decaFFT', Annotation(decaFFT, 'i')),
+        Parameter('gsw', Annotation(gsw, 'i')),
+        Parameter('bk_idx', Annotation(numpy.int32))],
+        """
+        ${tmpa_a.ctype} tmpa_a = ${dtypes.c_constant(0, tmpa_a.dtype)};
+        %for i in range(k + 1):
+        %for j in range(l):
+        {
+            ${decaFFT.ctype} a = ${decaFFT.load_idx}(
+                ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]});
+            ${gsw.ctype} b = ${gsw.load_idx}(
+                ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]});
+            tmpa_a = tmpa_a + ${mul}(a, b);
+        }
+        %endfor
+        %endfor
 
-        N = tmpa_a.shape[-1] * 2
-        k = tmpa_a.shape[-2] - 1
-        l = gsw.shape[-3]
-        batch = tmpa_a.shape[:-2]
-        decaFFT = Type(tmpa_a.dtype, batch + (k + 1, l, N//2))
-
-        PureParallel.__init__(
-            self,
-            [Parameter('tmpa_a', Annotation(tmpa_a, 'o')),
-            Parameter('decaFFT', Annotation(decaFFT, 'i')),
-            Parameter('gsw', Annotation(gsw, 'i')),
-            Parameter('bk_idx', Annotation(numpy.int32))],
-            """
-            ${tmpa_a.ctype} tmpa_a = ${dtypes.c_constant(0, tmpa_a.dtype)};
-            %for i in range(k + 1):
-            %for j in range(l):
-            {
-                ${decaFFT.ctype} a = ${decaFFT.load_idx}(
-                    ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]});
-                ${gsw.ctype} b = ${gsw.load_idx}(
-                    ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]});
-                tmpa_a = tmpa_a + ${mul}(a, b);
-            }
-            %endfor
-            %endfor
-
-            ${tmpa_a.store_same}(tmpa_a);
-            """,
-            render_kwds=dict(k=k, l=l, mul=functions.mul(tmpa_a.dtype, tmpa_a.dtype)))
+        ${tmpa_a.store_same}(tmpa_a);
+        """,
+        connectors=['tmpa_a'],
+        render_kwds=dict(k=k, l=l, mul=functions.mul(tmpa_a.dtype, tmpa_a.dtype)))
 
 
 class TGswFFTExternMulToTLwe(Computation):
@@ -94,8 +88,10 @@ class TGswFFTExternMulToTLwe(Computation):
         self._ip_ifft.parameter.input.connect(
             decomp, decomp.output, sample=decomp.sample)
 
-        self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
+        add = get_TLweFFTAddMulRTo_trf(self._tmpa_a_type, gsw)
         self._tp_fft = InverseTransform(tmpa_shape, N)
+        self._tp_fft.parameter.input.connect(
+            add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
 
         Computation.__init__(self,
             [Parameter('accum_a', Annotation(accum_a, 'io')),
@@ -106,12 +102,10 @@ class TGswFFTExternMulToTLwe(Computation):
     def _build_plan(self, plan_factory, device_params, accum_a, gsw, bk_idx):
         plan = plan_factory()
 
-        tmpa_a = plan.temp_array_like(self._tmpa_a_type)
         decaFFT = plan.temp_array_like(self._deca_fft_type)
 
         plan.computation_call(self._ip_ifft, decaFFT, accum_a)
-        plan.computation_call(self._tLweFFTAddMulRTo, tmpa_a, decaFFT, gsw, bk_idx)
-        plan.computation_call(self._tp_fft, accum_a, tmpa_a)
+        plan.computation_call(self._tp_fft, accum_a, decaFFT, gsw, bk_idx)
 
         return plan
 
