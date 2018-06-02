@@ -1,11 +1,14 @@
 import numpy
 
+from reikna.algorithms import PureParallel
+
 from tfhe.tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
 from tfhe.polynomial_transform import transformed_dtype, transformed_length
-from tfhe.gpu_tgsw import TGswTorus32PolynomialDecompH, TLweFFTAddMulRTo, TGswFFTExternMulToTLwe
+from tfhe.gpu_tgsw import (
+    get_TGswTorus32PolynomialDecompH_trf, TLweFFTAddMulRTo, TGswFFTExternMulToTLwe)
 
 from test_polynomial_transform import forward_transform_ref, inverse_transform_ref
 
@@ -54,7 +57,9 @@ def test_TGswTorus32PolynomialDecompH(thread):
     sample_dev = thread.to_device(sample)
     result_dev = thread.empty_like(result)
 
-    test = TGswTorus32PolynomialDecompH(result, tgsw_params).compile(thread)
+    trf = get_TGswTorus32PolynomialDecompH_trf(result, tgsw_params)
+    test = PureParallel.from_trf(trf, guiding_array='output').compile(thread)
+
     ref = TGswTorus32PolynomialDecompH_reference(result, tgsw_params)
 
     test(result_dev, sample_dev)

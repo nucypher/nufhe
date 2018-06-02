@@ -14,25 +14,21 @@ from .polynomial_transform import (
 from .computation_cache import get_computation
 
 
-class TGswTorus32PolynomialDecompH(PureParallel):
-
-    def __init__(self, result, params: TGswParams):
-
-        sample = Type(result.dtype, result.shape[:-2] + result.shape[-1:])
-
-        PureParallel.__init__(
-            self,
-            [Parameter('result', Annotation(result, 'o')),
-            Parameter('sample', Annotation(sample, 'i'))],
-            """
-            ${sample.ctype} sample = ${sample.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-1]});
-            int p = ${idxs[-2]} + 1;
-            int decal = 32 - p * ${params.Bgbit};
-            ${result.store_same}(
-                (((sample + (${params.offset})) >> decal) & ${params.maskMod}) - ${params.halfBg}
-            );
-            """,
-            render_kwds=dict(params=params))
+def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
+    sample = Type(result.dtype, result.shape[:-2] + result.shape[-1:])
+    return Transformation(
+        [Parameter('output', Annotation(result, 'o')),
+        Parameter('sample', Annotation(sample, 'i'))],
+        """
+        ${sample.ctype} sample = ${sample.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-1]});
+        int p = ${idxs[-2]} + 1;
+        int decal = 32 - p * ${params.Bgbit};
+        ${output.store_same}(
+            (((sample + (${params.offset})) >> decal) & ${params.maskMod}) - ${params.halfBg}
+        );
+        """,
+        connectors=['output'],
+        render_kwds=dict(params=params))
 
 
 class TLweFFTAddMulRTo(PureParallel):
@@ -93,9 +89,11 @@ class TGswFFTExternMulToTLwe(Computation):
         self._deca_fft_type = Type(tdtype, deca_shape + (tlength,))
         self._tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
 
-        # TODO: can be made a transformation for the ip_ifft
-        self._tGswTorus32PolynomialDecompH = TGswTorus32PolynomialDecompH(self._deca_type, params)
+        decomp = get_TGswTorus32PolynomialDecompH_trf(self._deca_type, params)
         self._ip_ifft = ForwardTransform(deca_shape, N)
+        self._ip_ifft.parameter.input.connect(
+            decomp, decomp.output, sample=decomp.sample)
+
         self._tLweFFTAddMulRTo = TLweFFTAddMulRTo(self._tmpa_a_type, gsw)
         self._tp_fft = InverseTransform(tmpa_shape, N)
 
@@ -109,11 +107,9 @@ class TGswFFTExternMulToTLwe(Computation):
         plan = plan_factory()
 
         tmpa_a = plan.temp_array_like(self._tmpa_a_type)
-        deca = plan.temp_array_like(self._deca_type)
         decaFFT = plan.temp_array_like(self._deca_fft_type)
 
-        plan.computation_call(self._tGswTorus32PolynomialDecompH, deca, accum_a)
-        plan.computation_call(self._ip_ifft, decaFFT, deca)
+        plan.computation_call(self._ip_ifft, decaFFT, accum_a)
         plan.computation_call(self._tLweFFTAddMulRTo, tmpa_a, decaFFT, gsw, bk_idx)
         plan.computation_call(self._tp_fft, accum_a, tmpa_a)
 
