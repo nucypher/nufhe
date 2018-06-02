@@ -26,9 +26,9 @@ def LweKeySwitchTranslate_fromArray_reference(
                 for j in range(t):
                     x = aijs[i,l,j]
                     if x != 0:
-                        a[i,:] -= ks_a[l,j,x,:]
-                        b[i] -= ks_b[l,j,x]
-                        current_variances[i] += ks_current_variances[l,j,x]
+                        a[i,:] -= ks_a[:,x,l,j]
+                        b[i] -= ks_b[x,l,j]
+                        current_variances[i] += ks_current_variances[x,l,j]
 
     return _kernel
 
@@ -50,9 +50,9 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     a = numpy.random.randint(-1000, 1000, size=batch_shape + (inner_n,), dtype=Torus32)
     b = numpy.random.randint(-1000, 1000, size=batch_shape, dtype=Torus32)
     cv = numpy.random.normal(size=batch_shape)
-    ks_a = numpy.random.randint(-1000, 1000, size=(outer_n, t, base, inner_n), dtype=Torus32)
-    ks_b = numpy.random.randint(-1000, 1000, size=(outer_n, t, base), dtype=Torus32)
-    ks_cv = numpy.random.normal(size=(outer_n, t, base))
+    ks_a = numpy.random.randint(-1000, 1000, size=(inner_n, base, outer_n, t), dtype=Torus32)
+    ks_b = numpy.random.randint(-1000, 1000, size=(base, outer_n, t), dtype=Torus32)
+    ks_cv = numpy.random.normal(size=(base, outer_n, t))
     ai = numpy.random.randint(-2**31, 2**31, batch_shape + (outer_n,), dtype=Torus32)
 
     a_dev = thread.to_device(a)

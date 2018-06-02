@@ -227,6 +227,10 @@ class LweKeySwitchKey:
         self.base = base # decomposition base: a power of 2
         self.out_params = out_params # params of the output key s
         self.ks = ks # the keyswitch elements: a n.l.base matrix
+        ks.a = numpy.ascontiguousarray(ks.a.transpose(3, 2, 0, 1))
+        ks.b = numpy.ascontiguousarray(ks.b.transpose(2, 0, 1))
+        ks.current_variances = numpy.ascontiguousarray(ks.current_variances.transpose(2, 0, 1))
+
         # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
 
     def to_gpu(self, thr):

@@ -14,7 +14,7 @@
 import numpy
 
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.algorithms import PureParallel, Reduce, predicate_sum, Transpose
+from reikna.algorithms import PureParallel, Reduce, predicate_sum
 from reikna.cluda import dtypes, functions
 
 from .computation_cache import get_computation
@@ -44,7 +44,7 @@ def prepare_aijs_trf(ai, t, basebit):
 
 def filter_by_aijs_trf(aijs, ks_a_tr):
     batch_shape = aijs.shape[:-2]
-    base, inner_n, outer_n, t = ks_a_tr.shape
+    inner_n, base, outer_n, t = ks_a_tr.shape
     filtered_ks = Type(ks_a_tr.dtype, batch_shape + (inner_n, outer_n, t))
 
     return Transformation(
@@ -58,7 +58,7 @@ def filter_by_aijs_trf(aijs, ks_a_tr):
         ${output.ctype} res;
         if (x != 0)
         {
-            res = ${full_ks_a.load_idx}(x, ${idxs[-3]}, ${idxs[-2]}, ${idxs[-1]});
+            res = ${full_ks_a.load_idx}(${idxs[-3]}, x, ${idxs[-2]}, ${idxs[-1]});
         }
         else
         {
@@ -71,7 +71,7 @@ def filter_by_aijs_trf(aijs, ks_a_tr):
 
 def filter_by_aijs_trf_single(aijs, ks_b):
     batch_shape = aijs.shape[:-2]
-    outer_n, t, base = ks_b.shape
+    base, outer_n, t = ks_b.shape
     filtered_ks = Type(ks_b.dtype, batch_shape + (outer_n, t))
 
     return Transformation(
@@ -85,7 +85,7 @@ def filter_by_aijs_trf_single(aijs, ks_b):
         ${output.ctype} res;
         if (x != 0)
         {
-            res = ${full_ks_b.load_idx}(${idxs[-2]}, ${idxs[-1]}, x);
+            res = ${full_ks_b.load_idx}(x, ${idxs[-2]}, ${idxs[-1]});
         }
         else
         {
@@ -132,9 +132,9 @@ class LweKeySwitchTranslate_fromArray(Computation):
         a = Type(Torus32, batch_shape + (inner_n,))
         b = Type(Torus32, batch_shape)
         cv = Type(Float, batch_shape)
-        ks_a = Type(Torus32, (outer_n, t, base, inner_n))
-        ks_b = Type(Torus32, (outer_n, t, base))
-        ks_cv = Type(Float, (outer_n, t, base))
+        ks_a = Type(Torus32, (inner_n, base, outer_n, t))
+        ks_b = Type(Torus32, (base, outer_n, t))
+        ks_cv = Type(Float, (base, outer_n, t))
         ai = Type(Torus32, batch_shape + (outer_n,))
 
         self._prepare_aijs = PureParallel.from_trf(prepare_aijs_trf(ai, t, basebit))
@@ -142,15 +142,12 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         # a
 
-        self._tr = Transpose(ks_a, axes=(2, 3, 0, 1))
-        ks_a_tr = self._tr.parameter.output
-
         reduce_res = Type(ks_a.dtype, batch_shape + (inner_n, outer_n, t))
 
         l = len(reduce_res.shape)
         self._sum_ks_a = Reduce(reduce_res, predicate_sum(ks_a.dtype), axes=(l-2, l-1))
 
-        trf = filter_by_aijs_trf(aijs, ks_a_tr)
+        trf = filter_by_aijs_trf(aijs, ks_a)
         sub_trf = sub_from(a)
 
         self._sum_ks_a.parameter.input.connect(
@@ -164,7 +161,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
         reduce_res = Type(ks_b.dtype, batch_shape + (outer_n, t))
 
         l = len(reduce_res.shape)
-        self._sum_ks_b = Reduce(reduce_res, predicate_sum(ks_a.dtype), axes=(l-2, l-1))
+        self._sum_ks_b = Reduce(reduce_res, predicate_sum(ks_b.dtype), axes=(l-2, l-1))
 
         trf = filter_by_aijs_trf_single(aijs, ks_b)
         sub_trf = sub_from(b)
@@ -210,12 +207,9 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         aijs = plan.temp_array_like(self._prepare_aijs.parameter.aijs)
 
-        ks_a_tr = plan.temp_array_like(self._tr.parameter.output)
-        plan.computation_call(self._tr, ks_a_tr, ks_a)
-
         plan.computation_call(self._prepare_aijs, aijs, ai)
 
-        plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a_tr)
+        plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a)
         plan.computation_call(self._sum_ks_b, result_b, result_b, aijs, ks_b)
         plan.computation_call(self._sum_ks_cv, result_cv, result_cv, aijs, ks_cv)
 
