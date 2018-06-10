@@ -6,7 +6,6 @@ import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
 
 from .tlwe import TLweSampleArray, TLweParams
-from .polynomials import TorusPolynomialArray
 from .lwe import LweSampleArray, LweParams
 from .computation_cache import get_computation
 

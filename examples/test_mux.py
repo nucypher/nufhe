@@ -1,15 +1,12 @@
 import numpy
 import time
 
+import tfhe
 from tfhe import *
 
 from reikna.cluda import cuda_api
 api = cuda_api()
 thr = api.Thread.create(async=True)
-
-
-import tfhe.polynomials
-tfhe.polynomials.global_thread = thr
 
 
 def int_to_bitarray(x, size=16):

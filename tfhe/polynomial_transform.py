@@ -4,15 +4,51 @@ from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.fft import FFT
 from reikna.cluda import dtypes, functions
 
-from .numeric_functions import Torus32
+from .numeric_functions import Torus32, float_to_int32
 
 
 def transformed_dtype():
-    return numpy.complex128
+    return numpy.dtype('complex128')
 
 
 def transformed_length(N):
     return N // 2
+
+
+def forward_transform_ref(data):
+    batch_shape = data.shape[:-1]
+    N = data.shape[-1]
+    a = data.reshape(numpy.prod(batch_shape), N)
+    idxs = numpy.arange(N//2)
+    in_arr = (a[:,:N//2] - 1j * a[:,N//2:]) * numpy.exp(-2j * numpy.pi * idxs / N / 2)
+    return numpy.fft.fft(in_arr).reshape(batch_shape + (N//2,))
+
+
+def inverse_transform_ref(data):
+    batch_shape = data.shape[:-1]
+    N = data.shape[-1] * 2
+    a = data.reshape(numpy.prod(batch_shape), N//2)
+    out_arr = numpy.fft.ifft(a)
+    idxs = numpy.arange(N//2)
+    out_arr = out_arr.conj() * numpy.exp(-2j * numpy.pi * idxs / N / 2)
+    return numpy.concatenate([
+        float_to_int32(out_arr.real),
+        float_to_int32(out_arr.imag)], axis=1).reshape(batch_shape + (N,))
+
+
+def transformed_space_add_ref(data1, data2):
+    return data1 + data2
+
+
+def transformed_space_mul_ref(data1, data2):
+    return data1 * data2
+
+
+def transformed_add():
+    return functions.add(transformed_dtype(), transformed_dtype())
+
+def transformed_mul():
+    return functions.mul(transformed_dtype(), transformed_dtype())
 
 
 def process_input(oarr, iarr, carr):

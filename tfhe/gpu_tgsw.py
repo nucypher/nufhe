@@ -6,11 +6,12 @@ from reikna.algorithms import PureParallel
 import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
 
-from .polynomials import TorusPolynomialArray
+from .gpu_polynomials import TorusPolynomialArray
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .polynomial_transform import (
-    ForwardTransform, InverseTransform, transformed_dtype, transformed_length)
+    ForwardTransform, InverseTransform, transformed_dtype, transformed_length,
+    transformed_mul, transformed_add)
 from .computation_cache import get_computation
 
 
@@ -52,7 +53,7 @@ def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw):
                 ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]});
             ${gsw.ctype} b = ${gsw.load_idx}(
                 ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]});
-            tmpa_a = tmpa_a + ${mul}(a, b);
+            tmpa_a = ${add}(tmpa_a, ${mul}(a, b));
         }
         %endfor
         %endfor
@@ -60,7 +61,7 @@ def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw):
         ${tmpa_a.store_same}(tmpa_a);
         """,
         connectors=['tmpa_a'],
-        render_kwds=dict(k=k, l=l, mul=functions.mul(tmpa_a.dtype, tmpa_a.dtype)))
+        render_kwds=dict(k=k, l=l, add=transformed_add(), mul=transformed_mul()))
 
 
 class TGswFFTExternMulToTLwe(Computation):

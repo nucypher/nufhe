@@ -6,9 +6,80 @@ from reikna.algorithms import PureParallel
 import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
 
-from .polynomials import TorusPolynomialArray, FFT_COEFF
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float
+
+from .polynomial_transform import transformed_length, transformed_dtype
+
+
+class Polynomial:
+
+    def flat_coefs(self):
+        cp = _coefs(self)
+        return cp.reshape(numpy.prod(self.shape), cp.shape[-1])
+
+    def polynomial_size(self):
+        return self._polynomial_size
+
+
+# This structure represents an integer polynomial modulo X^N+1
+class IntPolynomialArray(Polynomial):
+    def __init__(self, N, shape):
+        Polynomial.__init__(self)
+        self.coefs = numpy.empty(shape + (N,), numpy.int32)
+        self._polynomial_size = N
+        self.shape = shape
+
+
+# This structure represents an torus polynomial modulo X^N+1
+class TorusPolynomialArray(Polynomial):
+    def __init__(self, N, shape):
+        Polynomial.__init__(self)
+        self.coefsT = numpy.empty(shape + (N,), Torus32)
+        self._polynomial_size = N
+        self.shape = shape
+
+    @classmethod
+    def from_arr(cls, arr):
+        obj = cls(arr.shape[-1], arr.shape[:-1])
+        obj.coefsT = arr
+        return obj
+
+    def to_gpu(self, thr):
+        self.coefsT = thr.to_device(self.coefsT)
+
+    def from_gpu(self):
+        self.coefsT = self.coefsT.get()
+
+
+# This structure is used for FFT operations, and is a representation
+# over C of a polynomial in R[X]/X^N+1
+class LagrangeHalfCPolynomialArray(Polynomial):
+    def __init__(self, N, shape):
+        Polynomial.__init__(self)
+        assert N % 2 == 0
+        self.coefsC = numpy.empty(shape + (transformed_length(N),), transformed_dtype())
+        self._polynomial_size = N
+        self.shape = shape
+
+    def to_gpu(self, thr):
+        self.coefsC = thr.to_device(self.coefsC.astype(transformed_dtype()))
+
+    def from_gpu(self):
+        self.coefsC = self.coefsC.get().astype(transformed_dtype())
+
+
+def _coefs(p):
+    # TODO: different field names help with debugging, remove later
+    if type(p) == IntPolynomialArray:
+        return p.coefs
+    elif type(p) == TorusPolynomialArray:
+        return p.coefsT
+    elif type(p) == LagrangeHalfCPolynomialArray:
+        return p.coefsC
+    else:
+        raise Exception("Wrong type " + str(type(p)))
+
 
 
 def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=False):

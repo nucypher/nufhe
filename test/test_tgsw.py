@@ -6,11 +6,11 @@ from tfhe.tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
-from tfhe.polynomial_transform import transformed_dtype, transformed_length
+from tfhe.polynomial_transform import (
+    forward_transform_ref, inverse_transform_ref,
+    transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
 from tfhe.gpu_tgsw import (
     get_TGswTorus32PolynomialDecompH_trf, get_TLweFFTAddMulRTo_trf, TGswFFTExternMulToTLwe)
-
-from test_polynomial_transform import forward_transform_ref, inverse_transform_ref
 
 
 def TGswTorus32PolynomialDecompH_reference(_result, params: TGswParams):
@@ -77,22 +77,23 @@ def TLweFFTAddMulRTo_reference(res, gsw):
 
         batch_shape = res.shape[:-2]
         k = res.shape[-2] - 1
-        N = res.shape[-1] * 2
+        transformed_N = res.shape[-1]
         l = decaFFT.shape[-2]
 
-        assert decaFFT.shape == batch_shape + (k + 1, l, transformed_length(N))
-        assert gsw.shape[-4:] == (k + 1, l, k + 1, transformed_length(N))
-        assert res.shape == batch_shape + (k + 1, transformed_length(N))
+        assert decaFFT.shape == batch_shape + (k + 1, l, transformed_N)
+        assert gsw.shape[-4:] == (k + 1, l, k + 1, transformed_N)
+        assert res.shape == batch_shape + (k + 1, transformed_N)
 
         assert res.dtype == transformed_dtype()
         assert decaFFT.dtype == transformed_dtype()
         assert gsw.dtype == transformed_dtype()
 
-        d = decaFFT.reshape(batch_shape + (k+1, l, 1, transformed_length(N)))
+        d = decaFFT.reshape(batch_shape + (k+1, l, 1, transformed_N))
         res.fill(0)
         for i in range(k + 1):
             for j in range(l):
-                res += d[:,i,j,:,:] * gsw[bk_idx,i,j,:,:]
+                res[:,:,:] = transformed_space_add_ref(
+                    res, transformed_space_mul_ref(d[:,i,j,:,:], gsw[bk_idx,i,j,:,:]))
 
     return _kernel
 
@@ -113,12 +114,17 @@ def test_TLweFFTAddMulRTo(thread):
     bk_idx = 2
 
     tmpa_a = numpy.empty(tmpa_a_shape, transformed_dtype())
-    decaFFT = (
-        numpy.random.normal(size=decaFFT_shape)
-        + 1j * numpy.random.normal(size=decaFFT_shape)).astype(transformed_dtype())
-    gsw = (
-        numpy.random.normal(size=gsw_shape)
-        + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+
+    if transformed_dtype().kind == 'c':
+        decaFFT = (
+            numpy.random.normal(size=decaFFT_shape)
+            + 1j * numpy.random.normal(size=decaFFT_shape)).astype(transformed_dtype())
+        gsw = (
+            numpy.random.normal(size=gsw_shape)
+            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+    else:
+        decaFFT = numpy.random.randint(0, 2**64-2**32+1, size=decaFFT_shape, dtype=transformed_dtype())
+        gsw = numpy.random.randint(0, 2**64-2**32+1, size=gsw_shape, dtype=transformed_dtype())
 
     tmpa_a_dev = thread.empty_like(tmpa_a)
     decaFFT_dev = thread.to_device(decaFFT)
@@ -176,8 +182,12 @@ def test_TGswFFTExternMulToTLwe(thread):
     gsw_shape = (10, k + 1, l, k + 1, transformed_length(N))
     bk_idx = 2
 
-    gsw = (numpy.random.normal(size=gsw_shape)
-        + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+    if transformed_dtype().kind == 'c':
+        gsw = (numpy.random.normal(size=gsw_shape)
+            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+    else:
+        gsw = numpy.random.randint(0, 1000, size=gsw_shape, dtype=transformed_dtype())
+
     accum_a = numpy.random.randint(-1000, 1000, size=accum_a_shape, dtype=Torus32)
 
     gsw_dev = thread.to_device(gsw)

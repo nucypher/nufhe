@@ -79,8 +79,6 @@ def tfhe_MuxRotate_FFT(
     tLweMulByXaiMinusOne_gpu(result, barai, bk_idx, accum, bk_params.tlwe_params)
 
     # temp *= BKi
-    #print(result.a.coefsT.get().sum(-1))
-
     tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params)
 
     # ACC += temp
