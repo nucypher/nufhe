@@ -10,7 +10,8 @@ from .gpu_polynomials import TorusPolynomialArray
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .polynomial_transform import (
-    ForwardTransform, InverseTransform, transformed_dtype, transformed_length,
+    ForwardTransform, InverseTransform, transformed_dtype,
+    transformed_internal_dtype, transformed_internal_ctype, transformed_length,
     transformed_mul, transformed_add)
 from .computation_cache import get_computation
 
@@ -32,7 +33,7 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
         render_kwds=dict(params=params))
 
 
-def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw):
+def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw, tr_ctype):
     N = tmpa_a.shape[-1] * 2
     k = tmpa_a.shape[-2] - 1
     l = gsw.shape[-3]
@@ -45,23 +46,30 @@ def get_TLweFFTAddMulRTo_trf(tmpa_a, gsw):
         Parameter('gsw', Annotation(gsw, 'i')),
         Parameter('bk_idx', Annotation(numpy.int32))],
         """
-        ${tmpa_a.ctype} tmpa_a = ${dtypes.c_constant(0, tmpa_a.dtype)};
+        ${tr_ctype} tmpa_a = ${tr_ctype}pack(${dtypes.c_constant(0, tmpa_a.dtype)});
+
         %for i in range(k + 1):
         %for j in range(l):
         {
-            ${decaFFT.ctype} a = ${decaFFT.load_idx}(
-                ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]});
-            ${gsw.ctype} b = ${gsw.load_idx}(
-                ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]});
+            ${tr_ctype} a = ${tr_ctype}pack(
+                ${decaFFT.load_idx}(
+                    ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]})
+                );
+            ${tr_ctype} b = ${tr_ctype}pack(
+                ${gsw.load_idx}(
+                    ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]})
+                );
             tmpa_a = ${add}(tmpa_a, ${mul}(a, b));
         }
         %endfor
         %endfor
 
-        ${tmpa_a.store_same}(tmpa_a);
+        ${tmpa_a.store_same}(${tr_ctype}unpack(tmpa_a));
         """,
         connectors=['tmpa_a'],
-        render_kwds=dict(k=k, l=l, add=transformed_add(), mul=transformed_mul()))
+        render_kwds=dict(
+            k=k, l=l, add=transformed_add(), mul=transformed_mul(),
+            tr_ctype=tr_ctype))
 
 
 class TGswFFTExternMulToTLwe(Computation):
@@ -89,7 +97,8 @@ class TGswFFTExternMulToTLwe(Computation):
         self._ip_ifft.parameter.input.connect(
             decomp, decomp.output, sample=decomp.sample)
 
-        add = get_TLweFFTAddMulRTo_trf(self._tmpa_a_type, gsw)
+        add = get_TLweFFTAddMulRTo_trf(self._tmpa_a_type, gsw,
+            transformed_internal_ctype())
         self._tp_fft = InverseTransform(tmpa_shape, N)
         self._tp_fft.parameter.input.connect(
             add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
