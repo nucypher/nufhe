@@ -20,6 +20,7 @@ elem =  Module.create(
 
     #define ${prefix}pack(x) (x)
     #define ${prefix}unpack(x) (x)
+    #define ${prefix}zero (COMPLEX_CTR(double2)(0, 0))
     """,
     render_kwds=dict())
 
@@ -54,6 +55,10 @@ def transformed_add():
 
 def transformed_mul():
     return functions.mul(transformed_dtype(), transformed_dtype())
+
+
+def transform_module():
+    return fft512()
 
 
 def ForwardTransform(batch_shape, N):

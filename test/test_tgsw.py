@@ -7,7 +7,7 @@ from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
 from tfhe.polynomial_transform import (
-    forward_transform_ref, inverse_transform_ref,
+    forward_transform_ref, inverse_transform_ref, transformed_internal_ctype,
     transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
 from tfhe.gpu_tgsw import (
     get_TGswTorus32PolynomialDecompH_trf, get_TLweFFTAddMulRTo_trf, TGswFFTExternMulToTLwe)
@@ -130,7 +130,7 @@ def test_TLweFFTAddMulRTo(thread):
     decaFFT_dev = thread.to_device(decaFFT)
     gsw_dev = thread.to_device(gsw)
 
-    trf = get_TLweFFTAddMulRTo_trf(tmpa_a, gsw)
+    trf = get_TLweFFTAddMulRTo_trf(tmpa_a, gsw, transformed_internal_ctype())
     test = PureParallel.from_trf(trf, guiding_array='tmpa_a').compile(thread)
     ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw)
 

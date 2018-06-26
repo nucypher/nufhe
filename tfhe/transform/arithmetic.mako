@@ -18,6 +18,7 @@ WITHIN_KERNEL INLINE ${u64} ${prefix}unpack(${prefix} x)
     return x.val;
 }
 
+#define ${prefix}zero (${prefix}pack(0));
 
 
 #define ${prefix}UNPACK(hi, lo, src) {lo = (src); hi = (src) >> 32;}
