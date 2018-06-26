@@ -7,6 +7,8 @@ from .gpu_polynomials import *
 from .gpu_tlwe import *
 from .gpu_tgsw import *
 
+from .blind_rotate import BlindRotate_gpu
+
 import time
 
 to_gpu_time = 0
@@ -171,7 +173,8 @@ def tfhe_blindRotateAndExtract_FFT(
     tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
     # Blind rotation
-    tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
+    #tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
+    BlindRotate_gpu(acc, bk, bara, n, bk_params)
 
     # Extraction
     tLweExtractLweSample_gpu(result, acc, extract_params, accum_params)
