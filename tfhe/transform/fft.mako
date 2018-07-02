@@ -239,6 +239,13 @@ WITHIN_KERNEL INLINE void ${prefix}forward_i32(
 }
 
 
+WITHIN_KERNEL INLINE ${elem_ctype} ${prefix}i32_to_elem(${i32} x, ${i32} y)
+{
+    return complex_ctr(x, -y);
+}
+
+
+
 WITHIN_KERNEL INLINE ${i32} f64_to_i32(double x)
 {
     // The result is within the range of int64, so it must be first
@@ -272,5 +279,62 @@ WITHIN_KERNEL INLINE void ${prefix}noop()
     LOCAL_BARRIER;
     LOCAL_BARRIER;
     LOCAL_BARRIER;
+}
+
+
+WITHIN_KERNEL INLINE void ${prefix}noop2()
+{
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+
+}
+
+
+WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
+        ${elem_ctype}* in_out,
+        LOCAL_MEM_ARG ${temp_ctype}* temp,
+        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        unsigned int thread_in_xform)
+{
+    ${elem_ctype} r[8];
+    %for i in range(8):
+    r[${i}] = in_out[${i * 64} + thread_in_xform];
+    %endfor
+    LOCAL_BARRIER;
+    ${prefix}forward(r, r, temp, cdata, thread_in_xform);
+    LOCAL_BARRIER;
+    %for i in range(8):
+    in_out[${i * 64} + thread_in_xform] = r[${i}];
+    %endfor
+}
+
+
+WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
+        ${i32}* out,
+        ${elem_ctype}* in,
+        LOCAL_MEM_ARG ${temp_ctype}* temp,
+        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        unsigned int thread_in_xform)
+{
+    ${elem_ctype} r[8];
+    %for i in range(8):
+    r[${i}] = in[${i * 64} + thread_in_xform];
+    %endfor
+    LOCAL_BARRIER;
+    ${prefix}inverse(r, r, temp, cdata, thread_in_xform);
+    LOCAL_BARRIER;
+    %for i in range(8):
+    out[${i * 64} + thread_in_xform] += f64_to_i32(r[${i}].x);
+    out[${(i + 8) * 64} + thread_in_xform] += f64_to_i32(r[${i}].y);
+    %endfor
 }
 </%def>

@@ -197,7 +197,7 @@ WITHIN_KERNEL INLINE void ${prefix}NTTInv8x8Lsh(${ff_elem}* s, ${ff.u32} col)
 }
 
 
-WITHIN_KERNEL INLINE void ${prefix}Index3DFrom1D(uint3 *t3d, int t1d, int dim_x, int dim_y, int dim_z)
+WITHIN_KERNEL INLINE void ${prefix}Index3DFrom1D(uint3 *t3d, unsigned int t1d, unsigned int dim_x, unsigned int dim_y, unsigned int dim_z)
 {
     t3d->x = t1d % dim_x;
     t1d /= dim_x;
@@ -221,36 +221,36 @@ WITHIN_KERNEL INLINE void ${prefix}_forward(
     ${prefix}NTT8x2Lsh(r, t3d.z);
     ptr = &s[(t3d.y << 7) | (t3d.z << 6) | (t3d.x << 2)];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[(i >> 2 << 5) | (i & 0x3)] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[(t3d.z << 9) | (t3d.y << 3) | t3d.x];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         r[i] = ptr[i << 6];
     ${prefix}NTT2_pair(r);
     ${prefix}NTT2_pair(r + 2);
     ${prefix}NTT2_pair(r + 4);
     ${prefix}NTT2_pair(r + 6);
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[i << 6] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[t1d];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
-        r[i] = ${mul}(ptr[i << 7], twd[(i << 7) | t1d]); // mult twiddle
+    for (unsigned int i = 0; i < 8; i ++)
+        r[i] = ${mul}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
     ${prefix}NTT8(r);
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[i << 7] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[(t1d >> 2 << 5) | (t3d.x & 0x3)];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         r[i] = ptr[i << 2];
     ${prefix}NTT8x8Lsh(r, t1d >> 4); // less divergence if put here!
     ${prefix}NTT8(r);
@@ -261,7 +261,7 @@ WITHIN_KERNEL INLINE void ${prefix}_inverse(
         ${ff_elem}* r,
         LOCAL_MEM_ARG ${ff_elem}* s,
         const LOCAL_MEM_ARG ${ff_elem}* twd,
-        const int t1d)
+        const unsigned int t1d)
 {
     uint3 t3d;
     ${prefix}Index3DFrom1D(&t3d, t1d, 8, 8, 2);
@@ -272,36 +272,36 @@ WITHIN_KERNEL INLINE void ${prefix}_inverse(
     ${prefix}NTTInv8x2Lsh(r, t3d.z);
     ptr = &s[(t3d.y << 7) | (t3d.z << 6) | (t3d.x << 2)];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[(i >> 2 << 5) | (i & 0x3)] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[(t3d.z << 9) | (t3d.y << 3) | t3d.x];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         r[i] = ptr[i << 6];
     ${prefix}NTT2_pair(r);
     ${prefix}NTT2_pair(r + 2);
     ${prefix}NTT2_pair(r + 4);
     ${prefix}NTT2_pair(r + 6);
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[i << 6] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[t1d];
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
-        r[i] = ${mul}(ptr[i << 7], twd[(i << 7) | t1d]); // mult twiddle
+    for (unsigned int i = 0; i < 8; i ++)
+        r[i] = ${mul}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
     ${prefix}NTTInv8(r);
     #pragma unroll
-    for (int i = 0; i < 8; i ++)
+    for (unsigned int i = 0; i < 8; i ++)
         ptr[i << 7] = r[i];
     LOCAL_BARRIER;
 
     ptr = &s[(t1d >> 2 << 5) | (t3d.x & 0x3)];
     #pragma unroll
-        for (int i = 0; i < 8; i ++)
+        for (unsigned int i = 0; i < 8; i ++)
     r[i] = ptr[i << 2];
     ${prefix}NTTInv8x8Lsh(r, t1d >> 4); // less divergence if put here!
     ${prefix}NTTInv8(r);
@@ -313,13 +313,13 @@ WITHIN_KERNEL INLINE void ${prefix}forward(
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
         const LOCAL_MEM_ARG ${ff_elem}* cdata,
-        int thread_in_xform)
+        unsigned int thread_in_xform)
 {
     // Preprocess
     %for i in range(8):
     r_out[${i}] = ${mul}(
         r_in[${i}],
-        cdata[1024 + ${i} * 128 + thread_in_xform]
+        cdata[1024 + ${i * 128} + thread_in_xform]
         );
     %endfor
 
@@ -332,7 +332,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
         const LOCAL_MEM_ARG ${ff_elem}* cdata,
-        int thread_in_xform)
+        unsigned int thread_in_xform)
 {
     ${prefix}_inverse(r_in, temp, cdata, thread_in_xform);
 
@@ -340,34 +340,20 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
     %for i in range(8):
     r_out[${i}] = ${mul}(
         r_in[${i}],
-        cdata[1024 + ${i} * 128 + thread_in_xform]
+        cdata[1024 + ${i * 128} + thread_in_xform]
         );
     %endfor
 }
 
 
-WITHIN_KERNEL INLINE ${ff_elem} i32_to_ff(${i32} x)
+WITHIN_KERNEL INLINE ${ff_elem} ${prefix}i32_to_elem(${i32} x)
 {
     ${ff_elem} res = { (${ff.u64})x - (${ff.u32})(-(x < 0)) };
     return res;
 }
 
 
-WITHIN_KERNEL INLINE void ${prefix}forward_i32(
-        ${ff_elem}* r_out,
-        ${i32}* r_in,
-        LOCAL_MEM_ARG ${ff_elem}* temp,
-        LOCAL_MEM_ARG ${ff_elem}* cdata,
-        int thread_in_xform)
-{
-    %for i in range(8):
-    r_out[${i}] = i32_to_ff(r_in[${i}]);
-    %endfor
-    ${prefix}forward(r_out, r_out, temp, cdata, thread_in_xform);
-}
-
-
-WITHIN_KERNEL INLINE ${i32} ff_to_i32(${ff_elem} x)
+WITHIN_KERNEL INLINE ${i32} ${prefix}ff_to_i32(${ff_elem} x)
 {
     // Interpreting anything > P/2 as a negative integer,
     // then taking modulo 2^31
@@ -376,16 +362,31 @@ WITHIN_KERNEL INLINE ${i32} ff_to_i32(${ff_elem} x)
 }
 
 
+
+WITHIN_KERNEL INLINE void ${prefix}forward_i32(
+        ${ff_elem}* r_out,
+        ${i32}* r_in,
+        LOCAL_MEM_ARG ${ff_elem}* temp,
+        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        unsigned int thread_in_xform)
+{
+    %for i in range(8):
+    r_out[${i}] = ${prefix}i32_to_elem(r_in[${i}]);
+    %endfor
+    ${prefix}forward(r_out, r_out, temp, cdata, thread_in_xform);
+}
+
+
 WITHIN_KERNEL INLINE void ${prefix}inverse_i32(
         ${i32}* r_out,
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
         LOCAL_MEM_ARG ${ff_elem}* cdata,
-        int thread_in_xform)
+        unsigned int thread_in_xform)
 {
     ${prefix}inverse(r_in, r_in, temp, cdata, thread_in_xform);
     %for i in range(8):
-    r_out[${i}] = ff_to_i32(r_in[${i}]);
+    r_out[${i}] = ${prefix}ff_to_i32(r_in[${i}]);
     %endfor
 }
 
@@ -395,5 +396,60 @@ WITHIN_KERNEL INLINE void ${prefix}noop()
     LOCAL_BARRIER;
     LOCAL_BARRIER;
     LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
 }
+
+
+
+WITHIN_KERNEL INLINE void ${prefix}noop2()
+{
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+    LOCAL_BARRIER;
+}
+
+
+
+
+WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
+        ${ff_elem}* in_out,
+        LOCAL_MEM_ARG ${ff_elem}* temp,
+        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        unsigned int thread_in_xform)
+{
+    ${ff_elem} r[8];
+    %for i in range(8):
+    r[${i}] = in_out[${i * 128} + thread_in_xform];
+    %endfor
+    LOCAL_BARRIER;
+    ${prefix}forward(r, r, temp, cdata, thread_in_xform);
+    LOCAL_BARRIER;
+    %for i in range(8):
+    in_out[${i * 128} + thread_in_xform] = r[${i}];
+    %endfor
+}
+
+
+WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
+        ${i32}* out,
+        ${ff_elem}* in,
+        LOCAL_MEM_ARG ${ff_elem}* temp,
+        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        unsigned int thread_in_xform)
+{
+    ${ff_elem} r[8];
+    %for i in range(8):
+    r[${i}] = in[${i * 128} + thread_in_xform];
+    %endfor
+    LOCAL_BARRIER;
+    ${prefix}inverse(r, r, temp, cdata, thread_in_xform);
+    LOCAL_BARRIER;
+    %for i in range(8):
+    out[${i * 128} + thread_in_xform] += ${prefix}ff_to_i32(r[${i}]);
+    %endfor
+}
+
 </%def>

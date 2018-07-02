@@ -7,7 +7,7 @@ from .gpu_polynomials import *
 from .gpu_tlwe import *
 from .gpu_tgsw import *
 
-from .blind_rotate import BlindRotate_gpu
+from .blind_rotate import BlindRotate_ks_gpu
 
 import time
 
@@ -137,8 +137,8 @@ def tfhe_blindRotate_FFT(
  * @param bk_params The parameters of bk
 """
 def tfhe_blindRotateAndExtract_FFT(
-        result: LweSampleArray,
-        v: TorusPolynomialArray, bk: TGswSampleFFTArray, barb, bara, n: int, bk_params: TGswParams):
+        r, result: LweSampleArray,
+        v: TorusPolynomialArray, bk: TGswSampleFFTArray, bk_ks, barb, bara, n: int, bk_params: TGswParams):
 
     # TYPING: barb::Array{Int32},
     # TYPING: bara::Array{Int32}
@@ -172,9 +172,13 @@ def tfhe_blindRotateAndExtract_FFT(
 
     tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
+    # includes blindrotate, extractlwesample and keyswitch
+    BlindRotate_ks_gpu(r, acc, bk, bk_ks.ks.a, bk_ks.ks.b, bara, n, bk_params)
+    return
+
     # Blind rotation
-    #tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
-    BlindRotate_gpu(acc, bk, bara, n, bk_params)
+    tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
+    #BlindRotate_gpu(acc, bk, bara, n, bk_params)
 
     # Extraction
     tLweExtractLweSample_gpu(result, acc, extract_params, accum_params)
@@ -188,7 +192,7 @@ def tfhe_blindRotateAndExtract_FFT(
  * @param x The input sample
 """
 def tfhe_bootstrap_woKS_FFT(
-        result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
+        r, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
 
     bk_params = bk.bk_params
     accum_params = bk.accum_params
@@ -220,7 +224,7 @@ def tfhe_bootstrap_woKS_FFT(
     testvect.coefsT.fill(mu)
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(result, testvect, bk.bkFFT, barb, bara, n, bk_params)
+    tfhe_blindRotateAndExtract_FFT(r, result, testvect, bk.bkFFT, bk.ks, barb, bara, n, bk_params)
 
 
 """
@@ -242,7 +246,7 @@ def tfhe_bootstrap_FFT(
     x.a.thread.synchronize()
     to_gpu_time += time.time() - t
 
-    tfhe_bootstrap_woKS_FFT(u, bk, mu, x)
+    tfhe_bootstrap_woKS_FFT(result, u, bk, mu, x)
 
     # Key switching
-    lweKeySwitch(result, bk.ks, u)
+    #lweKeySwitch(result, bk.ks, u)
