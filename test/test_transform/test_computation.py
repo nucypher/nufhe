@@ -18,7 +18,7 @@ from utils import *
 @pytest.mark.parametrize('i32_conversion', [False, True], ids=['no_conversion', 'poly_conversion'])
 def test_transform_correctness(thread, transform_name, inverse, i32_conversion):
 
-    batch_shape = (1,)
+    batch_shape = (128,)
 
     if transform_name == 'FFT':
         transform = fft512()
@@ -34,23 +34,11 @@ def test_transform_correctness(thread, transform_name, inverse, i32_conversion):
 
     a = get_test_array(comp.parameter.input.shape, comp.parameter.input.dtype)
 
-    if transform_name == 'NTT':
-        if i32_conversion:
-            a = numpy.ones(comp.parameter.input.shape, comp.parameter.input.dtype) * (-1)
-        else:
-            print(ntt_cpu.gnum_to_u64(ntt_cpu.gnum(-1)))
-            a = numpy.ones(comp.parameter.input.shape, comp.parameter.input.dtype) * ntt_cpu.gnum_to_u64(ntt_cpu.gnum(-1))
-            print(a)
-
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(comp.parameter.output)
 
     comp(res_dev, a_dev)
     res_ref = transform_ref(a, inverse=inverse, i32_conversion=i32_conversion)
-
-    print()
-    print(res_ref)
-    print(res_dev.get())
 
     assert numpy.allclose(res_dev.get(), res_ref)
 
