@@ -10,8 +10,6 @@ thr = api.Thread.create(async=True, temp_alloc=dict(pack_on_alloc=False))
 
 
 
-import tfhe.polynomials
-tfhe.polynomials.global_thread = thr
 
 
 size = 512
