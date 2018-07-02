@@ -49,7 +49,7 @@ class FFT512:
         self.module = module
 
         self.transform_length = 512
-        self.elem_dtype = numpy.complex128
+        self.elem_dtype = numpy.dtype('complex128')
         self.elem_ctype = dtypes.ctype(self.elem_dtype)
 
         self.polynomial_length = 1024
@@ -57,7 +57,7 @@ class FFT512:
         self.polynomial_ctype = dtypes.ctype(self.polynomial_dtype)
 
         self.threads_per_transform = 64
-        self.temp_dtype = numpy.float64
+        self.temp_dtype = numpy.dtype('float64')
         self.temp_ctype = dtypes.ctype(self.temp_dtype)
         self.temp_length = 576
 

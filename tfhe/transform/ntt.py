@@ -86,16 +86,16 @@ class NTT1024:
 
 
         self.transform_length = 1024
-        self.elem_dtype = numpy.uint64
+        self.elem_dtype = numpy.dtype('uint64')
         self.elem_ctype = ff_elem.module
 
         self.polynomial_length = 1024
-        self.polynomial_dtype = numpy.int32
+        self.polynomial_dtype = numpy.dtype('int32')
         self.polynomial_ctype = dtypes.ctype(self.polynomial_dtype)
 
         self.threads_per_transform = 128
 
-        self.temp_dtype = numpy.uint64
+        self.temp_dtype = numpy.dtype('uint64')
         self.temp_ctype = ff_elem.module
         self.temp_length = 1024
 
