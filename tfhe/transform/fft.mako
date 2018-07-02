@@ -120,11 +120,11 @@ WITHIN_KERNEL INLINE void ${prefix}_generic(
 
     // Twiddle kernel
     {
-        const int angf = thread_in_xform + thread_in_xform / 8;
+        const int angf = thread_in_xform ;
         %for i in range(1, 8):
             a[${i}] = ${mul}(
                 a[${i}],
-                cdata[${i} * 72 + angf]
+                cdata[${i} * 64 + angf]
                 );
         %endfor
     }
@@ -153,11 +153,11 @@ WITHIN_KERNEL INLINE void ${prefix}_generic(
 
     // Twiddle kernel
     {
-        const int angf = thread_in_xform / 8 * 9;
+        const int angf = thread_in_xform / 8 * 8;
         %for i in range(1, 8):
             a[${i}] = ${mul}(
                 a[${i}],
-                cdata[${i} * 72 + angf]
+                cdata[${i} * 64 + angf]
                 );
         %endfor
     }
@@ -198,7 +198,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward(
     %for i in range(8):
     r_out[${i}] = ${mul}(
         r_in[${i}],
-        cdata[576 + ${i} * 64 + thread_in_xform]
+        cdata[512 + ${i} * 64 + thread_in_xform]
         );
     %endfor
 
@@ -219,7 +219,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
     %for i in range(8):
     r_out[${i}] = ${mul}(
         conj(r_in[${i}]),
-        cdata[576 + ${i} * 64 + thread_in_xform]
+        cdata[512 + ${i} * 64 + thread_in_xform]
         );
     %endfor
 }

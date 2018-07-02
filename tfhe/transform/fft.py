@@ -61,13 +61,13 @@ class FFT512:
         self.temp_ctype = dtypes.ctype(self.temp_dtype)
         self.temp_length = 576
 
-        twd_fw = numpy.empty((8, 72), numpy.complex128)
-        twd_inv = numpy.empty((8, 72), numpy.complex128)
+        twd_fw = numpy.empty((8, 64), numpy.complex128)
+        twd_inv = numpy.empty((8, 64), numpy.complex128)
         for i in range(8):
             for elem_id in range(64):
-                twd_fw[i, elem_id + elem_id//8] = numpy.exp(
+                twd_fw[i, elem_id] = numpy.exp(
                     -2j * numpy.pi / self.transform_length * i * elem_id)
-                twd_inv[i, elem_id + elem_id//8] = numpy.exp(
+                twd_inv[i, elem_id] = numpy.exp(
                     2j * numpy.pi / self.transform_length * i * elem_id)
 
         idxs = numpy.arange(self.polynomial_length // 2)
