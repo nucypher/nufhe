@@ -1,6 +1,7 @@
 import numpy
 import time
 
+import tfhe
 from tfhe import *
 
 from reikna.cluda import cuda_api
