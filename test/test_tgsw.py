@@ -184,7 +184,7 @@ def test_TGswFFTExternMulToTLwe(thread):
 
     if transformed_dtype().kind == 'c':
         gsw = (numpy.random.normal(size=gsw_shape)
-            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype()) * 1000
     else:
         gsw = numpy.random.randint(0, 1000, size=gsw_shape, dtype=transformed_dtype())
 
