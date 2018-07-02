@@ -227,7 +227,14 @@ class LweKeySwitchKey:
         self.base = base # decomposition base: a power of 2
         self.out_params = out_params # params of the output key s
         self.ks = ks # the keyswitch elements: a n.l.base matrix
-        ks.a = numpy.ascontiguousarray(ks.a.transpose(3, 2, 0, 1))
+
+        # initial shape: (outer_n, t, base, inner_n)
+        # shape1: (inner_n, base, outer_n, t)
+        #ks.a = numpy.ascontiguousarray(ks.a.transpose(3, 2, 0, 1))
+        # shape2: (outer_n, t, base, inner_n)
+        ks.a = numpy.ascontiguousarray(ks.a)
+        print(ks.a.shape)
+
         ks.b = numpy.ascontiguousarray(ks.b.transpose(2, 0, 1))
         ks.current_variances = numpy.ascontiguousarray(ks.current_variances.transpose(2, 0, 1))
 

@@ -16,9 +16,13 @@ import numpy
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel, Reduce, predicate_sum
 from reikna.cluda import dtypes, functions
+import reikna.helpers as helpers
 
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float
+
+
+TEMPLATE = helpers.template_for(__file__)
 
 
 def prepare_aijs_trf(ai, t, basebit):
@@ -132,7 +136,8 @@ class LweKeySwitchTranslate_fromArray(Computation):
         a = Type(Torus32, batch_shape + (inner_n,))
         b = Type(Torus32, batch_shape)
         cv = Type(Float, batch_shape)
-        ks_a = Type(Torus32, (inner_n, base, outer_n, t))
+        #ks_a = Type(Torus32, (inner_n, base, outer_n, t))
+        ks_a = Type(Torus32, (outer_n, t, base, inner_n))
         ks_b = Type(Torus32, (base, outer_n, t))
         ks_cv = Type(Float, (base, outer_n, t))
         ai = Type(Torus32, batch_shape + (outer_n,))
@@ -141,7 +146,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
         aijs = self._prepare_aijs.parameter.aijs
 
         # a
-
+        """
         reduce_res = Type(ks_a.dtype, batch_shape + (inner_n, outer_n, t))
 
         l = len(reduce_res.shape)
@@ -155,7 +160,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         self._sum_ks_a.parameter.output.connect(
             sub_trf, sub_trf.to_sub, a=sub_trf.input, result_a=sub_trf.output)
-
+        """
         # b
 
         reduce_res = Type(ks_b.dtype, batch_shape + (outer_n, t))
@@ -209,7 +214,22 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         plan.computation_call(self._prepare_aijs, aijs, ai)
 
-        plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a)
+        #plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a)
+
+        # result_a: batch_shape + (inner_n,)
+        # ks_a: (inner_n, base, outer_n, t)
+        # ai: batch_shape + (outer_n,)
+        batch_shape = result_a.shape[:-1]
+        plan.kernel_call(
+            TEMPLATE.get_def("keyswitch"),
+            [result_a, ks_a, ai],
+            global_size=(helpers.product(batch_shape), 512),
+            local_size=(1, 512),
+            render_kwds=dict(
+                slices=(len(batch_shape), 1)
+                )
+            )
+
         plan.computation_call(self._sum_ks_b, result_b, result_b, aijs, ks_b)
         plan.computation_call(self._sum_ks_cv, result_cv, result_cv, aijs, ks_cv)
 
