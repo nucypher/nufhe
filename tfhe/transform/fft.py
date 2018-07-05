@@ -45,8 +45,9 @@ def fft_transformed_mul_ref(data1, data2):
 
 class FFT512:
 
-    def __init__(self, module):
+    def __init__(self, module, use_constant_memory):
         self.module = module
+        self.use_constant_memory = use_constant_memory
 
         self.transform_length = 512
         self.elem_dtype = numpy.dtype('complex128')
@@ -79,10 +80,10 @@ class FFT512:
         self.cdata_inv_ctype = dtypes.ctype(self.cdata_inv.dtype)
 
     def __process_modules__(self, process):
-        return FFT512(process(self.module))
+        return FFT512(process(self.module), self.use_constant_memory)
 
 
-def fft512():
+def fft512(use_constant_memory=False):
     module = Module(
         TEMPLATE.get_def('fft512'),
         render_kwds=dict(
@@ -91,5 +92,6 @@ def fft512():
             cdata_ctype=dtypes.ctype(numpy.complex128),
             polar_unit=functions.polar_unit(numpy.float64),
             mul=functions.mul(numpy.complex128, numpy.complex128),
+            use_constant_memory=use_constant_memory,
             ))
-    return FFT512(module)
+    return FFT512(module, use_constant_memory)

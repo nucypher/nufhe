@@ -22,6 +22,12 @@
             raise NotImplementedError(shift)
 %>
 
+%if use_constant_memory:
+#define ${prefix}CDATA_QUALIFIER CONSTANT_MEM_ARG
+%else:
+#define ${prefix}CDATA_QUALIFIER GLOBAL_MEM_ARG
+%endif
+
 
 WITHIN_KERNEL INLINE void ${prefix}swap(${ff_elem} *a, ${ff_elem} *b)
 {
@@ -209,7 +215,7 @@ WITHIN_KERNEL INLINE void ${prefix}Index3DFrom1D(uint3 *t3d, unsigned int t1d, u
 WITHIN_KERNEL INLINE void ${prefix}_forward(
         ${ff_elem}* r,
         LOCAL_MEM_ARG ${ff_elem}* s,
-        const LOCAL_MEM_ARG ${ff_elem}* twd,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* twd,
         const ${ff.u32} t1d)
 {
     uint3 t3d;
@@ -260,7 +266,7 @@ WITHIN_KERNEL INLINE void ${prefix}_forward(
 WITHIN_KERNEL INLINE void ${prefix}_inverse(
         ${ff_elem}* r,
         LOCAL_MEM_ARG ${ff_elem}* s,
-        const LOCAL_MEM_ARG ${ff_elem}* twd,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* twd,
         const unsigned int t1d)
 {
     uint3 t3d;
@@ -312,7 +318,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward(
         ${ff_elem}* r_out,
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        const LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     // Preprocess
@@ -331,7 +337,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
         ${ff_elem}* r_out,
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        const LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     ${prefix}_inverse(r_in, temp, cdata, thread_in_xform);
@@ -367,7 +373,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward_i32(
         ${ff_elem}* r_out,
         ${i32}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     %for i in range(8):
@@ -381,7 +387,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse_i32(
         ${i32}* r_out,
         ${ff_elem}* r_in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     ${prefix}inverse(r_in, r_in, temp, cdata, thread_in_xform);
@@ -415,9 +421,9 @@ WITHIN_KERNEL INLINE void ${prefix}noop2()
 
 
 WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
-        ${ff_elem}* in_out,
+        LOCAL_MEM_ARG ${ff_elem}* in_out,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     ${ff_elem} r[8];
@@ -434,10 +440,10 @@ WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
 
 
 WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
-        ${i32}* out,
-        ${ff_elem}* in,
+        LOCAL_MEM_ARG ${i32}* out,
+        LOCAL_MEM_ARG ${ff_elem}* in,
         LOCAL_MEM_ARG ${ff_elem}* temp,
-        LOCAL_MEM_ARG ${ff_elem}* cdata,
+        ${prefix}CDATA_QUALIFIER ${ff_elem}* cdata,
         unsigned int thread_in_xform)
 {
     ${ff_elem} r[8];

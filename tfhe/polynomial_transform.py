@@ -48,24 +48,27 @@ ff_elem = get_ff_elem()
 
 
 def transformed_add():
-    return add(ff_elem=ff_elem).module
+    return add(ff_elem=ff_elem, method='cuda_asm').module
 
 
 def transformed_mul():
-    return mul(ff_elem=ff_elem).module
+    return mul(ff_elem=ff_elem, method='cuda_asm').module
 
 
 def transform_module():
-    return ntt1024(ff_elem=ff_elem)
+    return ntt1024(
+        ff_elem=ff_elem,
+        base_method='cuda_asm', mul_method='cuda_asm', lsh_method='cuda_asm',
+        use_constant_memory=True)
 
 
 def ForwardTransform(batch_shape, N):
     assert N == 1024
     return Transform(
-        ntt1024(ff_elem=ff_elem), batch_shape, transforms_per_block=1, i32_conversion=True)
+        transform_module(), batch_shape, transforms_per_block=1, i32_conversion=True)
 
 
 def InverseTransform(batch_shape, N):
     assert N == 1024
     return Transform(
-        ntt1024(ff_elem=ff_elem), batch_shape, transforms_per_block=1, i32_conversion=True, inverse=True)
+        transform_module(), batch_shape, transforms_per_block=1, i32_conversion=True, inverse=True)

@@ -79,10 +79,10 @@ def gen_twiddle_ref():
 
 class NTT1024:
 
-    def __init__(self, ff_elem, module):
+    def __init__(self, ff_elem, module, use_constant_memory):
         self.ff = ff_elem
         self.module = module
-
+        self.use_constant_memory = use_constant_memory
 
         self.transform_length = 1024
         self.elem_dtype = numpy.dtype('uint64')
@@ -106,10 +106,13 @@ class NTT1024:
         self.cdata_inv_ctype = ff_elem.module
 
     def __process_modules__(self, process):
-        return NTT1024(process(self.ff), process(self.module))
+        return NTT1024(process(self.ff), process(self.module), self.use_constant_memory)
 
 
-def ntt1024(base_method='c', mul_method='c_from_asm', lsh_method='c', ff_elem=None):
+def ntt1024(
+        base_method='c', mul_method='c_from_asm', lsh_method='c', ff_elem=None,
+        use_constant_memory=False):
+
     if ff_elem is None:
         ff_elem = arithmetic.get_ff_elem()
 
@@ -131,5 +134,6 @@ def ntt1024(base_method='c', mul_method='c_from_asm', lsh_method='c', ff_elem=No
             add=arithmetic.add(**base_kwds).module,
             sub=arithmetic.sub(**base_kwds).module,
             mul=arithmetic.mul(**mul_kwds).module,
+            use_constant_memory=use_constant_memory,
             ))
-    return NTT1024(ff_elem, module)
+    return NTT1024(ff_elem, module, use_constant_memory)

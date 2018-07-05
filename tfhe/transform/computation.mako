@@ -39,7 +39,6 @@ ${kernel_declaration}
     VIRTUAL_SKIP_THREADS;
 
     LOCAL_MEM ${dtypes.ctype(transform.temp_dtype)} temp[${transform.temp_length} * ${tpb}];
-    LOCAL_MEM ${dtypes.ctype(tr_cdata.dtype)} cdata[${tr_cdata.size}];
 
     ${dtypes.ctype(params_in['dtype'])} r_in[${params_in['ept']}];
     ${dtypes.ctype(params_out['dtype'])} r_out[${params_out['ept']}];
@@ -48,17 +47,6 @@ ${kernel_declaration}
     VSIZE_T tid = virtual_local_id(1);
     int transform_in_block = tid / ${tpt};
     int thread_in_transform = tid % ${tpt};
-
-    // Load constant data
-    if (transform_in_block == 0)
-    {
-        #pragma unroll
-        for (int i = 0; i < ${tr_cdata.size // tpt}; i++)
-        {
-            cdata[i * ${tpt} + thread_in_transform] =
-                ${cdata.load_idx}(i * ${tpt} + thread_in_transform);
-        }
-    }
 
     %if batch_size % tpb != 0:
     bool active_thread = (batch_id < ${blocks_num - 1} || transform_in_block < ${batch_size % tpb});
@@ -107,7 +95,7 @@ ${kernel_declaration}
             (${params_out['ctype']}*)r_out,
             (${params_in['ctype']}*)r_in,
             (LOCAL_MEM_ARG ${transform.temp_ctype}*)transform_temp,
-            (LOCAL_MEM_ARG ${tr_cdata_ctype}*)cdata,
+            (${transform.module}CDATA_QUALIFIER ${tr_cdata_ctype}*)${cdata},
             thread_in_transform);
     %if batch_size % tpb != 0:
     }

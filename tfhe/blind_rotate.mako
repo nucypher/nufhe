@@ -113,9 +113,9 @@ ${kernel_declaration}
     ##%for k_in_id in range(k + 1):
         // Forward transform
         ${transform.module}forward_i32_shared(
-            (${transform.cdata_fw_ctype}*)${cdata_forward._leaf_name},
             sh + (k_id * 2 + l_id) * ${sh_length_tr},
             (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + (k_id * 2 + l_id) * ${sh_length_tr}),
+            (${transform.module}CDATA_QUALIFIER ${transform.cdata_fw_ctype}*)${cdata_forward},
             thread_in_transform);
     ##%endfor
     }
@@ -157,9 +157,9 @@ ${kernel_declaration}
     // Inverse transform
         ${transform.module}inverse_i32_shared_add(
             shared_accum + l_id * ${transform.polynomial_length},
-            (${transform.cdata_inv_ctype}*)${cdata_inverse._leaf_name},
             sh + l_id * ${4 * sh_length_tr},
             (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + l_id * ${4 * sh_length_tr}),
+            (${transform.module}CDATA_QUALIFIER ${transform.cdata_inv_ctype}*)${cdata_inverse},
             thread_in_transform);
     }
     else

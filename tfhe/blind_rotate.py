@@ -44,8 +44,12 @@ class BlindRotateKS(Computation):
 
         batch_shape = accum_a.shape[:-2]
 
-        cdata_forward = plan.persistent_array(transform.cdata_fw)
-        cdata_inverse = plan.persistent_array(transform.cdata_inv)
+        if transform.use_constant_memory:
+            cdata_forward = plan.constant_array(transform.cdata_fw)
+            cdata_inverse = plan.constant_array(transform.cdata_inv)
+        else:
+            cdata_forward = plan.persistent_array(transform.cdata_fw)
+            cdata_inverse = plan.persistent_array(transform.cdata_inv)
 
         plan.kernel_call(
             TEMPLATE.get_def("BlindRotateKS"),

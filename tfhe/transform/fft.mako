@@ -4,6 +4,13 @@
     i32 = dtypes.ctype(numpy.int32)
 %>
 
+%if use_constant_memory:
+#define ${prefix}CDATA_QUALIFIER CONSTANT_MEM_ARG
+%else:
+#define ${prefix}CDATA_QUALIFIER GLOBAL_MEM_ARG
+%endif
+
+
 #define complex_ctr COMPLEX_CTR(double2)
 #define conj(a) complex_ctr((a).x, -(a).y)
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
@@ -112,7 +119,7 @@ WITHIN_KERNEL void fftKernel8(complex_t *a, const int direction)
 WITHIN_KERNEL INLINE void ${prefix}_generic(
         ${elem_ctype}* a,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         int thread_in_xform,
         int direction)
 {
@@ -191,7 +198,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward(
         ${elem_ctype}* r_out,
         ${elem_ctype}* r_in,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         int thread_in_xform)
 {
     // Preprocess
@@ -210,7 +217,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
         ${elem_ctype}* r_out,
         ${elem_ctype}* r_in,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         int thread_in_xform)
 {
     ${prefix}_generic(r_in, temp, cdata, thread_in_xform, 1);
@@ -229,7 +236,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward_i32(
         ${elem_ctype}* r_out,
         ${i32}* r_in,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         int thread_in_xform)
 {
     %for i in range(8):
@@ -258,7 +265,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse_i32(
         ${i32}* r_out,
         ${elem_ctype}* r_in,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         int thread_in_xform)
 {
     ${prefix}inverse(r_in, r_in, temp, cdata, thread_in_xform);
@@ -300,9 +307,9 @@ WITHIN_KERNEL INLINE void ${prefix}noop2()
 
 
 WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
-        ${elem_ctype}* in_out,
+        LOCAL_MEM_ARG ${elem_ctype}* in_out,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         unsigned int thread_in_xform)
 {
     ${elem_ctype} r[8];
@@ -319,10 +326,10 @@ WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
 
 
 WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
-        ${i32}* out,
-        ${elem_ctype}* in,
+        LOCAL_MEM_ARG ${i32}* out,
+        LOCAL_MEM_ARG ${elem_ctype}* in,
         LOCAL_MEM_ARG ${temp_ctype}* temp,
-        LOCAL_MEM_ARG ${cdata_ctype}* cdata,
+        ${prefix}CDATA_QUALIFIER ${cdata_ctype}* cdata,
         unsigned int thread_in_xform)
 {
     ${elem_ctype} r[8];

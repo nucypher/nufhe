@@ -44,8 +44,11 @@ class Transform(Computation):
         batch_size = helpers.product(output.shape[:-1])
         blocks_num = helpers.min_blocks(batch_size, self._transforms_per_block)
 
-        cdata = plan.persistent_array(
-            self._transform.cdata_inv if self._inverse else self._transform.cdata_fw)
+        cdata_arr = self._transform.cdata_inv if self._inverse else self._transform.cdata_fw
+        if self._transform.use_constant_memory:
+            cdata = plan.constant_array(cdata_arr)
+        else:
+            cdata = plan.persistent_array(cdata_arr)
 
         plan.kernel_call(
             TEMPLATE.get_def('standalone_transform'),

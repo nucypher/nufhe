@@ -58,7 +58,7 @@ def transformed_mul():
 
 
 def transform_module():
-    return fft512()
+    return fft512(use_constant_memory=True)
 
 
 def ForwardTransform(batch_shape, N):
