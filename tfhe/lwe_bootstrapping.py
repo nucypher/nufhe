@@ -178,7 +178,6 @@ def tfhe_blindRotateAndExtract_FFT(
 
     # Blind rotation
     tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
-    #BlindRotate_gpu(acc, bk, bara, n, bk_params)
 
     # Extraction
     tLweExtractLweSample_gpu(result, acc, extract_params, accum_params)
