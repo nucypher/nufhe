@@ -12,19 +12,19 @@ import tfhe.transform.ntt as tr_ntt
 from utils import *
 
 
-
 @pytest.mark.parametrize('transform_name', ['FFT', 'NTT'])
 @pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
 @pytest.mark.parametrize('i32_conversion', [False, True], ids=['no_conversion', 'poly_conversion'])
-def test_transform_correctness(thread, transform_name, inverse, i32_conversion):
+@pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
+def test_transform_correctness(thread, transform_name, inverse, i32_conversion, constant_memory):
 
     batch_shape = (128,)
 
     if transform_name == 'FFT':
-        transform = fft512()
+        transform = fft512(use_constant_memory=constant_memory)
         transform_ref = tr_fft.fft_transform_ref
     else:
-        transform = ntt1024()
+        transform = ntt1024(use_constant_memory=constant_memory)
         transform_ref = tr_ntt.ntt_transform_ref
 
     comp = Transform(
@@ -117,7 +117,8 @@ def get_times(thread, comp, out_arr, in_arr, attempts=10):
 
 @pytest.mark.perf
 @pytest.mark.parametrize('transforms_per_block', [1, 2, 4])
-def test_ntt_performance(thread, transforms_per_block):
+@pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
+def test_ntt_performance(thread, transforms_per_block, constant_memory):
 
     is_cuda = thread.api.get_id() == cuda_id()
 
@@ -145,10 +146,13 @@ def test_ntt_performance(thread, transforms_per_block):
     # TODO: compute a reference NTT when it's fast enough on CPU
     #res_ref = tr_ntt.ntt_transform_ref(a)
 
+    print()
     min_times = []
     for base_method, mul_method, lsh_method in methods:
 
-        transform = ntt1024(base_method=base_method, mul_method=mul_method, lsh_method=lsh_method)
+        transform = ntt1024(
+            base_method=base_method, mul_method=mul_method, lsh_method=lsh_method,
+            use_constant_memory=constant_memory)
 
         ntt_comp = Transform(
             transform, batch_shape, transforms_per_block=transforms_per_block,
@@ -183,7 +187,8 @@ def test_ntt_performance(thread, transforms_per_block):
 
 @pytest.mark.perf
 @pytest.mark.parametrize('transforms_per_block', [1, 2, 3, 4])
-def test_fft_performance(thread, transforms_per_block):
+@pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
+def test_fft_performance(thread, transforms_per_block, constant_memory):
 
     is_cuda = thread.api.get_id() == cuda_id()
 
@@ -197,7 +202,7 @@ def test_fft_performance(thread, transforms_per_block):
 
     res_ref = fft_transform_ref(a)
 
-    transform = fft512()
+    transform = fft512(use_constant_memory=constant_memory)
 
     fft_comp = Transform(
         transform, batch_shape, transforms_per_block=transforms_per_block,
