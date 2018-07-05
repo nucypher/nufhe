@@ -16,6 +16,7 @@
     tr_size = transform.transform_length * transform.elem_dtype.itemsize
     temp_size = transform.temp_length * transform.temp_dtype.itemsize
     sh_size = max(tr_size, temp_size)
+    sh_length_tr = sh_size // transform.elem_dtype.itemsize
 %>
 
 
@@ -23,19 +24,12 @@ ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    %for i in range(5):
-    LOCAL_MEM char sh${i}[${sh_size}];
-    %endfor
+    // Buffers 0-3 are used as temporary arrays and output arrays for forward transformations.
+    // Buffers 0 and 4 are used as output arrays for multiplication in transformed space.
+    LOCAL_MEM char sh_char[${sh_size * 5}];
     LOCAL_MEM ${accum_a.ctype} shared_accum[${2 * transform.polynomial_length}];
 
-    LOCAL_MEM_ARG ${tr_ctype}* sh[4] = {
-        (${tr_ctype}*)sh0,
-        (${tr_ctype}*)sh1,
-        (${tr_ctype}*)sh2,
-        (${tr_ctype}*)sh3};
-    LOCAL_MEM_ARG ${tr_ctype}* shsh[2] = {
-        (${tr_ctype}*)sh0,
-        (${tr_ctype}*)sh4};
+    LOCAL_MEM_ARG ${tr_ctype}* sh = (LOCAL_MEM_ARG ${tr_ctype}*)sh_char;
 
     const unsigned int batch_id = virtual_group_id(0);
     const unsigned int tid = virtual_local_id(1);
@@ -99,7 +93,7 @@ ${kernel_declaration}
                 %endfor
 
                 %for l_id in range(l):
-                    sh[${2*k_id + l_id}][i] = ${transform.module}i32_to_elem(
+                    sh[${(2*k_id + l_id) * sh_length_tr} + i] = ${transform.module}i32_to_elem(
                         %for q in range(conversion_multiplier):
                         ((temp${q} >> (32 - ${l_id + 1} * decomp_bits)) & decomp_mask) - decomp_half
                         %if q < conversion_multiplier - 1:
@@ -119,9 +113,9 @@ ${kernel_declaration}
     ##%for k_in_id in range(k + 1):
         // Forward transform
         ${transform.module}forward_i32_shared(
-            sh[k_id * 2 + l_id],
-            (${transform.temp_ctype}*)sh[k_id * 2 + l_id],
             (${transform.cdata_fw_ctype}*)${cdata_forward._leaf_name},
+            sh + (k_id * 2 + l_id) * ${sh_length_tr},
+            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + (k_id * 2 + l_id) * ${sh_length_tr}),
             thread_in_transform);
     ##%endfor
     }
@@ -144,7 +138,7 @@ ${kernel_declaration}
             t = ${tr_ctype}zero;
             %for k_in_id in range(k + 1):
             %for l_id in range(l):
-            a = sh[${k_in_id * 2 + l_id}][i + tid];
+            a = sh[${(k_in_id * 2 + l_id) * sh_length_tr} + i + tid];
             b = ${tr_ctype}pack(
                 ${gsw.load_idx}(
                     bk_idx, ${k_in_id}, ${l_id}, ${k_out_id}, i + tid)
@@ -152,7 +146,7 @@ ${kernel_declaration}
             t = ${add}(t, ${mul}(a, b));
             %endfor
             %endfor
-            shsh[${k_out_id}][i + tid] = t;
+            sh[${k_out_id * 4 * sh_length_tr} + i + tid] = t;
         }
     }
     LOCAL_BARRIER;
@@ -163,9 +157,9 @@ ${kernel_declaration}
     // Inverse transform
         ${transform.module}inverse_i32_shared_add(
             shared_accum + l_id * ${transform.polynomial_length},
-            shsh[l_id],
-            (${transform.temp_ctype}*)shsh[l_id],
             (${transform.cdata_inv_ctype}*)${cdata_inverse._leaf_name},
+            sh + l_id * ${4 * sh_length_tr},
+            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + l_id * ${4 * sh_length_tr}),
             thread_in_transform);
     }
     else
