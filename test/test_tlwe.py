@@ -10,7 +10,7 @@ def int_prod(arr):
 
 def tLweNoiselessTrivial_reference(result_a, result_current_variances, mu):
     assert len(result_a.shape) == 3
-    assert result_current_variances.shape == result_a.shape[:-1]
+    assert result_current_variances.shape == result_a.shape[:-2]
     assert mu.shape == (result_a.shape[0], result_a.shape[-1])
     assert result_a.dtype == mu.dtype
 
@@ -29,7 +29,7 @@ def test_tLweNoiselessTrivial(thread):
 
     mu = numpy.random.randint(-2**31, 2**31, size=(l, n), dtype=Torus32)
     a_ref = numpy.empty((l, k+1, n), Torus32)
-    cv_ref = numpy.empty((l, k+1), Float)
+    cv_ref = numpy.empty((l,), Float)
 
     a_dev = thread.to_device(a_ref)
     cv_dev = thread.empty_like(cv_ref)
