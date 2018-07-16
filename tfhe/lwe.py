@@ -3,6 +3,7 @@ import numpy
 from .numeric_functions import *
 from .gpu_numeric_functions import *
 from .gpu_lwe import *
+from .random_numbers import *
 
 
 class LweParams:
@@ -20,8 +21,8 @@ class LweKey:
         self.key = key # 1D array of Int32
 
     @classmethod
-    def from_rng(cls, rng, params: LweParams):
-        return cls(params, rand_uniform_int32(rng, (params.n,)))
+    def from_rng(cls, thr, rng, params: LweParams):
+        return cls(params, rand_uniform_int32(thr, rng, (params.n,)))
 
     # extractions Ring Lwe . Lwe
     @classmethod
@@ -31,42 +32,19 @@ class LweKey:
         k = tlwe_key.params.k
         assert params.n == k * N
 
-        # GPU: array operation
-        key = tlwe_key.key.coefs.flatten() # TODO: use an approprtiate method
+        key = tlwe_key.key.coefs.ravel()
 
         return cls(params, key)
 
 
 class LweSampleArray:
 
-    def __init__(self, params: LweParams, shape):
-        self.a = numpy.empty(shape + (params.n,), Torus32)
-        self.b = numpy.empty(shape, Torus32)
-        self.current_variances = numpy.empty(shape, Float)
+    def __init__(self, thr, params: LweParams, shape):
+        self.a = thr.array(shape + (params.n,), Torus32)
+        self.b = thr.array(shape, Torus32)
+        self.current_variances = thr.array(shape, Float)
         self.shape = shape
         self.params = params
-
-    def __getitem__(self, *args):
-        sub_a = self.a[args]
-        sub_b = self.b[args]
-        sub_cv = self.current_variances[args]
-        res = LweSampleArray(self.params, sub_b.shape)
-
-        res.a = sub_a
-        res.b = sub_b
-        res.current_variances = sub_cv
-
-        return res
-
-    def to_gpu(self, thr):
-        self.a = thr.to_device(self.a)
-        self.b = thr.to_device(self.b)
-        self.current_variances = thr.to_device(self.current_variances)
-
-    def from_gpu(self):
-        self.a = self.a.get()
-        self.b = self.b.get()
-        self.current_variances = self.current_variances.get()
 
 
 def vec_mul_mat(b, a):
@@ -112,14 +90,13 @@ def lweNegate(result: LweSampleArray, sample: LweSampleArray, params: LweParams)
 
 
 # result = (0,mu)
-def lweNoiselessTrivial(result: LweSampleArray, mus, params: LweParams):
+def lweNoiselessTrivial(thr, result: LweSampleArray, mus, params: LweParams):
     # TYPING: mus: Union{Array{Torus32}, Torus32}
     # GPU: array operations
     result.a.fill(0)
     if isinstance(mus, numpy.ndarray):
         raise NotImplementedError()
     elif hasattr(mus, 'thread'):
-        thr = mus.thread
         thr.copy_array(mus, dest=result.b)
     else:
         result.b.fill(mus)
@@ -135,7 +112,7 @@ def lweAddTo(result: LweSampleArray, sample: LweSampleArray, params: LweParams):
 
 
 # result = result - sample
-def lweSubTo(result: LweSampleArray, sample: LweSampleArray, params: LweParams):
+def lweSubTo(thr, result: LweSampleArray, sample: LweSampleArray, params: LweParams):
     result.a -= sample.a
     result.b -= sample.b
     result.current_variances += sample.current_variances
@@ -182,14 +159,32 @@ def lweSymEncryptWithExternalNoise(
 
 class LweKeySwitchKey:
 
+    def __init__(self, thr, rng, n: int, t: int, basebit: int, in_key: LweKey, out_key: LweKey):
+        extracted_n = n
+        base = 1 << basebit
+        out_params = out_key.params
+        self.ks = LweSampleArray(thr, out_params, (extracted_n, t, base))
+        LweKeySwitchKey_gpu(
+            thr, rng, self.ks, extracted_n, t, basebit, in_key, out_key)
+
+        self.n = n # length of the input key: s'
+        self.t = t # decomposition length
+        self.basebit = basebit # log_2(base)
+        self.base = base # decomposition base: a power of 2
+        self.out_params = out_params # params of the output key s
+
+
+
+class LweKeySwitchKey_orig:
+
     """
     Create the key switching key:
      * normalize the error in the beginning
-     * chose a random vector of gaussian noises (same size as ks)
+     * choose a random vector of gaussian noises (same size as ks)
      * recenter the noises
      * generate the ks by creating noiseless encryprions and then add the noise
     """
-    def __init__(self, rng, n: int, t: int, basebit: int, in_key: LweKey, out_key: LweKey):
+    def __init__(self, thr, rng, n: int, t: int, basebit: int, in_key: LweKey, out_key: LweKey):
 
         # GPU: will be possibly made into a kernel including lweSymEncryptWithExternalNoise()
 
@@ -201,7 +196,7 @@ class LweKeySwitchKey:
         alpha = out_key.params.alpha_min
 
         # chose a random vector of gaussian noises
-        noises = rand_gaussian_float(rng, alpha, (n, t, base - 1))
+        noises = rand_gaussian_float(thr, rng, alpha, (n, t, base - 1))
 
         # recenter the noises
         noises -= noises.mean()
@@ -233,18 +228,11 @@ class LweKeySwitchKey:
         #ks.a = numpy.ascontiguousarray(ks.a.transpose(3, 2, 0, 1))
         # shape2: (outer_n, t, base, inner_n)
         ks.a = numpy.ascontiguousarray(ks.a)
-        print(ks.a.shape)
 
         ks.b = numpy.ascontiguousarray(ks.b.transpose(2, 0, 1))
         ks.current_variances = numpy.ascontiguousarray(ks.current_variances.transpose(2, 0, 1))
 
         # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
-
-    def to_gpu(self, thr):
-        self.ks.to_gpu(thr)
-
-    def from_gpu(self):
-        self.ks.from_gpu()
 
 
 """
@@ -287,13 +275,13 @@ def lweKeySwitchTranslate_fromArray(
 
 
 #sample=(a',b')
-def lweKeySwitch(result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSampleArray):
+def lweKeySwitch(thr, result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSampleArray):
 
     params = ks.out_params
     n = ks.n
     basebit = ks.basebit
     t = ks.t
 
-    lweNoiselessTrivial(result, sample.b, params)
+    lweNoiselessTrivial(thr, result, sample.b, params)
     lweKeySwitchTranslate_fromArray_gpu(result, ks.ks, params, sample.a, n, t, basebit)
 

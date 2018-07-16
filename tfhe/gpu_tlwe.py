@@ -4,12 +4,24 @@ from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel
 import reikna.transformations as transformations
 from reikna.cluda import dtypes, functions
+import reikna.helpers as helpers
 
 from .tlwe import TLweSampleArray, TLweParams
 from .lwe import LweSampleArray, LweParams
 from .computation_cache import get_computation
 
 from .gpu_polynomials import *
+
+from .polynomial_transform import (
+    ForwardTransform, InverseTransform, transformed_dtype,
+    transformed_internal_dtype, transformed_internal_ctype, transformed_length,
+    transformed_mul, transformed_add,
+    forward_transform_ref, inverse_transform_ref, transformed_space_mul_ref)
+
+from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
+
+
+TEMPLATE = helpers.template_for(__file__)
 
 
 class TLweNoiselessTrivial(Computation):
@@ -136,3 +148,131 @@ def tLweCopy_gpu(result: TLweSampleArray, sample: TLweSampleArray, params: TLweP
     thr = result.a.coefsT.thread
     thr.copy(sample.a.coefsT, dest=result.a.coefsT)
     thr.copy(sample.current_variances, dest=result.current_variances)
+
+
+
+# create an homogeneous tlwe sample
+def TLweSymEncryptZero_ref(shape, alpha: float, params: TLweParams):
+    N = params.N
+    k = params.k
+
+    def _kernel(result_a, result_cv, key, noises1, noises2):
+
+        tmp1 = LagrangeHalfCPolynomialArray(None, N, (k,))
+        tmp2 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
+        tmp3 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
+        tmpr = TorusPolynomialArray(None, N, shape + (k,))
+
+        tmp1.coefsC = forward_transform_ref(key)
+        tmp2.coefsC = forward_transform_ref(noises1)
+        numpy.copyto(tmp3.coefsC, transformed_space_mul_ref(tmp1.coefsC, tmp2.coefsC))
+        tmpr.coefsT = inverse_transform_ref(tmp3.coefsC)
+
+        result_a[:,:,:,:k,:] = noises1
+        result_a[:,:,:,k,:] = noises2
+        for i in range(k):
+            result_a[:,:,:,k,:] += tmpr.coefsT[:,:,:,i,:]
+
+        result_cv.fill(alpha**2)
+
+    return _kernel
+
+
+class TLweSymEncryptZero(Computation):
+
+    def __init__(self, shape, alpha: float, params: TLweParams):
+
+        N = params.N
+        k = params.k
+
+        a = Type(Torus32, shape + (k + 1, N))
+        cv = Type(numpy.float64, shape)
+        key = Type(numpy.int32, (k, N))
+        noises1 = Type(Torus32, shape + (k, N))
+        noises2 = Type(Torus32, shape + (N,))
+
+        self._alpha = alpha
+        self._k = k
+        self._N = N
+
+        Computation.__init__(self,
+            [Parameter('result_a', Annotation(a, 'o')),
+            Parameter('result_cv', Annotation(cv, 'o')),
+            Parameter('key', Annotation(key, 'i')),
+            Parameter('noises1', Annotation(noises1, 'i')),
+            Parameter('noises2', Annotation(noises2, 'i')),
+            ])
+
+    def _build_plan(
+            self, plan_factory, device_params,
+            result_a, result_cv, key, noises1, noises2):
+
+        plan = plan_factory()
+
+        N = self._N
+
+        ft_key = ForwardTransform(key.shape[:-1], N)
+        key_tr = plan.temp_array_like(ft_key.parameter.output)
+
+        ft_noises = ForwardTransform(noises1.shape[:-1], N)
+        noises1_tr = plan.temp_array_like(ft_noises.parameter.output)
+
+        ift = InverseTransform(noises1.shape[:-1], N)
+        ift_res = plan.temp_array_like(ift.parameter.output)
+
+        mul_tr = Transformation(
+            [
+                Parameter('output', Annotation(ift.parameter.input, 'o')),
+                Parameter('key', Annotation(key_tr, 'i')),
+                Parameter('noises1', Annotation(noises1_tr, 'i'))
+            ],
+            """
+            ${output.store_same}(${tr_ctype}unpack(${mul}(
+                ${tr_ctype}pack(${key.load_idx}(${idxs[-2]}, ${idxs[-1]})),
+                ${tr_ctype}pack(${noises1.load_same})
+                )));
+            """,
+            connectors=['output', 'noises1'],
+            render_kwds=dict(
+                mul=transformed_mul(),
+                tr_ctype=transformed_internal_ctype()))
+
+        ift.parameter.input.connect(mul_tr, mul_tr.output, key=mul_tr.key, noises1=mul_tr.noises1)
+
+        batch_len = len(result_a.shape) - 2
+
+        plan.computation_call(ft_key, key_tr, key)
+        plan.computation_call(ft_noises, noises1_tr, noises1)
+        plan.computation_call(ift, ift_res, key_tr, noises1_tr)
+        plan.kernel_call(
+            TEMPLATE.get_def("encrypt_zero_fill_result"),
+            [result_a, result_cv, noises1, noises2, ift_res],
+            global_size=(helpers.product(result_a.shape[:-2]), self._k + 1, N),
+            render_kwds=dict(
+                alpha=self._alpha, k=self._k,
+                noises1_slices=(batch_len, 1, 1),
+                noises2_slices=(batch_len, 1),
+                cv_slices=(batch_len,)
+                ))
+
+        return plan
+
+
+def tLweSymEncryptZero_gpu(thr, rng, result: 'TLweSampleArray', alpha: float, key: 'TLweKey'):
+    N = key.params.N
+    k = key.params.k
+
+    noises2 = rand_gaussian_torus32(thr, rng, 0, alpha, result.shape + (N,))
+    noises1 = rand_uniform_torus32(thr, rng, result.shape + (k, N))
+
+    comp = get_computation(
+        thr, TLweSymEncryptZero,
+        result.shape, alpha, key.params)
+    comp(result.a.coefsT, result.current_variances, key.key.coefs, noises1, noises2)
+
+
+# Computes the inverse FFT of the coefficients of the TLWE sample
+def tLweToFFTConvert_gpu(thr, result: 'TLweSampleFFTArray', source: 'TLweSampleArray', params: 'TLweParams'):
+    comp = get_computation(thr, ForwardTransform, source.a.coefsT.shape[:-1], source.a.coefsT.shape[-1])
+    comp(result.a.coefsC, source.a.coefsT)
+    thr.copy_array(source.current_variances, dest=result.current_variances)

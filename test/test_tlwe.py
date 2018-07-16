@@ -1,7 +1,12 @@
 import numpy
 
 from tfhe.numeric_functions import Torus32, Float
-from tfhe.gpu_tlwe import TLweNoiselessTrivial, TLweExtractLweSample
+from tfhe.tlwe import TLweParams
+from tfhe.gpu_tlwe import (
+    TLweNoiselessTrivial, TLweExtractLweSample,
+    TLweSymEncryptZero, TLweSymEncryptZero_ref)
+
+import tfhe.random_numbers as rn
 
 
 def int_prod(arr):
@@ -94,3 +99,40 @@ def test_tLweExtractLweSample(thread):
 
     assert numpy.allclose(a_test, a_ref)
     assert numpy.allclose(b_test, b_ref)
+
+
+def test_TLweSymEncryptZero(thread):
+
+    rng = numpy.random.RandomState(123)
+
+    k = 1
+    l = 2
+    N = 1024
+    alpha = 5e-9
+    params = TLweParams(N, k, alpha, alpha)
+    shape = (5, k + 1, l)
+
+    result_a = numpy.empty(shape + (k + 1, N), numpy.int32)
+    result_cv = numpy.empty(shape, numpy.float64)
+    noises2 = rn._rand_gaussian_torus32(rng, 0, alpha, shape + (N,))
+    noises1 = rn._rand_uniform_torus32(rng, shape + (k, N))
+    key = rn._rand_uniform_int32(rng, (k, N))
+
+    comp = TLweSymEncryptZero(shape, alpha, params).compile(thread)
+    ref = TLweSymEncryptZero_ref(shape, alpha, params)
+
+    result_a_dev = thread.empty_like(result_a)
+    result_cv_dev = thread.empty_like(result_cv)
+    noises1_dev = thread.to_device(noises1)
+    noises2_dev = thread.to_device(noises2)
+    key_dev = thread.to_device(key)
+
+    comp(result_a_dev, result_cv_dev, key_dev, noises1_dev, noises2_dev)
+    ref(result_a, result_cv, key, noises1, noises2)
+
+    result_a_test = result_a_dev.get()
+    result_cv_test = result_cv_dev.get()
+
+    assert (result_a_test == result_a).all()
+    assert numpy.allclose(result_cv_test, result_cv)
+

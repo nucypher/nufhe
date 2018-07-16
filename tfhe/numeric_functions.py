@@ -1,29 +1,10 @@
 import numpy
 
+from reikna.cluda import Module
+
 
 Torus32 = numpy.int32
 Float = numpy.float64
-
-
-def rand_uniform_int32(rng, shape):
-    return rng.randint(0, 2, size=shape, dtype=numpy.int32)
-
-
-def rand_uniform_torus32(rng, shape):
-    # TODO: if dims == () (it happens), the return value is not an array -> type instability
-    #       also, there's probably instability for arrays of different dims too.
-    #       Naturally, it applies for all other rand_ functions.
-    return rng.randint(-2**31, 2**31, size=shape, dtype=Torus32)
-
-
-def rand_gaussian_float(rng, sigma: float, shape):
-    return rng.normal(size=shape, scale=sigma)
-
-
-# Gaussian sample centered in message, with standard deviation sigma
-def rand_gaussian_torus32(rng, message: Torus32, sigma: float, shape):
-    # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    return message + dtot32(rng.normal(size=shape, scale=sigma))
 
 
 def modSwitchFromTorus32(phase: Torus32, Msize: int):
@@ -50,6 +31,15 @@ def modSwitchToTorus32(mu: int, Msize: int):
 # from double to Torus32
 def dtot32(d: float):
     return ((d - numpy.trunc(d)) * 2**32).astype(numpy.int32)
+
+
+dtot32_gpu = Module.create(
+    """
+    WITHIN_KERNEL int ${prefix}(double d)
+    {
+        return (d - trunc(d)) * ${2**32};
+    }
+    """)
 
 
 def int64_to_int32(x: int):

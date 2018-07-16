@@ -15,7 +15,7 @@ to_gpu_time = 0
 
 
 def lwe_bootstrapping_key(
-        rng, ks_t: int, ks_basebit: int, key_in: LweKey, rgsw_key: TGswKey):
+        thr, rng, ks_t: int, ks_basebit: int, key_in: LweKey, rgsw_key: TGswKey):
 
     bk_params = rgsw_key.params
     in_out_params = key_in.params
@@ -28,32 +28,32 @@ def lwe_bootstrapping_key(
     accum_key = rgsw_key.tlwe_key
     extracted_key = LweKey.from_key(extract_params, accum_key)
 
-    ks = LweKeySwitchKey(rng, N, ks_t, ks_basebit, extracted_key, key_in)
+    ks = LweKeySwitchKey(thr, rng, N, ks_t, ks_basebit, extracted_key, key_in)
 
-    bk = TGswSampleArray(bk_params, (n,))
+    bk = TGswSampleArray(thr, bk_params, (n,))
     kin = key_in.key
     alpha = accum_params.alpha_min
 
-    tGswSymEncryptInt(rng, bk, kin, alpha, rgsw_key)
+    tGswSymEncryptInt_gpu(thr, rng, bk, kin, alpha, rgsw_key)
 
     return bk, ks
 
 
 class LweBootstrappingKeyFFT:
 
-    def __init__(self, rng, ks_t: int, ks_basebit: int, lwe_key: LweKey, tgsw_key: TGswKey):
+    def __init__(self, thr, rng, ks_t: int, ks_basebit: int, lwe_key: LweKey, tgsw_key: TGswKey):
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        bk, ks = lwe_bootstrapping_key(rng, ks_t, ks_basebit, lwe_key, tgsw_key)
+        bk, ks = lwe_bootstrapping_key(thr, rng, ks_t, ks_basebit, lwe_key, tgsw_key)
 
         n = in_out_params.n
 
         # Bootstrapping Key FFT
-        bkFFT = TGswSampleFFTArray(bk_params, (n,))
-        tGswToFFTConvert(bkFFT, bk, bk_params)
+        bkFFT = TGswSampleFFTArray(thr, bk_params, (n,))
+        tGswToFFTConvert(thr, bkFFT, bk, bk_params)
 
         self.in_out_params = in_out_params # paramètre de l'input et de l'output. key: s
         self.bk_params = bk_params # params of the Gsw elems in bk. key: s"
@@ -61,14 +61,6 @@ class LweBootstrappingKeyFFT:
         self.extract_params = extract_params # params after extraction: key: s'
         self.bkFFT = bkFFT # the bootstrapping key (s->s")
         self.ks = ks # the keyswitch key (s'->s)
-
-    def to_gpu(self, thr):
-        self.bkFFT.to_gpu(thr)
-        self.ks.to_gpu(thr)
-
-    def from_gpu(self):
-        self.bkFFT.from_gpu()
-        self.ks.from_gpu()
 
 
 def tfhe_MuxRotate_FFT(
@@ -104,8 +96,7 @@ def tfhe_blindRotate_FFT(
     # TYPING: bara::Array{Int32}
     t = time.time()
     thr.synchronize()
-    temp = TLweSampleArray(bk_params.tlwe_params, accum.shape)
-    temp.to_gpu(thr)
+    temp = TLweSampleArray(thr, bk_params.tlwe_params, accum.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 
@@ -158,12 +149,10 @@ def tfhe_blindRotateAndExtract_FFT(
     # Test polynomial
     t = time.time()
     thr.synchronize()
-    testvectbis = TorusPolynomialArray(N, result.shape)
-    testvectbis.to_gpu(thr)
+    testvectbis = TorusPolynomialArray(thr, N, result.shape)
 
     # Accumulator
-    acc = TLweSampleArray(accum_params, result.shape)
-    acc.to_gpu(thr)
+    acc = TLweSampleArray(thr, accum_params, result.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 
@@ -204,8 +193,7 @@ def tfhe_bootstrap_woKS_FFT(
     thr = result.a.thread
     t = time.time()
     thr.synchronize()
-    testvect = TorusPolynomialArray(N, result.shape)
-    testvect.to_gpu(thr)
+    testvect = TorusPolynomialArray(thr, N, result.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 
@@ -234,18 +222,16 @@ def tfhe_bootstrap_woKS_FFT(
  * @param x The input sample
 """
 def tfhe_bootstrap_FFT(
-        result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
+        thr, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
 
     global to_gpu_time
 
     t = time.time()
-    x.a.thread.synchronize()
-    u = LweSampleArray(bk.accum_params.extracted_lweparams, result.shape)
-    u.to_gpu(x.a.thread)
-    x.a.thread.synchronize()
+    u = LweSampleArray(thr, bk.accum_params.extracted_lweparams, result.shape)
+    thr.synchronize()
     to_gpu_time += time.time() - t
 
     tfhe_bootstrap_woKS_FFT(result, u, bk, mu, x)
 
     # Key switching
-    #lweKeySwitch(result, bk.ks, u)
+    #lweKeySwitch(thr, result, bk.ks, u)

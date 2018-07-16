@@ -10,7 +10,8 @@ from tfhe.polynomial_transform import (
     forward_transform_ref, inverse_transform_ref, transformed_internal_ctype,
     transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
 from tfhe.gpu_tgsw import (
-    get_TGswTorus32PolynomialDecompH_trf, get_TLweFFTAddMulRTo_trf, TGswFFTExternMulToTLwe)
+    get_TGswTorus32PolynomialDecompH_trf, get_TLweFFTAddMulRTo_trf, TGswFFTExternMulToTLwe,
+    TGswAddMuIntH, TGswAddMuIntH_ref)
 
 
 def TGswTorus32PolynomialDecompH_reference(_result, params: TGswParams):
@@ -130,7 +131,7 @@ def test_TLweFFTAddMulRTo(thread):
     decaFFT_dev = thread.to_device(decaFFT)
     gsw_dev = thread.to_device(gsw)
 
-    trf = get_TLweFFTAddMulRTo_trf(tmpa_a, gsw, transformed_internal_ctype())
+    trf = get_TLweFFTAddMulRTo_trf(N, tmpa_a, gsw, transformed_internal_ctype())
     test = PureParallel.from_trf(trf, guiding_array='tmpa_a').compile(thread)
     ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw)
 
@@ -202,3 +203,30 @@ def test_TGswFFTExternMulToTLwe(thread):
     ref(accum_a, gsw, bk_idx)
 
     assert numpy.allclose(accum_a, accum_a_test)
+
+
+def test_TGswAddMuIntH(thread):
+
+    params = TFHEParameters()
+    tgsw_params = params.tgsw_params
+    n = params.in_out_params.n
+    l = tgsw_params.l
+    k = tgsw_params.tlwe_params.k
+    N = tgsw_params.tlwe_params.N
+
+    result_a = numpy.random.randint(-2**31, 2**31, size=(n, k+1, l, k+1, N), dtype=Torus32)
+    messages = numpy.random.randint(-2**31, 2**31, size=(n,), dtype=Torus32)
+
+    result_a_dev = thread.to_device(result_a)
+    messages_dev = thread.to_device(messages)
+
+    test = TGswAddMuIntH(n, tgsw_params).compile(thread)
+    ref = TGswAddMuIntH_ref(n, tgsw_params)
+
+    test(result_a_dev, messages_dev)
+    ref(result_a, messages)
+
+    result_a_test = result_a_dev.get()
+    messages_test = messages_dev.get()
+
+    assert numpy.allclose(result_a_test, result_a)

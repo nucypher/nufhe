@@ -51,43 +51,37 @@ class TFHECloudKey:
         self.params = params
         self.bkFFT = bkFFT
 
-    def to_gpu(self, thr):
-        self.bkFFT.to_gpu(thr)
-
-    def from_gpu(self):
-        self.bkFFT.from_gpu()
-
 
 def tfhe_parameters(key): # union(TFHESecretKey, TFHECloudKey)
     return key.params
 
 
-def tfhe_key_pair(rng):
+def tfhe_key_pair(thr, rng):
     params = TFHEParameters()
 
-    lwe_key = LweKey.from_rng(rng, params.in_out_params)
-    tgsw_key = TGswKey(rng, params.tgsw_params)
+    lwe_key = LweKey.from_rng(thr, rng, params.in_out_params)
+    tgsw_key = TGswKey(thr, rng, params.tgsw_params)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
-    bkFFT = LweBootstrappingKeyFFT(rng, params.ks_t, params.ks_basebit, lwe_key, tgsw_key)
+    bkFFT = LweBootstrappingKeyFFT(thr, rng, params.ks_t, params.ks_basebit, lwe_key, tgsw_key)
     cloud_key = TFHECloudKey(params, bkFFT)
 
     return secret_key, cloud_key
 
 
-def tfhe_encrypt(rng, key: TFHESecretKey, message):
-    result = empty_ciphertext(key.params, message.shape)
+def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
+    result = empty_ciphertext(thr, key.params, message.shape)
     _1s8 = modSwitchToTorus32(1, 8)
-    mus = numpy.array([_1s8 if bit else -_1s8 for bit in message])
+    mus = thr.to_device(numpy.array([_1s8 if bit else -_1s8 for bit in message], dtype=numpy.int32))
     alpha = key.params.in_out_params.alpha_min # TODO: specify noise
-    lweSymEncrypt(rng, result, mus, alpha, key.lwe_key)
+    lweSymEncrypt_gpu(thr, rng, result, mus, alpha, key.lwe_key)
     return result
 
 
-def tfhe_decrypt(key: TFHESecretKey, ciphertext: LweSampleArray):
-    mus = lwePhase(ciphertext, key.lwe_key)
+def tfhe_decrypt(thr, key: TFHESecretKey, ciphertext: LweSampleArray):
+    mus = lwePhase_gpu(thr, ciphertext, key.lwe_key)
     return numpy.array([(mu > 0) for mu in mus])
 
 
-def empty_ciphertext(params: TFHEParameters, shape):
-    return LweSampleArray(params.in_out_params, shape)
+def empty_ciphertext(thr, params: TFHEParameters, shape):
+    return LweSampleArray(thr, params.in_out_params, shape)

@@ -13,27 +13,25 @@ from . import lwe_bootstrapping
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_NAND_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
     t = time.time()
-    ca.a.thread.synchronize()
-    temp_result = LweSampleArray(in_out_params, result.shape)
-    temp_result.to_gpu(ca.a.thread)
-    ca.a.thread.synchronize()
+    temp_result = LweSampleArray(thr, in_out_params, result.shape)
+    thr.synchronize()
     lwe_bootstrapping.to_gpu_time += time.time() - t
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, NandConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial(thr, temp_result, NandConst, in_out_params)
+    lweSubTo(thr, temp_result, ca, in_out_params)
+    lweSubTo(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(thr, result, bk.bkFFT, MU, temp_result)
 
 
 """

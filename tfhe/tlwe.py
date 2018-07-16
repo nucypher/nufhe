@@ -1,7 +1,7 @@
 import numpy
 
+from .random_numbers import rand_uniform_int32
 from .lwe import *
-
 from .gpu_polynomials import TorusPolynomialArray, IntPolynomialArray, LagrangeHalfCPolynomialArray
 from .polynomial_transform import (
     forward_transform_ref, inverse_transform_ref, transformed_space_mul_ref)
@@ -19,12 +19,11 @@ class TLweParams:
 
 class TLweKey:
 
-    def __init__(self, rng, params: TLweParams):
+    def __init__(self, thr, rng, params: TLweParams):
         N = params.N
         k = params.k
-        # GPU: array operation or RNG on device
-        key = IntPolynomialArray(N, (k,))
-        key.coefs[:,:] = rand_uniform_int32(rng, (k, N))
+
+        key = IntPolynomialArray.from_array(rand_uniform_int32(thr, rng, (k, N)))
 
         self.params = params # the parameters of the key
         self.key = key # the key (i.e k binary polynomials)
@@ -32,47 +31,30 @@ class TLweKey:
 
 class TLweSampleArray:
 
-    def __init__(self, params: TLweParams, shape):
+    def __init__(self, thr, params: TLweParams, shape):
         self.k = params.k
 
         # array of length k+1: mask + right term
-        self.a = TorusPolynomialArray(params.N, shape + (self.k + 1,))
+        self.a = TorusPolynomialArray(thr, params.N, shape + (self.k + 1,))
 
         # avg variance of the sample
-        self.current_variances = numpy.zeros(shape, Float)
+        self.current_variances = thr.to_device(numpy.zeros(shape, Float))
 
         self.shape = shape
-
-    def to_gpu(self, thr):
-        self.a.to_gpu(thr)
-        self.current_variances = thr.to_device(self.current_variances.astype(Float))
-
-    def from_gpu(self):
-        self.a.from_gpu()
-        self.current_variances = self.current_variances.get().astype(numpy.float64)
 
 
 class TLweSampleFFTArray:
 
-    def __init__(self, params: TLweParams, shape):
+    def __init__(self, thr, params: TLweParams, shape):
         self.k = params.k
 
         # array of length k+1: mask + right term
-        self.a = LagrangeHalfCPolynomialArray(params.N, shape + (self.k + 1,))
+        self.a = LagrangeHalfCPolynomialArray(thr, params.N, shape + (self.k + 1,))
 
         # avg variance of the sample
-        self.current_variances = numpy.zeros(shape, Float)
+        self.current_variances = thr.to_device(numpy.zeros(shape, Float))
 
         self.shape = shape
-
-    def to_gpu(self, thr):
-        self.a.to_gpu(thr)
-        self.current_variances = thr.to_device(self.current_variances.astype(Float))
-
-    def from_gpu(self):
-        self.a.from_gpu()
-        self.current_variances = self.current_variances.get().astype(numpy.float64)
-
 
 
 def tLweExtractLweSampleIndex(

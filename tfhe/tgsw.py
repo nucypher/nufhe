@@ -1,6 +1,7 @@
 import numpy
 
 from .tlwe import *
+from .gpu_tlwe import tLweToFFTConvert_gpu
 
 
 class TGswParams:
@@ -28,33 +29,26 @@ class TGswParams:
 
 class TGswKey:
 
-    def __init__(self, rng, params: TGswParams):
-        tlwe_key = TLweKey(rng, params.tlwe_params)
+    def __init__(self, thr, rng, params: TGswParams):
         self.params = params # the parameters
         self.tlwe_params = params.tlwe_params # the tlwe params of each rows
-        self.tlwe_key = tlwe_key
+        self.tlwe_key = TLweKey(thr, rng, params.tlwe_params)
 
 
 class TGswSampleArray:
 
-    def __init__(self, params: TGswParams, shape):
+    def __init__(self, thr, params: TGswParams, shape):
         self.k = params.tlwe_params.k
         self.l = params.l
-        self.samples = TLweSampleArray(params.tlwe_params, shape + (self.k + 1, self.l))
+        self.samples = TLweSampleArray(thr, params.tlwe_params, shape + (self.k + 1, self.l))
 
 
 class TGswSampleFFTArray:
 
-    def __init__(self, params: TGswParams, shape):
+    def __init__(self, thr, params: TGswParams, shape):
         self.k = params.tlwe_params.k
         self.l = params.l
-        self.samples = TLweSampleFFTArray(params.tlwe_params, shape + (self.k + 1, self.l))
-
-    def to_gpu(self, thr):
-        self.samples.to_gpu(thr)
-
-    def from_gpu(self):
-        self.samples.from_gpu()
+        self.samples = TLweSampleFFTArray(thr, params.tlwe_params, shape + (self.k + 1, self.l))
 
 
 # Result += mu*H, mu integer
@@ -115,8 +109,8 @@ def tGswTorus32PolynomialDecompH(
 
 # For all the kpl TLWE samples composing the TGSW sample
 # It computes the inverse FFT of the coefficients of the TLWE sample
-def tGswToFFTConvert(result: TGswSampleFFTArray, source: TGswSampleArray, params: TGswParams):
-    tLweToFFTConvert(result.samples, source.samples, params.tlwe_params)
+def tGswToFFTConvert(thr, result: TGswSampleFFTArray, source: TGswSampleArray, params: TGswParams):
+    tLweToFFTConvert_gpu(thr, result.samples, source.samples, params.tlwe_params)
 
 
 def tLweFFTAddMulRTo(res, a, b, bk_idx):

@@ -22,20 +22,40 @@ class Polynomial:
         return self._polynomial_size
 
 
+class FakeThread:
+
+    def array(self, shape, dtype):
+        return numpy.empty(shape, dtype)
+
+
 # This structure represents an integer polynomial modulo X^N+1
 class IntPolynomialArray(Polynomial):
-    def __init__(self, N, shape):
+    def __init__(self, thr, N, shape):
         Polynomial.__init__(self)
-        self.coefs = numpy.empty(shape + (N,), numpy.int32)
+
+        if thr is None:
+            thr = FakeThread()
+
+        self.coefs = thr.array(shape + (N,), numpy.int32)
         self._polynomial_size = N
         self.shape = shape
+
+    @classmethod
+    def from_array(cls, arr):
+        obj = cls(arr.thread, arr.shape[-1], arr.shape[:-1])
+        obj.coefs = arr
+        return obj
 
 
 # This structure represents an torus polynomial modulo X^N+1
 class TorusPolynomialArray(Polynomial):
-    def __init__(self, N, shape):
+    def __init__(self, thr, N, shape):
         Polynomial.__init__(self)
-        self.coefsT = numpy.empty(shape + (N,), Torus32)
+
+        if thr is None:
+            thr = FakeThread()
+
+        self.coefsT = thr.array(shape + (N,), Torus32)
         self._polynomial_size = N
         self.shape = shape
 
@@ -45,28 +65,20 @@ class TorusPolynomialArray(Polynomial):
         obj.coefsT = arr
         return obj
 
-    def to_gpu(self, thr):
-        self.coefsT = thr.to_device(self.coefsT)
-
-    def from_gpu(self):
-        self.coefsT = self.coefsT.get()
-
 
 # This structure is used for FFT operations, and is a representation
 # over C of a polynomial in R[X]/X^N+1
 class LagrangeHalfCPolynomialArray(Polynomial):
-    def __init__(self, N, shape):
+    def __init__(self, thr, N, shape):
         Polynomial.__init__(self)
         assert N % 2 == 0
-        self.coefsC = numpy.empty(shape + (transformed_length(N),), transformed_dtype())
+
+        if thr is None:
+            thr = FakeThread()
+
+        self.coefsC = thr.array(shape + (transformed_length(N),), transformed_dtype())
         self._polynomial_size = N
         self.shape = shape
-
-    def to_gpu(self, thr):
-        self.coefsC = thr.to_device(self.coefsC.astype(transformed_dtype()))
-
-    def from_gpu(self):
-        self.coefsC = self.coefsC.get().astype(transformed_dtype())
 
 
 def _coefs(p):

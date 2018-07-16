@@ -206,7 +206,7 @@ ${kernel_declaration}
                     {
                         if (i == lwe_n)
                         {
-                            res -= ${ks_b.load_idx}(val, j, k);
+                            res -= ${ks_b.load_idx}(j, k, val);
                         }
                         else
                         {
