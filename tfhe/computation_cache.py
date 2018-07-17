@@ -11,6 +11,10 @@ def clean_arg(arg):
         return arg
 
 
+def clear_computation_cache():
+    _computations.clear()
+
+
 def get_computation(thr, cls, *args, **kwds):
     hashable_args = tuple(map(clean_arg, args))
     hashable_kwds = tuple((key, kwds[key]) for key in sorted(kwds))
