@@ -81,8 +81,8 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     ref(a, b, cv, ks_a, ks_b, ks_cv, ai)
 
     assert (a == a_test).all()
-    #assert (b == b_test).all()
-    #assert numpy.allclose(cv, cv_test)
+    assert (b == b_test).all()
+    assert numpy.allclose(cv, cv_test)
 
 
 def test_LweKeySwitchKey(thread):
