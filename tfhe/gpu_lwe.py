@@ -151,6 +151,11 @@ class LweKeySwitchTranslate_fromArray(Computation):
         self._prepare_aijs = PureParallel.from_trf(prepare_aijs_trf(ai, t, basebit))
         aijs = self._prepare_aijs.parameter.aijs
 
+        self._t = t
+        self._outer_n = outer_n
+        self._inner_n = inner_n
+        self._basebit = basebit
+
         # a
         """
         reduce_res = Type(ks_a.dtype, batch_shape + (inner_n, outer_n, t))
@@ -232,7 +237,11 @@ class LweKeySwitchTranslate_fromArray(Computation):
             global_size=(helpers.product(batch_shape), 512),
             local_size=(1, 512),
             render_kwds=dict(
-                slices=(len(batch_shape), 1)
+                slices=(len(batch_shape), 1),
+                lwe_n=self._inner_n,
+                tlwe_n=self._outer_n,
+                decomp_bits=self._basebit,
+                decomp_size=self._t,
                 )
             )
 
