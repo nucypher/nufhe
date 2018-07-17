@@ -104,7 +104,7 @@ def lweNoiselessTrivial(thr, result: LweSampleArray, mus, params: LweParams):
 
 
 # result = result + sample
-def lweAddTo(result: LweSampleArray, sample: LweSampleArray, params: LweParams):
+def lweAddTo(thr, result: LweSampleArray, sample: LweSampleArray, params: LweParams):
     # GPU: array operations or a custom kernel
     result.a += sample.a
     result.b += sample.b

@@ -291,6 +291,7 @@ def tfhe_gate_ORYN_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_MUX_(
+        thr,
         bk: TFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray):
 
@@ -298,35 +299,31 @@ def tfhe_gate_MUX_(
     in_out_params = bk.params.in_out_params
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
-    temp_result = LweSampleArray(in_out_params, result.shape)
-    temp_result.to_gpu(a.a.thread)
-    temp_result1 = LweSampleArray(extracted_params, result.shape)
-    temp_result1.to_gpu(a.a.thread)
-    u1 = LweSampleArray(extracted_params, result.shape)
-    u1.to_gpu(a.a.thread)
-    u2 = LweSampleArray(extracted_params, result.shape)
-    u2.to_gpu(a.a.thread)
+    temp_result = LweSampleArray(thr, in_out_params, result.shape)
+    temp_result1 = LweSampleArray(thr, extracted_params, result.shape)
+    u1 = LweSampleArray(thr, extracted_params, result.shape)
+    u2 = LweSampleArray(thr, extracted_params, result.shape)
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweAddTo(temp_result, a, in_out_params)
-    lweAddTo(temp_result, b, in_out_params)
+    lweNoiselessTrivial(thr, temp_result, AndConst, in_out_params)
+    lweAddTo(thr, temp_result, a, in_out_params)
+    lweAddTo(thr, temp_result, b, in_out_params)
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(u1, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_woKS_FFT(thr, u1, bk.bkFFT, MU, temp_result)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweSubTo(temp_result, a, in_out_params)
-    lweAddTo(temp_result, c, in_out_params)
+    lweNoiselessTrivial(thr, temp_result, AndConst, in_out_params)
+    lweSubTo(thr, temp_result, a, in_out_params)
+    lweAddTo(thr, temp_result, c, in_out_params)
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(u2, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_woKS_FFT(thr, u2, bk.bkFFT, MU, temp_result)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result1, MuxConst, extracted_params)
-    lweAddTo(temp_result1, u1, extracted_params)
-    lweAddTo(temp_result1, u2, extracted_params)
+    lweNoiselessTrivial(thr, temp_result1, MuxConst, extracted_params)
+    lweAddTo(thr, temp_result1, u1, extracted_params)
+    lweAddTo(thr, temp_result1, u2, extracted_params)
 
     # Key switching
-    lweKeySwitch(result, bk.bkFFT.ks, temp_result1)
+    lweKeySwitch(thr, result, bk.bkFFT.ks, temp_result1)
