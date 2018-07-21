@@ -1,20 +1,15 @@
 import numpy
 
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.fft import FFT
-from reikna.algorithms import PureParallel
-import reikna.transformations as transformations
-from reikna.cluda import dtypes, functions
 import reikna.helpers as helpers
 
 from .numeric_functions import Torus32
-from .gpu_polynomials import TorusPolynomialArray
 from .tlwe_gpu import tLweSymEncryptZero_gpu
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .polynomial_transform import (
     ForwardTransform, InverseTransform, transformed_dtype,
-    transformed_internal_dtype, transformed_internal_ctype, transformed_length,
+    transformed_internal_ctype, transformed_length,
     transformed_mul, transformed_add)
 from .computation_cache import get_computation
 

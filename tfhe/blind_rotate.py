@@ -1,16 +1,16 @@
 import numpy
 
-from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.cluda import dtypes, functions
+from reikna.core import Computation, Parameter, Annotation
 import reikna.helpers as helpers
 
-from .gpu_polynomials import TorusPolynomialArray
-from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
+from .tgsw import TGswParams, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .polynomial_transform import (
-    ForwardTransform, InverseTransform, transformed_dtype, transform_module,
-    transformed_internal_dtype, transformed_internal_ctype, transformed_length,
-    transformed_mul, transformed_add)
+    transform_module,
+    transformed_internal_ctype,
+    transformed_mul,
+    transformed_add,
+    )
 from .computation_cache import get_computation
 
 
@@ -40,7 +40,6 @@ class BlindRotateKS(Computation):
         tlwe_params = self._params.tlwe_params
         k = tlwe_params.mask_size
         l = self._params.decomp_length
-        N = tlwe_params.polynomial_degree
 
         batch_shape = accum_a.shape[:-2]
 

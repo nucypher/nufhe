@@ -1,14 +1,11 @@
 import numpy
 
-from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.fft import FFT
+from reikna.core import Computation, Transformation, Parameter, Annotation
 from reikna.algorithms import PureParallel
-import reikna.transformations as transformations
-from reikna.cluda import dtypes, functions
+from reikna.cluda import dtypes
 
 from .computation_cache import get_computation
-from .numeric_functions import Torus32, Float
-
+from .numeric_functions import Torus32
 from .polynomial_transform import transformed_length, transformed_dtype
 
 

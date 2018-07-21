@@ -1,6 +1,3 @@
-from reikna.core import Type
-
-
 _computations = {}
 
 

@@ -2,22 +2,18 @@ import numpy
 
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel
-import reikna.transformations as transformations
-from reikna.cluda import dtypes, functions
 import reikna.helpers as helpers
 
 from .tlwe import TLweSampleArray, TLweParams
 from .lwe import LweSampleArray, LweParams
 from .computation_cache import get_computation
-
-from .gpu_polynomials import *
-
+from .gpu_polynomials import TorusPolynomialArray, tp_mul_by_xai_minus_one_gpu
+from .numeric_functions import Torus32, Float
 from .polynomial_transform import (
-    ForwardTransform, InverseTransform, transformed_dtype,
-    transformed_internal_dtype, transformed_internal_ctype, transformed_length,
-    transformed_mul, transformed_add,
-    forward_transform_ref, inverse_transform_ref, transformed_space_mul_ref)
-
+    ForwardTransform, InverseTransform,
+    transformed_internal_ctype,
+    transformed_mul,
+    )
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
 
 

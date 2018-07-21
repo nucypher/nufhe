@@ -1,8 +1,7 @@
 import numpy
 
 import reikna.helpers as helpers
-from reikna.cluda import dtypes, Module, functions
-from reikna.core import Computation, Parameter, Annotation, Type, Transformation
+from reikna.core import Computation, Parameter, Annotation, Type
 
 
 TEMPLATE = helpers.template_for(__file__)

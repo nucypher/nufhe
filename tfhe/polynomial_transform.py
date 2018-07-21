@@ -1,7 +1,5 @@
 import numpy
 
-from reikna.cluda import functions
-
 from .transform import ntt1024, Transform
 from .transform.arithmetic import add, mul, get_ff_elem
 from .transform.ntt import ntt_transform_ref

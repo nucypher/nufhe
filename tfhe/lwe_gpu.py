@@ -15,12 +15,12 @@ import numpy
 
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel, Reduce, predicate_sum
-from reikna.cluda import dtypes, functions, Snippet
+from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
 from .computation_cache import get_computation
-from .numeric_functions import Torus32, Float, dtot32_gpu, dtot32
+from .numeric_functions import Torus32, Float, dtot32_gpu
 from .random_numbers import rand_gaussian_float, rand_uniform_torus32, rand_gaussian_torus32
 
 

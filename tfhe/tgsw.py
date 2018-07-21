@@ -1,6 +1,7 @@
 import numpy
 
-from .tlwe import *
+from .numeric_functions import int64_to_int32, Torus32
+from .tlwe import TLweParams, TLweKey, TLweSampleArray, TLweSampleFFTArray
 from .tlwe_gpu import tLweToFFTConvert_gpu
 
 

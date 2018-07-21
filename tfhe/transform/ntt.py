@@ -2,7 +2,6 @@ import numpy
 
 import reikna.helpers as helpers
 from reikna.cluda import dtypes, Module
-from reikna.core import Computation, Parameter, Annotation, Type, Transformation
 
 from . import arithmetic
 from . import ntt_cpu as ntt_cpu

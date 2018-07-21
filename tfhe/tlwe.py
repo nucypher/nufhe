@@ -1,7 +1,8 @@
 import numpy
 
+from .numeric_functions import Float
 from .random_numbers import rand_uniform_int32
-from .lwe import *
+from .lwe import LweParams
 from .gpu_polynomials import TorusPolynomialArray, IntPolynomialArray, LagrangeHalfCPolynomialArray
 
 
