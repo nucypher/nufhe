@@ -2,28 +2,19 @@ import numpy
 
 from tfhe.numeric_functions import Torus32, Float
 from tfhe.tlwe import TLweParams
-from tfhe.gpu_tlwe import (
-    TLweNoiselessTrivial, TLweExtractLweSample,
-    TLweSymEncryptZero, TLweSymEncryptZero_ref)
+from tfhe.tlwe_gpu import (
+    TLweNoiselessTrivial,
+    TLweExtractLweSample,
+    TLweSymEncryptZero,
+    )
+from tfhe.tlwe_cpu import (
+    TLweSymEncryptZero_ref,
+    tLweNoiselessTrivial_reference,
+    tLweExtractLweSample_reference,
+    )
+
 
 import tfhe.random_numbers as rn
-
-
-def int_prod(arr):
-    return numpy.prod(arr, dtype=numpy.int32)
-
-
-def tLweNoiselessTrivial_reference(result_a, result_current_variances, mu):
-    assert len(result_a.shape) == 3
-    assert result_current_variances.shape == result_a.shape[:-2]
-    assert mu.shape == (result_a.shape[0], result_a.shape[-1])
-    assert result_a.dtype == mu.dtype
-
-    k = result_a.shape[1] - 1
-    result_a[:,:k,:] = 0
-    result_a[:,k,:] = mu
-    result_current_variances.fill(0.)
-
 
 
 def test_tLweNoiselessTrivial(thread):
@@ -50,29 +41,6 @@ def test_tLweNoiselessTrivial(thread):
 
     assert numpy.allclose(a_test, a_ref)
     assert numpy.allclose(cv_test, cv_ref)
-
-
-
-def tLweExtractLweSample_reference(result_a, result_b, tlwe_a):
-
-    N = tlwe_a.shape[-1]
-    k = tlwe_a.shape[-2] - 1
-    assert result_a.shape[-1] == k*N
-    assert result_a.shape[:-1] == tlwe_a.shape[:-2]
-    assert result_b.shape == tlwe_a.shape[:-2]
-    assert result_a.dtype == tlwe_a.dtype
-    assert result_b.dtype == tlwe_a.dtype
-
-    batch = int_prod(tlwe_a.shape[:-2])
-
-    a_view = result_a.reshape(batch, k, N)
-    b_view = result_b.reshape(batch)
-    tlwe_a_view = tlwe_a.reshape(batch, k + 1, N)
-
-    a_view[:,:,0] = tlwe_a_view[:, :k, 0]
-    a_view[:,:,1:] = -tlwe_a_view[:, :k, :0:-1]
-
-    numpy.copyto(b_view, tlwe_a_view[:, k, 0])
 
 
 def test_tLweExtractLweSample(thread):

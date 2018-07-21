@@ -9,7 +9,7 @@ import reikna.helpers as helpers
 
 from .numeric_functions import Torus32
 from .gpu_polynomials import TorusPolynomialArray
-from .gpu_tlwe import tLweSymEncryptZero_gpu
+from .tlwe_gpu import tLweSymEncryptZero_gpu
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .polynomial_transform import (
@@ -132,30 +132,6 @@ def tGswFFTExternMulToTLwe_gpu(
     thr = result.a.coefsT.thread
     comp = get_computation(thr, TGswFFTExternMulToTLwe, result.a.coefsT, bki.samples.a.coefsC, bk_params)
     comp(result.a.coefsT, bki.samples.a.coefsC, bk_idx)
-
-
-# Result += mu*H, mu integer
-def TGswAddMuIntH_ref(n, params: 'TGswParams'):
-    # TYPING: messages::Array{Int32, 1}
-    k = params.tlwe_params.k
-    l = params.l
-    h = params.h
-
-    def _kernel(result_a, messages):
-
-        # compute result += H
-
-        # returns an underlying coefsT of TorusPolynomialArray, with the total size
-        # (N, k + 1 [from TLweSample], l, k + 1 [from TGswSample], n)
-        # messages: (n,)
-        # h: (l,)
-        # TODO: use an appropriate method
-        # TODO: not sure if it's possible to fully vectorize it
-        for bloc in range(k+1):
-            result_a[:, bloc, :, bloc, 0] += (
-                messages.reshape(messages.size, 1) * h.reshape(1, l))
-
-    return _kernel
 
 
 class TGswAddMuIntH(Computation):

@@ -9,38 +9,18 @@ from tfhe.numeric_functions import Torus32
 from tfhe.polynomial_transform import (
     forward_transform_ref, inverse_transform_ref, transformed_internal_ctype,
     transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
-from tfhe.gpu_tgsw import (
-    get_TGswTorus32PolynomialDecompH_trf, get_TLweFFTAddMulRTo_trf, TGswFFTExternMulToTLwe,
-    TGswAddMuIntH, TGswAddMuIntH_ref)
-
-
-def TGswTorus32PolynomialDecompH_reference(_result, params: TGswParams):
-
-    def _kernel(result, sample):
-
-        N = result.shape[-1]
-        l = result.shape[-2]
-        k = result.shape[-3] - 1
-        batch = result.shape[:-3]
-
-        assert sample.shape == batch + (k + 1, N)
-        assert result.dtype == numpy.int32
-        assert sample.dtype == Torus32
-
-        Bgbit = params.Bgbit
-        maskMod = params.maskMod
-        halfBg = params.halfBg
-        offset = params.offset
-
-        decal = lambda p: 32 - p * Bgbit
-
-        ps = numpy.arange(1, l+1).reshape((1,) * len(batch) + (1, l, 1))
-        sample_coefs = sample.reshape(sample.shape[:-1] + (1, N))
-
-        # do the decomposition
-        numpy.copyto(result, (((sample_coefs + offset) >> decal(ps)) & maskMod) - halfBg)
-
-    return _kernel
+from tfhe.tgsw_gpu import (
+    get_TGswTorus32PolynomialDecompH_trf,
+    get_TLweFFTAddMulRTo_trf,
+    TGswFFTExternMulToTLwe,
+    TGswAddMuIntH,
+    )
+from tfhe.tgsw_cpu import (
+    TGswAddMuIntH_ref,
+    TGswTorus32PolynomialDecompH_reference,
+    TLweFFTAddMulRTo_reference,
+    TGswFFTExternMulToTLwe_reference,
+    )
 
 
 def test_TGswTorus32PolynomialDecompH(thread):
@@ -69,34 +49,6 @@ def test_TGswTorus32PolynomialDecompH(thread):
     ref(result, sample)
 
     assert (result == result_test).all()
-
-
-
-def TLweFFTAddMulRTo_reference(res, gsw):
-
-    def _kernel(res, decaFFT, gsw, bk_idx):
-
-        batch_shape = res.shape[:-2]
-        k = res.shape[-2] - 1
-        transformed_N = res.shape[-1]
-        l = decaFFT.shape[-2]
-
-        assert decaFFT.shape == batch_shape + (k + 1, l, transformed_N)
-        assert gsw.shape[-4:] == (k + 1, l, k + 1, transformed_N)
-        assert res.shape == batch_shape + (k + 1, transformed_N)
-
-        assert res.dtype == transformed_dtype()
-        assert decaFFT.dtype == transformed_dtype()
-        assert gsw.dtype == transformed_dtype()
-
-        d = decaFFT.reshape(batch_shape + (k+1, l, 1, transformed_N))
-        res.fill(0)
-        for i in range(k + 1):
-            for j in range(l):
-                res[:,:,:] = transformed_space_add_ref(
-                    res, transformed_space_mul_ref(d[:,i,j,:,:], gsw[bk_idx,i,j,:,:]))
-
-    return _kernel
 
 
 def test_TLweFFTAddMulRTo(thread):
@@ -141,32 +93,6 @@ def test_TLweFFTAddMulRTo(thread):
     ref(tmpa_a, decaFFT, gsw, bk_idx)
 
     assert numpy.allclose(tmpa_a, tmpa_a_test)
-
-
-# External product (*): accum = gsw (*) accum
-def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: TGswParams):
-
-    def _kernel(accum_a, gsw, bk_idx):
-
-        tlwe_params = params.tlwe_params
-        k = tlwe_params.k
-        l = params.l
-        kpl = params.kpl
-        N = tlwe_params.N
-
-        batch_shape = accum_a.shape[:-2]
-        deca = numpy.empty(batch_shape + (k + 1, l, N), numpy.int32)
-        tmpa_a = numpy.empty(batch_shape + (k + 1, transformed_length(N)), transformed_dtype())
-
-        TGswTorus32PolynomialDecompH_reference(deca, params)(deca, accum_a)
-
-        decaFFT = forward_transform_ref(deca)
-
-        TLweFFTAddMulRTo_reference(tmpa_a, gsw)(tmpa_a, decaFFT, gsw, bk_idx)
-
-        numpy.copyto(accum_a, inverse_transform_ref(tmpa_a))
-
-    return _kernel
 
 
 def test_TGswFFTExternMulToTLwe(thread):

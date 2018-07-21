@@ -27,120 +27,15 @@ from .random_numbers import rand_gaussian_float, rand_uniform_torus32, rand_gaus
 TEMPLATE = helpers.template_for(__file__)
 
 
-def prepare_aijs_trf(ai, t, basebit):
-    aijs = Type(ai.dtype, ai.shape + (t,))
-
-    base = 1 << basebit # base=2 in [CGGI16]
-    prec_offset = 1 << (32 - (1 + basebit * t)) # precision
-    mask = base - 1
-
-    return Transformation(
-        [
-            Parameter('aijs', Annotation(aijs, 'o')),
-            Parameter('ai', Annotation(ai, 'i'))
-        ],
-        """
-        ${aijs.store_same}(
-            ((${ai.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-2]}) + (${prec_offset}))
-                >> (32 - (${idxs[-1]} + 1) * ${basebit})) & ${mask}
-            );
-        """,
-        render_kwds=dict(basebit=basebit, mask=mask, prec_offset=prec_offset))
-
-
-def filter_by_aijs_trf(aijs, ks_a_tr):
-    batch_shape = aijs.shape[:-2]
-    inner_n, base, outer_n, t = ks_a_tr.shape
-    filtered_ks = Type(ks_a_tr.dtype, batch_shape + (inner_n, outer_n, t))
-
-    return Transformation(
-        [
-            Parameter('output', Annotation(filtered_ks, 'o')),
-            Parameter('aijs', Annotation(aijs, 'i')),
-            Parameter('full_ks_a', Annotation(ks_a_tr, 'i'))
-        ],
-        """
-        ${aijs.ctype} x = ${aijs.load_idx}(${", ".join(idxs[:-3])}, ${idxs[-2]}, ${idxs[-1]});
-        ${output.ctype} res;
-        if (x != 0)
-        {
-            res = ${full_ks_a.load_idx}(${idxs[-3]}, x, ${idxs[-2]}, ${idxs[-1]});
-        }
-        else
-        {
-            res = 0;
-        }
-        ${output.store_same}(res);
-        """,
-        connectors=['output'])
-
-
-def filter_by_aijs_trf_single(aijs, ks_b):
-    batch_shape = aijs.shape[:-2]
-    base, outer_n, t = ks_b.shape
-    filtered_ks = Type(ks_b.dtype, batch_shape + (outer_n, t))
-
-    return Transformation(
-        [
-            Parameter('output', Annotation(filtered_ks, 'o')),
-            Parameter('aijs', Annotation(aijs, 'i')),
-            Parameter('full_ks_b', Annotation(ks_b, 'i'))
-        ],
-        """
-        ${aijs.ctype} x = ${aijs.load_idx}(${", ".join(idxs)});
-        ${output.ctype} res;
-        if (x != 0)
-        {
-            res = ${full_ks_b.load_idx}(x, ${idxs[-2]}, ${idxs[-1]});
-        }
-        else
-        {
-            res = 0;
-        }
-        ${output.store_same}(res);
-        """,
-        connectors=['output'])
-
-
-
-def sub_from(a):
-    return Transformation(
-        [
-            Parameter('output', Annotation(a, 'o')),
-            Parameter('input', Annotation(a, 'i')),
-            Parameter('to_sub', Annotation(a, 'i')),
-        ],
-        """
-        ${output.store_same}(${input.load_same} - ${to_sub.load_same});
-        """,
-        connectors=['output'])
-
-
-def add_to(a):
-    return Transformation(
-        [
-            Parameter('output', Annotation(a, 'o')),
-            Parameter('input', Annotation(a, 'i')),
-            Parameter('to_add', Annotation(a, 'i')),
-        ],
-        """
-        ${output.store_same}(${input.load_same} + ${to_add.load_same});
-        """,
-        connectors=['output'])
-
-
 class LweKeySwitchTranslate_fromArray(Computation):
 
     def __init__(self, batch_shape, t: int, outer_n, inner_n, basebit: int):
 
-        base = 1 << basebit # base=2 in [CGGI16]
+        base = 1 << basebit
 
         a = Type(Torus32, batch_shape + (inner_n,))
         b = Type(Torus32, batch_shape)
         cv = Type(Float, batch_shape)
-        #ks_a = Type(Torus32, (inner_n, base, outer_n, t))
-        #ks_b = Type(Torus32, (base, outer_n, t))
-        #ks_cv = Type(Float, (base, outer_n, t))
 
         ks_a = Type(Torus32, (outer_n, t, base, inner_n))
         ks_b = Type(Torus32, (outer_n, t, base))
@@ -148,62 +43,10 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         ai = Type(Torus32, batch_shape + (outer_n,))
 
-        self._prepare_aijs = PureParallel.from_trf(prepare_aijs_trf(ai, t, basebit))
-        aijs = self._prepare_aijs.parameter.aijs
-
         self._t = t
         self._outer_n = outer_n
         self._inner_n = inner_n
         self._basebit = basebit
-
-        # a
-        """
-        reduce_res = Type(ks_a.dtype, batch_shape + (inner_n, outer_n, t))
-
-        l = len(reduce_res.shape)
-        self._sum_ks_a = Reduce(reduce_res, predicate_sum(ks_a.dtype), axes=(l-2, l-1))
-
-        trf = filter_by_aijs_trf(aijs, ks_a)
-        sub_trf = sub_from(a)
-
-        self._sum_ks_a.parameter.input.connect(
-            trf, trf.output, ks_a=trf.full_ks_a, aijs=trf.aijs)
-
-        self._sum_ks_a.parameter.output.connect(
-            sub_trf, sub_trf.to_sub, a=sub_trf.input, result_a=sub_trf.output)
-        """
-        # b
-        """
-        reduce_res = Type(ks_b.dtype, batch_shape + (outer_n, t))
-
-        l = len(reduce_res.shape)
-        self._sum_ks_b = Reduce(reduce_res, predicate_sum(ks_b.dtype), axes=(l-2, l-1))
-
-        trf = filter_by_aijs_trf_single(aijs, ks_b)
-        sub_trf = sub_from(b)
-
-        self._sum_ks_b.parameter.input.connect(
-            trf, trf.output, ks_b=trf.full_ks_b, aijs=trf.aijs)
-
-        self._sum_ks_b.parameter.output.connect(
-            sub_trf, sub_trf.to_sub, b=sub_trf.input, result_b=sub_trf.output)
-        """
-        # cv
-        """
-        reduce_res = Type(ks_cv.dtype, batch_shape + (outer_n, t))
-
-        l = len(reduce_res.shape)
-        self._sum_ks_cv = Reduce(reduce_res, predicate_sum(ks_cv.dtype), axes=(l-2, l-1))
-
-        trf = filter_by_aijs_trf_single(aijs, ks_cv)
-        add_trf = add_to(cv)
-
-        self._sum_ks_cv.parameter.input.connect(
-            trf, trf.output, ks_cv=trf.full_ks_b, aijs=trf.aijs)
-
-        self._sum_ks_cv.parameter.output.connect(
-            add_trf, add_trf.to_add, cv=add_trf.input, result_cv=add_trf.output)
-        """
 
         Computation.__init__(self,
             [Parameter('result_a', Annotation(a, 'io')),
@@ -221,15 +64,6 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
         plan = plan_factory()
 
-        #aijs = plan.temp_array_like(self._prepare_aijs.parameter.aijs)
-
-        #plan.computation_call(self._prepare_aijs, aijs, ai)
-
-        #plan.computation_call(self._sum_ks_a, result_a, result_a, aijs, ks_a)
-
-        # result_a: batch_shape + (inner_n,)
-        # ks_a: (inner_n, base, outer_n, t)
-        # ai: batch_shape + (outer_n,)
         batch_shape = result_a.shape[:-1]
         plan.kernel_call(
             TEMPLATE.get_def("keyswitch"),
@@ -244,9 +78,6 @@ class LweKeySwitchTranslate_fromArray(Computation):
                 decomp_size=self._t,
                 )
             )
-
-        #plan.computation_call(self._sum_ks_b, result_b, result_b, aijs, ks_b)
-        #plan.computation_call(self._sum_ks_cv, result_cv, result_cv, aijs, ks_cv)
 
         return plan
 
@@ -373,52 +204,6 @@ class LweKeySwitchKeyComputation(Computation):
         return plan
 
 
-def vec_mul_mat(b, a):
-    return (a * b).sum(-1, dtype=numpy.int32)
-
-
-# This function encrypts a message by using key and a given noise value
-def lweSymEncryptWithExternalNoise(
-        ks_a, ks_b, ks_cv, messages, a_noises, b_noises, alpha: float, key):
-
-    # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
-    ks_a[:,:,0,:] = 0
-    ks_b[:,:,0] = 0
-    ks_cv[:,:,0] = 0
-
-    ks_b[:,:,1:] = messages + dtot32(b_noises)
-    ks_a[:,:,1:,:] = a_noises
-    ks_b[:,:,1:] += vec_mul_mat(key, a_noises)
-    ks_cv[:,:,1:] = alpha**2
-
-
-def LweKeySwitchKeyComputation_ref(extracted_n: int, t: int, basebit: int, inner_n: int, alpha):
-
-    base = 1 << basebit
-
-    def _kernel(ks_a, ks_b, ks_cv, in_key, out_key, a_noises, b_noises):
-
-        # recenter the noises
-        b_noises -= b_noises.mean()
-
-        # generate the ks
-
-        # mess::Torus32 = (in_key.key[i] * Int32(h - 1)) * Int32(1 << (32 - j * basebit))
-        hs = numpy.arange(2, base+1)
-        js = numpy.arange(1, t+1)
-
-        r_key = in_key.reshape(extracted_n, 1, 1)
-        r_hs = hs.reshape(1, 1, base - 1)
-        r_js = js.reshape(1, t, 1)
-
-        messages = r_key * (r_hs - 1) * (1 << (32 - r_js * basebit))
-        messages = messages.astype(Torus32)
-
-        lweSymEncryptWithExternalNoise(ks_a, ks_b, ks_cv, messages, a_noises, b_noises, alpha, out_key)
-
-    return _kernel
-
-
 def LweKeySwitchKey_gpu(
         thr, rng, ks, extracted_n: int, t: int, basebit: int, in_key: 'LweKey', out_key: 'LweKey'):
 
@@ -436,20 +221,6 @@ def LweKeySwitchKey_gpu(
     comp(
         ks.a, ks.b, ks.current_variances,
         in_key.key, out_key.key, a_noises, b_noises)
-
-
-# * This function encrypts message by using key, with stdev alpha
-# * The Lwe sample for the result must be allocated and initialized
-# * (this means that the parameters are already in the result)
-def LweSymEncrypt_ref(shape, n, alpha: float):
-
-    def _kernel(result_a, result_b, result_cv, messages, key, noises_a, noises_b):
-        numpy.copyto(result_b, noises_b + messages)
-        numpy.copyto(result_a, noises_a)
-        result_b += vec_mul_mat(key, result_a)
-        result_cv.fill(alpha**2)
-
-    return _kernel
 
 
 class LweSymEncrypt(Computation):
@@ -521,15 +292,6 @@ def lweSymEncrypt_gpu(thr, rng, result: 'LweSampleArray', messages, alpha: float
     noises_a = rand_uniform_torus32(thr, rng, messages.shape + (n,))
     comp = get_computation(thr, LweSymEncrypt, messages.shape, n, alpha)
     comp(result.a, result.b, result.current_variances, messages, key.key, noises_a, noises_b)
-
-
-# This function computes the phase of sample by using key : phi = b - a.s
-def LwePhase_ref(shape, n):
-
-    def _kernel(result, a, b, key):
-        numpy.copyto(result, b - vec_mul_mat(key, a))
-
-    return _kernel
 
 
 class LwePhase(Computation):

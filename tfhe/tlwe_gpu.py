@@ -68,6 +68,7 @@ class TLweNoiselessTrivial(Computation):
         return plan
 
 
+# result = (0,mu)
 def tLweNoiselessTrivial_gpu(result: TLweSampleArray, mu: TorusPolynomialArray, params: TLweParams):
     thr = result.a.coefsT.thread
     comp = get_computation(thr, TLweNoiselessTrivial, result.a.coefsT)
@@ -132,6 +133,7 @@ def tLweExtractLweSample_gpu(
     comp(result.a, result.b, x.a.coefsT)
 
 
+# mult externe de X^ai-1 par bki
 def tLweMulByXaiMinusOne_gpu(result:TLweSampleArray, ai, ai_idx, bk: TLweSampleArray, params: TLweParams):
     # TYPING: ai::Array{Int32}
     tp_mul_by_xai_minus_one_gpu(result.a, ai, ai_idx, bk.a)
@@ -148,34 +150,6 @@ def tLweCopy_gpu(result: TLweSampleArray, sample: TLweSampleArray, params: TLweP
     thr = result.a.coefsT.thread
     thr.copy(sample.a.coefsT, dest=result.a.coefsT)
     thr.copy(sample.current_variances, dest=result.current_variances)
-
-
-
-# create an homogeneous tlwe sample
-def TLweSymEncryptZero_ref(shape, alpha: float, params: TLweParams):
-    N = params.N
-    k = params.k
-
-    def _kernel(result_a, result_cv, key, noises1, noises2):
-
-        tmp1 = LagrangeHalfCPolynomialArray(None, N, (k,))
-        tmp2 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
-        tmp3 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
-        tmpr = TorusPolynomialArray(None, N, shape + (k,))
-
-        tmp1.coefsC = forward_transform_ref(key)
-        tmp2.coefsC = forward_transform_ref(noises1)
-        numpy.copyto(tmp3.coefsC, transformed_space_mul_ref(tmp1.coefsC, tmp2.coefsC))
-        tmpr.coefsT = inverse_transform_ref(tmp3.coefsC)
-
-        result_a[:,:,:,:k,:] = noises1
-        result_a[:,:,:,k,:] = noises2
-        for i in range(k):
-            result_a[:,:,:,k,:] += tmpr.coefsT[:,:,:,i,:]
-
-        result_cv.fill(alpha**2)
-
-    return _kernel
 
 
 class TLweSymEncryptZero(Computation):
@@ -258,6 +232,7 @@ class TLweSymEncryptZero(Computation):
         return plan
 
 
+# create an homogeneous tlwe sample
 def tLweSymEncryptZero_gpu(thr, rng, result: 'TLweSampleArray', alpha: float, key: 'TLweKey'):
     N = key.params.N
     k = key.params.k

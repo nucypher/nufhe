@@ -4,8 +4,8 @@ from .lwe import *
 from .tgsw import *
 
 from .gpu_polynomials import *
-from .gpu_tlwe import *
-from .gpu_tgsw import *
+from .tlwe_gpu import *
+from .tgsw_gpu import *
 
 from .blind_rotate import BlindRotate_ks_gpu
 

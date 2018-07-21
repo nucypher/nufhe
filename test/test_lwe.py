@@ -3,41 +3,21 @@ import numpy
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
 
-from tfhe.gpu_lwe import (
+from tfhe.lwe_gpu import (
     LweKeySwitchTranslate_fromArray,
     LweKeySwitchKeyComputation,
+    LweSymEncrypt,
+    LwePhase,
+    )
+from tfhe.lwe_cpu import (
+    LweKeySwitchTranslate_fromArray_reference,
     LweKeySwitchKeyComputation_ref,
-    LweSymEncrypt, LweSymEncrypt_ref,
-    LwePhase, LwePhase_ref
+    LweSymEncrypt_ref,
+    LwePhase_ref
     )
 
 from tfhe.numeric_functions import Torus32
 import tfhe.random_numbers as rn
-
-
-def LweKeySwitchTranslate_fromArray_reference(
-        batch_shape, t: int, outer_n, inner_n, basebit: int):
-
-    def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai):
-
-        base = 1 << basebit # base=2 in [CGGI16]
-        prec_offset = 1 << (32 - (1 + basebit * t)) # precision
-        mask = base - 1
-
-        js = numpy.arange(1, t+1).reshape(1, 1, t)
-        ai = ai.reshape(ai.shape + (1,))
-        aijs = (((ai + prec_offset) >> (32 - js * basebit)) & mask)
-
-        for i in range(batch_shape[0]):
-            for l in range(outer_n):
-                for j in range(t):
-                    x = aijs[i,l,j]
-                    if x != 0:
-                        a[i,:] -= ks_a[l,j,x,:]
-                        b[i] -= ks_b[l,j,x]
-                        current_variances[i] += ks_current_variances[l,j,x]
-
-    return _kernel
 
 
 def test_LweKeySwitchTranslate_fromArray(thread):
