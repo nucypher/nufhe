@@ -28,9 +28,9 @@ def test_TGswTorus32PolynomialDecompH(thread):
     batch = (2, 3)
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
-    l = tgsw_params.l
-    k = tgsw_params.tlwe_params.k
-    N = tgsw_params.tlwe_params.N
+    l = tgsw_params.decomp_length
+    k = tgsw_params.tlwe_params.mask_size
+    N = tgsw_params.tlwe_params.polynomial_degree
 
     sample = numpy.random.randint(0, 1000, size=batch + (k + 1, N), dtype=Torus32)
     result = numpy.empty(batch + (k + 1, l, N), dtype=numpy.int32)
@@ -57,9 +57,9 @@ def test_TLweFFTAddMulRTo(thread):
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
 
-    l = tgsw_params.l
-    k = tgsw_params.tlwe_params.k
-    N = tgsw_params.tlwe_params.N
+    l = tgsw_params.decomp_length
+    k = tgsw_params.tlwe_params.mask_size
+    N = tgsw_params.tlwe_params.polynomial_degree
 
     tmpa_a_shape = batch + (k + 1, transformed_length(N))
     decaFFT_shape = batch + (k + 1, l, transformed_length(N))
@@ -101,9 +101,9 @@ def test_TGswFFTExternMulToTLwe(thread):
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
 
-    l = tgsw_params.l
-    k = tgsw_params.tlwe_params.k
-    N = tgsw_params.tlwe_params.N
+    l = tgsw_params.decomp_length
+    k = tgsw_params.tlwe_params.mask_size
+    N = tgsw_params.tlwe_params.polynomial_degree
 
     accum_a_shape = batch + (k + 1, N)
     gsw_shape = (10, k + 1, l, k + 1, transformed_length(N))
@@ -135,10 +135,10 @@ def test_TGswAddMuIntH(thread):
 
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
-    n = params.in_out_params.n
-    l = tgsw_params.l
-    k = tgsw_params.tlwe_params.k
-    N = tgsw_params.tlwe_params.N
+    n = params.in_out_params.size
+    l = tgsw_params.decomp_length
+    k = tgsw_params.tlwe_params.mask_size
+    N = tgsw_params.tlwe_params.polynomial_degree
 
     result_a = numpy.random.randint(-2**31, 2**31, size=(n, k+1, l, k+1, N), dtype=Torus32)
     messages = numpy.random.randint(-2**31, 2**31, size=(n,), dtype=Torus32)

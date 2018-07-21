@@ -59,7 +59,7 @@ ${kernel_declaration}
 
     if (tid < ${4 * transform.threads_per_transform})
     {
-        const unsigned int decomp_bits = ${params.Bgbit};
+        const unsigned int decomp_bits = ${params.bs_log2_base};
         const unsigned int decomp_mask = (1 << decomp_bits) - 1;
         const int decomp_half = 1 << (decomp_bits - 1);
         const unsigned int decomp_offset = (0x1u << 31) + (0x1u << (31 - decomp_bits));

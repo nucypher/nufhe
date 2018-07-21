@@ -6,25 +6,19 @@ from .tlwe_gpu import tLweToFFTConvert_gpu
 
 class TGswParams:
 
-    def __init__(self, l: int, Bgbit: int, tlwe_params: TLweParams):
+    def __init__(self, decomp_length: int, bs_log2_base: int, tlwe_params: TLweParams):
 
-        Bg = 1 << Bgbit
-        halfBg = Bg // 2
+        # 1/(base^(i+1)) as a Torus32
+        decomp_range = numpy.arange(1, decomp_length+1)
+        self.base_powers = (2**(32 - decomp_range * bs_log2_base)).astype(Torus32)
 
-        h = Torus32(1) << (32 - numpy.arange(1, l+1) * Bgbit) # 1/(Bg^(i+1)) as a Torus32
+        # offset = base/2 * Sum{j=1..decomp_length} 2^(32 - j * bs_log2_base)
+        self.offset = int64_to_int32(
+            self.base_powers.astype(numpy.int64).sum() * (2**bs_log2_base // 2))
 
-        # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
-        offset = int64_to_int32(sum(1 << (32 - numpy.arange(1, l+1) * Bgbit)) * halfBg)
-
-        self.l = l # decomp length
-        self.Bgbit = Bgbit # log_2(Bg)
-        self.Bg = Bg # decomposition base (must be a power of 2)
-        self.halfBg = halfBg # Bg/2
-        self.maskMod = Bg - 1 # Bg-1
+        self.decomp_length = decomp_length
+        self.bs_log2_base = bs_log2_base
         self.tlwe_params = tlwe_params # Params of each row
-        self.kpl = (tlwe_params.k + 1) * l # number of rows = (k+1)*l
-        self.h = h # powers of Bgbit
-        self.offset = offset # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
 
 
 class TGswKey:
@@ -38,17 +32,19 @@ class TGswKey:
 class TGswSampleArray:
 
     def __init__(self, thr, params: TGswParams, shape):
-        self.k = params.tlwe_params.k
-        self.l = params.l
-        self.samples = TLweSampleArray(thr, params.tlwe_params, shape + (self.k + 1, self.l))
+        self.mask_size = params.tlwe_params.mask_size
+        self.decomp_length = params.decomp_length
+        self.samples = TLweSampleArray(
+            thr, params.tlwe_params, shape + (self.mask_size + 1, self.decomp_length))
 
 
 class TGswSampleFFTArray:
 
     def __init__(self, thr, params: TGswParams, shape):
-        self.k = params.tlwe_params.k
-        self.l = params.l
-        self.samples = TLweSampleFFTArray(thr, params.tlwe_params, shape + (self.k + 1, self.l))
+        self.mask_size = params.tlwe_params.mask_size
+        self.decomp_length = params.decomp_length
+        self.samples = TLweSampleFFTArray(
+            thr, params.tlwe_params, shape + (self.mask_size + 1, self.decomp_length))
 
 
 # For all the kpl TLWE samples composing the TGSW sample

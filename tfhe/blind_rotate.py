@@ -38,9 +38,9 @@ class BlindRotateKS(Computation):
         transform = transform_module()
 
         tlwe_params = self._params.tlwe_params
-        k = tlwe_params.k
-        l = self._params.l
-        N = tlwe_params.N
+        k = tlwe_params.mask_size
+        l = self._params.decomp_length
+        N = tlwe_params.polynomial_degree
 
         batch_shape = accum_a.shape[:-2]
 

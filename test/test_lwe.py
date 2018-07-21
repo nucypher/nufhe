@@ -28,10 +28,10 @@ def test_LweKeySwitchTranslate_fromArray(thread):
 
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
-    outer_n = tgsw_params.tlwe_params.extracted_lweparams.n
-    inner_n = params.in_out_params.n
-    t = params.ks_t
-    basebit = params.ks_basebit
+    outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
+    inner_n = params.in_out_params.size
+    t = params.ks_decomp_length
+    basebit = params.ks_log2_base
     base = 1 << basebit
 
     a = numpy.random.randint(-1000, 1000, size=batch_shape + (inner_n,), dtype=Torus32)
@@ -71,11 +71,11 @@ def test_LweKeySwitchKey(thread):
 
     params = TFHEParameters()
 
-    extracted_n = params.tgsw_params.tlwe_params.extracted_lweparams.n
-    t = params.ks_t
-    basebit = params.ks_basebit
+    extracted_n = params.tgsw_params.tlwe_params.extracted_lweparams.size
+    t = params.ks_decomp_length
+    basebit = params.ks_log2_base
     base = 1 << basebit
-    inner_n = params.in_out_params.n
+    inner_n = params.in_out_params.size
     alpha = params.tgsw_params.tlwe_params.alpha_min
 
     ks_a = numpy.empty((extracted_n, t, base, inner_n), dtype=Torus32)
@@ -115,7 +115,7 @@ def test_LweSymEncrypt(thread):
     rng = numpy.random.RandomState(123)
 
     params = TFHEParameters()
-    n = params.in_out_params.n
+    n = params.in_out_params.size
     alpha = params.tgsw_params.tlwe_params.alpha_min
 
     shape = (16, 20)
@@ -157,7 +157,7 @@ def test_LwePhase(thread):
     rng = numpy.random.RandomState(123)
 
     params = TFHEParameters()
-    n = params.in_out_params.n
+    n = params.in_out_params.size
 
     shape = (16, 20)
     result = numpy.empty(shape, numpy.int32)

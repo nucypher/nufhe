@@ -10,8 +10,8 @@ from .polynomial_transform import (
 
 # create an homogeneous tlwe sample
 def TLweSymEncryptZero_ref(shape, alpha: float, params: 'TLweParams'):
-    N = params.N
-    k = params.k
+    N = params.polynomial_degree
+    k = params.mask_size
 
     def _kernel(result_a, result_cv, key, noises1, noises2):
 

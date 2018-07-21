@@ -15,20 +15,20 @@ to_gpu_time = 0
 
 
 def lwe_bootstrapping_key(
-        thr, rng, ks_t: int, ks_basebit: int, key_in: LweKey, rgsw_key: TGswKey):
+        thr, rng, ks_decomp_length: int, ks_log2_base: int, key_in: LweKey, rgsw_key: TGswKey):
 
     bk_params = rgsw_key.params
     in_out_params = key_in.params
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
 
-    n = in_out_params.n
-    N = extract_params.n
+    n = in_out_params.size
+    N = extract_params.size
 
     accum_key = rgsw_key.tlwe_key
     extracted_key = LweKey.from_key(extract_params, accum_key)
 
-    ks = LweKeySwitchKey(thr, rng, N, ks_t, ks_basebit, extracted_key, key_in)
+    ks = LweKeySwitchKey(thr, rng, N, ks_decomp_length, ks_log2_base, extracted_key, key_in)
 
     bk = TGswSampleArray(thr, bk_params, (n,))
     kin = key_in.key
@@ -41,15 +41,18 @@ def lwe_bootstrapping_key(
 
 class LweBootstrappingKeyFFT:
 
-    def __init__(self, thr, rng, ks_t: int, ks_basebit: int, lwe_key: LweKey, tgsw_key: TGswKey):
+    def __init__(
+            self, thr, rng, ks_decomp_length: int, ks_log2_base: int,
+            lwe_key: LweKey, tgsw_key: TGswKey):
+
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        bk, ks = lwe_bootstrapping_key(thr, rng, ks_t, ks_basebit, lwe_key, tgsw_key)
+        bk, ks = lwe_bootstrapping_key(thr, rng, ks_decomp_length, ks_log2_base, lwe_key, tgsw_key)
 
-        n = in_out_params.n
+        n = in_out_params.size
 
         # Bootstrapping Key FFT
         bkFFT = TGswSampleFFTArray(thr, bk_params, (n,))
@@ -142,7 +145,7 @@ def tfhe_blindRotateAndExtract_FFT(
 
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
-    N = accum_params.N
+    N = accum_params.polynomial_degree
 
     thr = result.a.thread
 
@@ -185,8 +188,8 @@ def tfhe_bootstrap_woKS_FFT(
     bk_params = bk.bk_params
     accum_params = bk.accum_params
     in_params = bk.in_out_params
-    N = accum_params.N
-    n = in_params.n
+    N = accum_params.polynomial_degree
+    n = in_params.size
 
     global to_gpu_time
 

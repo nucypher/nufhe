@@ -19,12 +19,13 @@ def TGswTorus32PolynomialDecompH_reference(_result, params: 'TGswParams'):
         assert result.dtype == numpy.int32
         assert sample.dtype == Torus32
 
-        Bgbit = params.Bgbit
-        maskMod = params.maskMod
-        halfBg = params.halfBg
+        bs_log2_base = params.bs_log2_base
+        base = 2**bs_log2_base
+        maskMod = base - 1
+        halfBg = 2**(bs_log2_base - 1)
         offset = params.offset
 
-        decal = lambda p: 32 - p * Bgbit
+        decal = lambda p: 32 - p * bs_log2_base
 
         ps = numpy.arange(1, l+1).reshape((1,) * len(batch) + (1, l, 1))
         sample_coefs = sample.reshape(sample.shape[:-1] + (1, N))
@@ -68,10 +69,9 @@ def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams'):
     def _kernel(accum_a, gsw, bk_idx):
 
         tlwe_params = params.tlwe_params
-        k = tlwe_params.k
-        l = params.l
-        kpl = params.kpl
-        N = tlwe_params.N
+        k = tlwe_params.mask_size
+        l = params.decomp_length
+        N = tlwe_params.polynomial_degree
 
         batch_shape = accum_a.shape[:-2]
         deca = numpy.empty(batch_shape + (k + 1, l, N), numpy.int32)
@@ -91,9 +91,9 @@ def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams'):
 # Result += mu*H, mu integer
 def TGswAddMuIntH_ref(n, params: 'TGswParams'):
     # TYPING: messages::Array{Int32, 1}
-    k = params.tlwe_params.k
-    l = params.l
-    h = params.h
+    k = params.tlwe_params.mask_size
+    l = params.decomp_length
+    h = params.base_powers
 
     def _kernel(result_a, messages):
 

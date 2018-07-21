@@ -207,7 +207,7 @@ class LweKeySwitchKeyComputation(Computation):
 def LweKeySwitchKey_gpu(
         thr, rng, ks, extracted_n: int, t: int, basebit: int, in_key: 'LweKey', out_key: 'LweKey'):
 
-    inner_n = out_key.params.n
+    inner_n = out_key.params.size
     alpha = out_key.params.alpha_min
 
     comp = get_computation(
@@ -287,7 +287,7 @@ class LweSymEncrypt(Computation):
 
 
 def lweSymEncrypt_gpu(thr, rng, result: 'LweSampleArray', messages, alpha: float, key: 'LweKey'):
-    n = key.params.n
+    n = key.params.size
     noises_b = rand_gaussian_torus32(thr, rng, 0, alpha, messages.shape)
     noises_a = rand_uniform_torus32(thr, rng, messages.shape + (n,))
     comp = get_computation(thr, LweSymEncrypt, messages.shape, n, alpha)
@@ -337,7 +337,7 @@ class LwePhase(Computation):
 
 
 def lwePhase_gpu(thr, sample: 'LweSampleArray', key: 'LweKey'):
-    comp = get_computation(thr, LwePhase, sample.shape, key.params.n)
+    comp = get_computation(thr, LwePhase, sample.shape, key.params.size)
     result = thr.empty_like(sample.b)
     comp(result, sample.a, sample.b, key.key)
     return result.get()

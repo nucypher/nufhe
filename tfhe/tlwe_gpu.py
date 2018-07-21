@@ -156,8 +156,8 @@ class TLweSymEncryptZero(Computation):
 
     def __init__(self, shape, alpha: float, params: TLweParams):
 
-        N = params.N
-        k = params.k
+        N = params.polynomial_degree
+        k = params.mask_size
 
         a = Type(Torus32, shape + (k + 1, N))
         cv = Type(numpy.float64, shape)
@@ -234,8 +234,8 @@ class TLweSymEncryptZero(Computation):
 
 # create an homogeneous tlwe sample
 def tLweSymEncryptZero_gpu(thr, rng, result: 'TLweSampleArray', alpha: float, key: 'TLweKey'):
-    N = key.params.N
-    k = key.params.k
+    N = key.params.polynomial_degree
+    k = key.params.mask_size
 
     noises2 = rand_gaussian_torus32(thr, rng, 0, alpha, result.shape + (N,))
     noises1 = rand_uniform_torus32(thr, rng, result.shape + (k, N))

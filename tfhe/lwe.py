@@ -8,8 +8,8 @@ from .random_numbers import *
 
 class LweParams:
 
-    def __init__(self, n: int, alpha_min: float, alpha_max: float):
-        self.n = n
+    def __init__(self, size: int, alpha_min: float, alpha_max: float):
+        self.size = size
         self.alpha_min = alpha_min # the smallest noise that makes it secure
         self.alpha_max = alpha_max # the biggest noise that allows decryption
 
@@ -22,15 +22,15 @@ class LweKey:
 
     @classmethod
     def from_rng(cls, thr, rng, params: LweParams):
-        return cls(params, rand_uniform_int32(thr, rng, (params.n,)))
+        return cls(params, rand_uniform_int32(thr, rng, (params.size,)))
 
     # extractions Ring Lwe . Lwe
     @classmethod
     def from_key(cls, params: LweParams, tlwe_key):  # sans doute un param supplémentaire
         # TYPING: tlwe_key: TLweKey
-        N = tlwe_key.params.N
-        k = tlwe_key.params.k
-        assert params.n == k * N
+        N = tlwe_key.params.polynomial_degree
+        k = tlwe_key.params.mask_size
+        assert params.size == k * N
 
         key = tlwe_key.key.coefs.ravel()
 
@@ -40,7 +40,7 @@ class LweKey:
 class LweSampleArray:
 
     def __init__(self, thr, params: LweParams, shape):
-        self.a = thr.array(shape + (params.n,), Torus32)
+        self.a = thr.array(shape + (params.size,), Torus32)
         self.b = thr.array(shape, Torus32)
         self.current_variances = thr.array(shape, Float)
         self.shape = shape
@@ -57,7 +57,7 @@ class LweKeySwitchKey:
         LweKeySwitchKey_gpu(
             thr, rng, self.ks, extracted_n, t, basebit, in_key, out_key)
 
-        self.n = n # length of the input key: s'
+        self.input_size = n # length of the input key: s'
         self.t = t # decomposition length
         self.basebit = basebit # log_2(base)
         self.base = base # decomposition base: a power of 2
@@ -68,7 +68,7 @@ class LweKeySwitchKey:
 def lweKeySwitch(thr, result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSampleArray):
 
     params = ks.out_params
-    n = ks.n
+    n = ks.input_size
     basebit = ks.basebit
     t = ks.t
 

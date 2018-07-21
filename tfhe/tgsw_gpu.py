@@ -28,11 +28,15 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
         [Parameter('output', Annotation(result, 'o')),
         Parameter('sample', Annotation(sample, 'i'))],
         """
+        <%
+            mask = 2**params.bs_log2_base - 1
+            half_base = 2**(params.bs_log2_base - 1)
+        %>
         ${sample.ctype} sample = ${sample.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-1]});
         int p = ${idxs[-2]} + 1;
-        int decal = 32 - p * ${params.Bgbit};
+        int decal = 32 - p * ${params.bs_log2_base};
         ${output.store_same}(
-            (((sample + (${params.offset})) >> decal) & ${params.maskMod}) - ${params.halfBg}
+            (((sample + (${params.offset})) >> decal) & ${mask}) - ${half_base}
         );
         """,
         connectors=['output'],
@@ -81,9 +85,9 @@ class TGswFFTExternMulToTLwe(Computation):
 
     def __init__(self, accum_a, gsw, params: TGswParams):
         tlwe_params = params.tlwe_params
-        k = tlwe_params.k
-        l = params.l
-        N = tlwe_params.N
+        k = tlwe_params.mask_size
+        l = params.decomp_length
+        N = tlwe_params.polynomial_degree
 
         batch_shape = accum_a.shape[:-2]
 
@@ -140,9 +144,9 @@ class TGswAddMuIntH(Computation):
 
         self._params = params
 
-        k = params.tlwe_params.k
-        l = params.l
-        N = params.tlwe_params.N
+        k = params.tlwe_params.mask_size
+        l = params.decomp_length
+        N = params.tlwe_params.polynomial_degree
 
         result_a = Type(Torus32, (n, k + 1, l, k + 1, N))
         messages = Type(Torus32, (n,))
@@ -161,9 +165,9 @@ class TGswAddMuIntH(Computation):
             [result_a, messages],
             global_size=(self._n,),
             render_kwds=dict(
-                h=self._params.h,
-                l=self._params.l,
-                k=self._params.tlwe_params.k))
+                h=self._params.base_powers,
+                l=self._params.decomp_length,
+                k=self._params.tlwe_params.mask_size))
 
         return plan
 
