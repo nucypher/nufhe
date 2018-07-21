@@ -7,11 +7,8 @@ from .numeric_functions import Torus32
 from .tlwe_gpu import tLweSymEncryptZero_gpu
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
-from .polynomial_transform import (
-    ForwardTransform, InverseTransform, transformed_dtype,
-    transformed_internal_ctype, transformed_length,
-    transformed_mul, transformed_add)
 from .computation_cache import get_computation
+from .polynomial_transform import get_transform
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -38,11 +35,12 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
         render_kwds=dict(params=params))
 
 
-def get_TLweFFTAddMulRTo_trf(N, tmpa_a, gsw, tr_ctype):
+def get_TLweFFTAddMulRTo_trf(N, transform_type, tmpa_a, gsw, tr_ctype):
     k = tmpa_a.shape[-2] - 1
     l = gsw.shape[-3]
     batch = tmpa_a.shape[:-2]
-    decaFFT = Type(tmpa_a.dtype, batch + (k + 1, l, transformed_length(N)))
+    transform = get_transform(transform_type)
+    decaFFT = Type(tmpa_a.dtype, batch + (k + 1, l, transform.transformed_length(N)))
 
     return Transformation(
         [Parameter('tmpa_a', Annotation(tmpa_a, 'o')),
@@ -72,7 +70,7 @@ def get_TLweFFTAddMulRTo_trf(N, tmpa_a, gsw, tr_ctype):
         """,
         connectors=['tmpa_a'],
         render_kwds=dict(
-            k=k, l=l, add=transformed_add(), mul=transformed_mul(),
+            k=k, l=l, add=transform.transformed_add(), mul=transform.transformed_mul(),
             tr_ctype=tr_ctype))
 
 
@@ -86,8 +84,10 @@ class TGswFFTExternMulToTLwe(Computation):
 
         batch_shape = accum_a.shape[:-2]
 
-        tdtype = transformed_dtype()
-        tlength = transformed_length(N)
+        transform = get_transform(tlwe_params.transform_type)
+
+        tdtype = transform.transformed_dtype()
+        tlength = transform.transformed_length(N)
 
         deca_shape = batch_shape + (k + 1, l)
         tmpa_shape = batch_shape + (k + 1,)
@@ -97,14 +97,14 @@ class TGswFFTExternMulToTLwe(Computation):
         self._tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
 
         decomp = get_TGswTorus32PolynomialDecompH_trf(self._deca_type, params)
-        self._ip_ifft = ForwardTransform(deca_shape, N)
+        self._ip_ifft = transform.ForwardTransform(deca_shape, N)
         self._ip_ifft.parameter.input.connect(
             decomp, decomp.output, sample=decomp.sample)
 
         add = get_TLweFFTAddMulRTo_trf(
-            N, self._tmpa_a_type, gsw,
-            transformed_internal_ctype())
-        self._tp_fft = InverseTransform(tmpa_shape, N)
+            N, tlwe_params.transform_type, self._tmpa_a_type, gsw,
+            transform.transformed_internal_ctype())
+        self._tp_fft = transform.InverseTransform(tmpa_shape, N)
         self._tp_fft.parameter.input.connect(
             add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
 

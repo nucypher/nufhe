@@ -1,9 +1,7 @@
 import numpy
 
 from tfhe.numeric_functions import Torus32
-from tfhe.polynomial_transform import (
-    forward_transform_ref, inverse_transform_ref,
-    transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
+from tfhe.polynomial_transform import get_transform
 
 
 def TGswTorus32PolynomialDecompH_reference(_result, params: 'TGswParams'):
@@ -36,7 +34,9 @@ def TGswTorus32PolynomialDecompH_reference(_result, params: 'TGswParams'):
     return _kernel
 
 
-def TLweFFTAddMulRTo_reference(res, gsw):
+def TLweFFTAddMulRTo_reference(res, gsw, tlwe_params):
+
+    transform = get_transform(tlwe_params.transform_type)
 
     def _kernel(res, decaFFT, gsw, bk_idx):
 
@@ -49,22 +49,24 @@ def TLweFFTAddMulRTo_reference(res, gsw):
         assert gsw.shape[-4:] == (k + 1, l, k + 1, transformed_N)
         assert res.shape == batch_shape + (k + 1, transformed_N)
 
-        assert res.dtype == transformed_dtype()
-        assert decaFFT.dtype == transformed_dtype()
-        assert gsw.dtype == transformed_dtype()
+        assert res.dtype == transform.transformed_dtype()
+        assert decaFFT.dtype == transform.transformed_dtype()
+        assert gsw.dtype == transform.transformed_dtype()
 
         d = decaFFT.reshape(batch_shape + (k+1, l, 1, transformed_N))
         res.fill(0)
         for i in range(k + 1):
             for j in range(l):
-                res[:,:,:] = transformed_space_add_ref(
-                    res, transformed_space_mul_ref(d[:,i,j,:,:], gsw[bk_idx,i,j,:,:]))
+                res[:,:,:] = transform.transformed_space_add_ref(
+                    res, transform.transformed_space_mul_ref(d[:,i,j,:,:], gsw[bk_idx,i,j,:,:]))
 
     return _kernel
 
 
 # External product (*): accum = gsw (*) accum
 def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams'):
+
+    transform = get_transform(params.tlwe_params.transform_type)
 
     def _kernel(accum_a, gsw, bk_idx):
 
@@ -75,15 +77,16 @@ def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams'):
 
         batch_shape = accum_a.shape[:-2]
         deca = numpy.empty(batch_shape + (k + 1, l, N), numpy.int32)
-        tmpa_a = numpy.empty(batch_shape + (k + 1, transformed_length(N)), transformed_dtype())
+        tmpa_a = numpy.empty(
+            batch_shape + (k + 1, transform.transformed_length(N)), transform.transformed_dtype())
 
         TGswTorus32PolynomialDecompH_reference(deca, params)(deca, accum_a)
 
-        decaFFT = forward_transform_ref(deca)
+        decaFFT = transform.forward_transform_ref(deca)
 
-        TLweFFTAddMulRTo_reference(tmpa_a, gsw)(tmpa_a, decaFFT, gsw, bk_idx)
+        TLweFFTAddMulRTo_reference(tmpa_a, gsw, tlwe_params)(tmpa_a, decaFFT, gsw, bk_idx)
 
-        numpy.copyto(accum_a, inverse_transform_ref(tmpa_a))
+        numpy.copyto(accum_a, transform.inverse_transform_ref(tmpa_a))
 
     return _kernel
 

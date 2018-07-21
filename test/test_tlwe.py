@@ -1,5 +1,6 @@
 import numpy
 
+from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32, Float
 from tfhe.tlwe import TLweParams
 from tfhe.tlwe_gpu import (
@@ -73,11 +74,14 @@ def test_TLweSymEncryptZero(thread):
 
     rng = numpy.random.RandomState(123)
 
-    k = 1
-    l = 2
-    N = 1024
-    alpha = 5e-9
-    params = TLweParams(N, k, alpha, alpha)
+    tfhe_params = TFHEParameters()
+    params = tfhe_params.tgsw_params.tlwe_params
+
+    k = params.mask_size
+    l = tfhe_params.tgsw_params.decomp_length
+    N = params.polynomial_degree
+    alpha = params.alpha_min
+
     shape = (5, k + 1, l)
 
     result_a = numpy.empty(shape + (k + 1, N), numpy.int32)

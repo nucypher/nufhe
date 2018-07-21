@@ -9,7 +9,7 @@ from .gpu_polynomials import TorusPolynomialArray, IntPolynomialArray, LagrangeH
 class TLweParams:
 
     def __init__(
-            self, polynomial_degree: int, mask_size: int, alpha_min: float, alpha_max: float):
+            self, polynomial_degree: int, mask_size: int, alpha_min: float, alpha_max: float, transform_type):
 
         self.polynomial_degree = polynomial_degree # must be a power of 2
         self.mask_size = mask_size # number of polynomials in the mask
@@ -17,6 +17,7 @@ class TLweParams:
         self.alpha_max = alpha_max # maximal noise s.t. we can decrypt
         self.extracted_lweparams = LweParams(
             polynomial_degree * mask_size, alpha_min, alpha_max) # lwe params if one extracts
+        self.transform_type = transform_type
 
 
 class TLweKey:
@@ -51,7 +52,8 @@ class TLweSampleFFTArray:
         self.mask_size = params.mask_size
 
         # array of length k+1: mask + right term
-        self.a = LagrangeHalfCPolynomialArray(thr, params.polynomial_degree, shape + (self.mask_size + 1,))
+        self.a = LagrangeHalfCPolynomialArray(
+            thr, params.transform_type, params.polynomial_degree, shape + (self.mask_size + 1,))
 
         # avg variance of the sample
         self.current_variances = thr.to_device(numpy.zeros(shape, Float))

@@ -1,11 +1,7 @@
 import numpy
 
 from .gpu_polynomials import LagrangeHalfCPolynomialArray, TorusPolynomialArray
-from .polynomial_transform import (
-    forward_transform_ref,
-    inverse_transform_ref,
-    transformed_space_mul_ref,
-    )
+from .polynomial_transform import get_transform
 
 
 # create an homogeneous tlwe sample
@@ -13,17 +9,20 @@ def TLweSymEncryptZero_ref(shape, alpha: float, params: 'TLweParams'):
     N = params.polynomial_degree
     k = params.mask_size
 
+    transform_type = params.transform_type
+    transform = get_transform(transform_type)
+
     def _kernel(result_a, result_cv, key, noises1, noises2):
 
-        tmp1 = LagrangeHalfCPolynomialArray(None, N, (k,))
-        tmp2 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
-        tmp3 = LagrangeHalfCPolynomialArray(None, N, shape + (k,))
+        tmp1 = LagrangeHalfCPolynomialArray(None, transform_type, N, (k,))
+        tmp2 = LagrangeHalfCPolynomialArray(None, transform_type, N, shape + (k,))
+        tmp3 = LagrangeHalfCPolynomialArray(None, transform_type, N, shape + (k,))
         tmpr = TorusPolynomialArray(None, N, shape + (k,))
 
-        tmp1.coefsC = forward_transform_ref(key)
-        tmp2.coefsC = forward_transform_ref(noises1)
-        numpy.copyto(tmp3.coefsC, transformed_space_mul_ref(tmp1.coefsC, tmp2.coefsC))
-        tmpr.coefsT = inverse_transform_ref(tmp3.coefsC)
+        tmp1.coefsC = transform.forward_transform_ref(key)
+        tmp2.coefsC = transform.forward_transform_ref(noises1)
+        numpy.copyto(tmp3.coefsC, transform.transformed_space_mul_ref(tmp1.coefsC, tmp2.coefsC))
+        tmpr.coefsT = transform.inverse_transform_ref(tmp3.coefsC)
 
         result_a[:,:,:,:k,:] = noises1
         result_a[:,:,:,k,:] = noises2

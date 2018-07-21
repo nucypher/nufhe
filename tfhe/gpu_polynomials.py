@@ -6,7 +6,7 @@ from reikna.cluda import dtypes
 
 from .computation_cache import get_computation
 from .numeric_functions import Torus32
-from .polynomial_transform import transformed_length, transformed_dtype
+from .polynomial_transform import get_transform
 
 
 class Polynomial:
@@ -66,14 +66,17 @@ class TorusPolynomialArray(Polynomial):
 # This structure is used for FFT operations, and is a representation
 # over C of a polynomial in R[X]/X^N+1
 class LagrangeHalfCPolynomialArray(Polynomial):
-    def __init__(self, thr, N, shape):
+    def __init__(self, thr, transform_type, N, shape):
         Polynomial.__init__(self)
         assert N % 2 == 0
+
+        transform = get_transform(transform_type)
 
         if thr is None:
             thr = FakeThread()
 
-        self.coefsC = thr.array(shape + (transformed_length(N),), transformed_dtype())
+        self.coefsC = thr.array(
+            shape + (transform.transformed_length(N),), transform.transformed_dtype())
         self._polynomial_size = N
         self.shape = shape
 

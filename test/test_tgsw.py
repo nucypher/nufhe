@@ -6,9 +6,7 @@ from tfhe.tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
-from tfhe.polynomial_transform import (
-    forward_transform_ref, inverse_transform_ref, transformed_internal_ctype,
-    transformed_dtype, transformed_length, transformed_space_mul_ref, transformed_space_add_ref)
+from tfhe.polynomial_transform import get_transform
 from tfhe.tgsw_gpu import (
     get_TGswTorus32PolynomialDecompH_trf,
     get_TLweFFTAddMulRTo_trf,
@@ -57,35 +55,42 @@ def test_TLweFFTAddMulRTo(thread):
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
 
+    transform_type = tgsw_params.tlwe_params.transform_type
+    transform = get_transform(transform_type)
+
     l = tgsw_params.decomp_length
     k = tgsw_params.tlwe_params.mask_size
     N = tgsw_params.tlwe_params.polynomial_degree
 
-    tmpa_a_shape = batch + (k + 1, transformed_length(N))
-    decaFFT_shape = batch + (k + 1, l, transformed_length(N))
-    gsw_shape = (10, k + 1, l, k + 1, transformed_length(N))
+    tr_N = transform.transformed_length(N)
+    tr_dtype = transform.transformed_dtype()
+
+    tmpa_a_shape = batch + (k + 1, tr_N)
+    decaFFT_shape = batch + (k + 1, l, tr_N)
+    gsw_shape = (10, k + 1, l, k + 1, tr_N)
     bk_idx = 2
 
-    tmpa_a = numpy.empty(tmpa_a_shape, transformed_dtype())
+    tmpa_a = numpy.empty(tmpa_a_shape, tr_dtype)
 
-    if transformed_dtype().kind == 'c':
+    if tr_dtype.kind == 'c':
         decaFFT = (
             numpy.random.normal(size=decaFFT_shape)
-            + 1j * numpy.random.normal(size=decaFFT_shape)).astype(transformed_dtype())
+            + 1j * numpy.random.normal(size=decaFFT_shape)).astype(tr_dtype)
         gsw = (
             numpy.random.normal(size=gsw_shape)
-            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype())
+            + 1j * numpy.random.normal(size=gsw_shape)).astype(tr_dtype)
     else:
-        decaFFT = numpy.random.randint(0, 2**64-2**32+1, size=decaFFT_shape, dtype=transformed_dtype())
-        gsw = numpy.random.randint(0, 2**64-2**32+1, size=gsw_shape, dtype=transformed_dtype())
+        decaFFT = numpy.random.randint(0, 2**64-2**32+1, size=decaFFT_shape, dtype=tr_dtype)
+        gsw = numpy.random.randint(0, 2**64-2**32+1, size=gsw_shape, dtype=tr_dtype)
 
     tmpa_a_dev = thread.empty_like(tmpa_a)
     decaFFT_dev = thread.to_device(decaFFT)
     gsw_dev = thread.to_device(gsw)
 
-    trf = get_TLweFFTAddMulRTo_trf(N, tmpa_a, gsw, transformed_internal_ctype())
+    trf = get_TLweFFTAddMulRTo_trf(
+        N, transform_type, tmpa_a, gsw, transform.transformed_internal_ctype())
     test = PureParallel.from_trf(trf, guiding_array='tmpa_a').compile(thread)
-    ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw)
+    ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw, tgsw_params.tlwe_params)
 
     test(tmpa_a_dev, decaFFT_dev, gsw_dev, bk_idx)
     tmpa_a_test = tmpa_a_dev.get()
@@ -101,19 +106,24 @@ def test_TGswFFTExternMulToTLwe(thread):
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
 
+    transform_type = tgsw_params.tlwe_params.transform_type
+    transform = get_transform(transform_type)
+
     l = tgsw_params.decomp_length
     k = tgsw_params.tlwe_params.mask_size
     N = tgsw_params.tlwe_params.polynomial_degree
 
     accum_a_shape = batch + (k + 1, N)
-    gsw_shape = (10, k + 1, l, k + 1, transformed_length(N))
+    gsw_shape = (10, k + 1, l, k + 1, transform.transformed_length(N))
     bk_idx = 2
 
-    if transformed_dtype().kind == 'c':
+    tr_dtype = transform.transformed_dtype()
+
+    if tr_dtype == 'c':
         gsw = (numpy.random.normal(size=gsw_shape)
-            + 1j * numpy.random.normal(size=gsw_shape)).astype(transformed_dtype()) * 1000
+            + 1j * numpy.random.normal(size=gsw_shape)).astype(tr_dtype) * 1000
     else:
-        gsw = numpy.random.randint(0, 1000, size=gsw_shape, dtype=transformed_dtype())
+        gsw = numpy.random.randint(0, 1000, size=gsw_shape, dtype=tr_dtype)
 
     accum_a = numpy.random.randint(-1000, 1000, size=accum_a_shape, dtype=Torus32)
 

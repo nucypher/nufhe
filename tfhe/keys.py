@@ -10,7 +10,9 @@ from .lwe_bootstrapping import LweBootstrappingKeyFFT
 
 class TFHEParameters:
 
-    def __init__(self):
+    def __init__(self, transform_type='NTT'):
+
+        assert transform_type in ('FFT', 'NTT')
 
         # the parameters are only implemented for about 128bit of security!
 
@@ -30,7 +32,7 @@ class TFHEParameters:
         max_stdev = 1/2**4 / 4 * coeff # max standard deviation for a 1/4 msg space
 
         params_in = LweParams(lwe_size, ks_stdev, max_stdev)
-        params_accum = TLweParams(tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev)
+        params_accum = TLweParams(tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev, transform_type)
         params_bs = TGswParams(bs_decomp_length, bs_log2_base, params_accum)
 
         self.ks_decomp_length = ks_decomp_length

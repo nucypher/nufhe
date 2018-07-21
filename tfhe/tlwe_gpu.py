@@ -9,12 +9,8 @@ from .lwe import LweSampleArray, LweParams
 from .computation_cache import get_computation
 from .gpu_polynomials import TorusPolynomialArray, tp_mul_by_xai_minus_one_gpu
 from .numeric_functions import Torus32, Float
-from .polynomial_transform import (
-    ForwardTransform, InverseTransform,
-    transformed_internal_ctype,
-    transformed_mul,
-    )
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
+from .polynomial_transform import get_transform
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -155,6 +151,8 @@ class TLweSymEncryptZero(Computation):
         N = params.polynomial_degree
         k = params.mask_size
 
+        self._transform_type = params.transform_type
+
         a = Type(Torus32, shape + (k + 1, N))
         cv = Type(numpy.float64, shape)
         key = Type(numpy.int32, (k, N))
@@ -181,13 +179,15 @@ class TLweSymEncryptZero(Computation):
 
         N = self._N
 
-        ft_key = ForwardTransform(key.shape[:-1], N)
+        transform = get_transform(self._transform_type)
+
+        ft_key = transform.ForwardTransform(key.shape[:-1], N)
         key_tr = plan.temp_array_like(ft_key.parameter.output)
 
-        ft_noises = ForwardTransform(noises1.shape[:-1], N)
+        ft_noises = transform.ForwardTransform(noises1.shape[:-1], N)
         noises1_tr = plan.temp_array_like(ft_noises.parameter.output)
 
-        ift = InverseTransform(noises1.shape[:-1], N)
+        ift = transform.InverseTransform(noises1.shape[:-1], N)
         ift_res = plan.temp_array_like(ift.parameter.output)
 
         mul_tr = Transformation(
@@ -204,8 +204,8 @@ class TLweSymEncryptZero(Computation):
             """,
             connectors=['output', 'noises1'],
             render_kwds=dict(
-                mul=transformed_mul(),
-                tr_ctype=transformed_internal_ctype()))
+                mul=transform.transformed_mul(),
+                tr_ctype=transform.transformed_internal_ctype()))
 
         ift.parameter.input.connect(mul_tr, mul_tr.output, key=mul_tr.key, noises1=mul_tr.noises1)
 
@@ -244,6 +244,8 @@ def tLweSymEncryptZero_gpu(thr, rng, result: 'TLweSampleArray', alpha: float, ke
 
 # Computes the inverse FFT of the coefficients of the TLWE sample
 def tLweToFFTConvert_gpu(thr, result: 'TLweSampleFFTArray', source: 'TLweSampleArray', params: 'TLweParams'):
-    comp = get_computation(thr, ForwardTransform, source.a.coefsT.shape[:-1], source.a.coefsT.shape[-1])
+    transform = get_transform(params.transform_type)
+    comp = get_computation(
+        thr, transform.ForwardTransform, source.a.coefsT.shape[:-1], source.a.coefsT.shape[-1])
     comp(result.a.coefsC, source.a.coefsT)
     thr.copy_array(source.current_variances, dest=result.current_variances)
