@@ -18,7 +18,7 @@ from .numeric_functions import Torus32, dtot32
 def LweKeySwitchTranslate_fromArray_reference(
         batch_shape, t: int, outer_n, inner_n, basebit: int):
 
-    def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai):
+    def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai, bi):
 
         base = 1 << basebit # base=2 in [CGGI16]
         prec_offset = 1 << (32 - (1 + basebit * t)) # precision
@@ -27,6 +27,12 @@ def LweKeySwitchTranslate_fromArray_reference(
         js = numpy.arange(1, t+1).reshape(1, 1, t)
         ai = ai.reshape(ai.shape + (1,))
         aijs = (((ai + prec_offset) >> (32 - js * basebit)) & mask)
+
+        # Starting from a noiseless trivial LWE:
+        # a = 0, b = bi, current_variances = 0
+        a.fill(0)
+        b[:] = bi
+        current_variances.fill(0)
 
         for i in range(batch_shape[0]):
             for l in range(outer_n):

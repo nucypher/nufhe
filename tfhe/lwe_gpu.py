@@ -42,6 +42,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
         ks_cv = Type(Float, (outer_n, t, base))
 
         ai = Type(Torus32, batch_shape + (outer_n,))
+        bi = Type(Torus32, batch_shape)
 
         self._t = t
         self._outer_n = outer_n
@@ -55,19 +56,21 @@ class LweKeySwitchTranslate_fromArray(Computation):
             Parameter('ks_a', Annotation(ks_a, 'i')),
             Parameter('ks_b', Annotation(ks_b, 'i')),
             Parameter('ks_cv', Annotation(ks_cv, 'i')),
-            Parameter('ai', Annotation(ai, 'i'))])
+            Parameter('ai', Annotation(ai, 'i')),
+            Parameter('bi', Annotation(bi, 'i'))
+            ])
 
     def _build_plan(
             self, plan_factory, device_params,
             result_a, result_b, result_cv,
-            ks_a, ks_b, ks_cv, ai):
+            ks_a, ks_b, ks_cv, ai, bi):
 
         plan = plan_factory()
 
         batch_shape = result_a.shape[:-1]
         plan.kernel_call(
             TEMPLATE.get_def("keyswitch"),
-            [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai],
+            [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai, bi],
             global_size=(helpers.product(batch_shape), 512),
             local_size=(1, 512),
             render_kwds=dict(
@@ -82,7 +85,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
         return plan
 
 
-def lweKeySwitchTranslate_fromArray_gpu(result, ks, params, a, outer_n, t, basebit):
+def lweKeySwitchTranslate_fromArray_gpu(result, ks, params, a, b, outer_n, t, basebit):
 
     batch_shape = result.a.shape[:-1]
     inner_n = result.a.shape[-1]
@@ -94,7 +97,7 @@ def lweKeySwitchTranslate_fromArray_gpu(result, ks, params, a, outer_n, t, baseb
     comp(
         result.a, result.b, result.current_variances,
         ks.a, ks.b, ks.current_variances,
-        a)
+        a, b)
 
 
 class MatrixMulVector(Computation):

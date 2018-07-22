@@ -44,7 +44,7 @@
 
 
 <%def name="keyswitch(
-    kernel_declaration, result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai)">
+    kernel_declaration, result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai, bi)">
 
 ${kernel_declaration}
 {
@@ -64,12 +64,13 @@ ${kernel_declaration}
 
     for (int i = tid; i < ${lwe_n}; i += bdim)
     {
-        res_a = ${result_a.load_combined_idx(slices)}(batch_id, i);
-
+        // Starting from a noiseless trivial LWE:
+        // a = 0, b = bi, current_variances = 0
+        res_a = 0;
         if (i == 0)
         {
-            res_b = ${result_b.load_combined_idx(slices[:-1])}(batch_id);
-            res_cv = ${result_cv.load_combined_idx(slices[:-1])}(batch_id);
+            res_b = ${bi.load_combined_idx(slices[:-1])}(batch_id);
+            res_cv = 0;
         }
 
         for (int j = 0; j < ${tlwe_n}; j ++)

@@ -79,8 +79,7 @@ def lweKeySwitch(thr, result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSa
     basebit = ks.basebit
     t = ks.t
 
-    lweNoiselessTrivial(thr, result, sample.b, params)
-    lweKeySwitchTranslate_fromArray_gpu(result, ks.ks, params, sample.a, n, t, basebit)
+    lweKeySwitchTranslate_fromArray_gpu(result, ks.ks, params, sample.a, sample.b, n, t, basebit)
 
 
 # Arithmetic operations on Lwe samples
@@ -131,7 +130,6 @@ def lweSubTo(thr, result: LweSampleArray, sample: LweSampleArray, params: LwePar
 # result = (0,mu)
 def lweNoiselessTrivial(thr, result: LweSampleArray, mus, params: LweParams):
     # TYPING: mus: Union{Array{Torus32}, Torus32}
-    # GPU: array operations
     result.a.fill(0)
     if isinstance(mus, numpy.ndarray):
         raise NotImplementedError()

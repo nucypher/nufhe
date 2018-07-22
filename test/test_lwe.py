@@ -34,31 +34,33 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     basebit = params.ks_log2_base
     base = 1 << basebit
 
-    a = numpy.random.randint(-1000, 1000, size=batch_shape + (inner_n,), dtype=Torus32)
-    b = numpy.random.randint(-1000, 1000, size=batch_shape, dtype=Torus32)
-    cv = numpy.random.normal(size=batch_shape)
+    a = numpy.empty(batch_shape + (inner_n,), Torus32)
+    b = numpy.empty(batch_shape, Torus32)
+    cv = numpy.empty(batch_shape, numpy.float64)
     ks_a = numpy.random.randint(-1000, 1000, size=(outer_n, t, base, inner_n), dtype=Torus32)
     ks_b = numpy.random.randint(-1000, 1000, size=(outer_n, t, base), dtype=Torus32)
     ks_cv = numpy.random.normal(size=(outer_n, t, base))
     ai = numpy.random.randint(-2**31, 2**31, batch_shape + (outer_n,), dtype=Torus32)
+    bi = numpy.random.randint(-1000, 1000, size=batch_shape, dtype=Torus32)
 
-    a_dev = thread.to_device(a)
-    b_dev = thread.to_device(b)
-    cv_dev = thread.to_device(cv)
+    a_dev = thread.empty_like(a)
+    b_dev = thread.empty_like(b)
+    cv_dev = thread.empty_like(cv)
     ks_a_dev = thread.to_device(ks_a)
     ks_b_dev = thread.to_device(ks_b)
     ks_cv_dev = thread.to_device(ks_cv)
     ai_dev = thread.to_device(ai)
+    bi_dev = thread.to_device(bi)
 
     test = LweKeySwitchTranslate_fromArray(batch_shape, t, outer_n, inner_n, basebit).compile(thread)
     ref = LweKeySwitchTranslate_fromArray_reference(batch_shape, t, outer_n, inner_n, basebit)
 
-    test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev)
+    test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev, bi_dev)
     a_test = a_dev.get()
     b_test = b_dev.get()
     cv_test = cv_dev.get()
 
-    ref(a, b, cv, ks_a, ks_b, ks_cv, ai)
+    ref(a, b, cv, ks_a, ks_b, ks_cv, ai, bi)
 
     assert (a == a_test).all()
     assert (b == b_test).all()
