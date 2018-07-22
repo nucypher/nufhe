@@ -71,8 +71,7 @@ class LweKeySwitchTranslate_fromArray(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("keyswitch"),
             [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai, bi],
-            global_size=(helpers.product(batch_shape), 512),
-            local_size=(1, 512),
+            global_size=(helpers.product(batch_shape), result_a.shape[-1]),
             render_kwds=dict(
                 slices=(len(batch_shape), 1),
                 lwe_n=self._inner_n,
