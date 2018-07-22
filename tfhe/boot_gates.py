@@ -9,7 +9,7 @@ from .lwe import (
     lweKeySwitch,
     )
 from .keys import TFHECloudKey
-from .lwe_bootstrapping import tfhe_bootstrap_FFT, tfhe_bootstrap_woKS_FFT
+from .lwe_bootstrapping import bootstrap
 
 from . import lwe_bootstrapping
 
@@ -41,7 +41,7 @@ def tfhe_gate_NAND_(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(thr, result, bk.bkFFT, MU, temp_result)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result)
 
 
 """
@@ -320,14 +320,14 @@ def tfhe_gate_MUX_(
     lweAddTo(thr, temp_result, a, in_out_params)
     lweAddTo(thr, temp_result, b, in_out_params)
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(thr, u1, bk.bkFFT, MU, temp_result)
+    bootstrap(thr, u1, bk.bkFFT, MU, temp_result, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     lweNoiselessTrivial(thr, temp_result, AndConst, in_out_params)
     lweSubTo(thr, temp_result, a, in_out_params)
     lweAddTo(thr, temp_result, c, in_out_params)
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(thr, u2, bk.bkFFT, MU, temp_result)
+    bootstrap(thr, u2, bk.bkFFT, MU, temp_result, no_keyswitch=True)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)

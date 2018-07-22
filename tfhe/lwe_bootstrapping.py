@@ -136,31 +136,37 @@ def tfhe_blindRotate_FFT(
  * @param bk_params The parameters of bk
 """
 def tfhe_blindRotateAndExtract_FFT(
-        r, result: LweSampleArray,
-        v: TorusPolynomialArray, bk: TGswSampleFFTArray, bk_ks, barb, bara, n: int, bk_params: TGswParams):
+        thr, result: LweSampleArray,
+        v: TorusPolynomialArray, bk: LweBootstrappingKeyFFT,
+        barb, bara, n: int,
+        no_keyswitch=False):
 
     # TYPING: barb::Array{Int32},
     # TYPING: bara::Array{Int32}
 
-    # tfhe_blindRotate_FFT - 0.623s
-    # all the function - 0.766s
-    # it seems that the difference is mainly in copying of arrays to gpu
-
     global to_gpu_time
+
+    bk_params = bk.bk_params
+
+    if not no_keyswitch:
+        t = time.time()
+        extracted_result = LweSampleArray(thr, bk.accum_params.extracted_lweparams, result.shape)
+        thr.synchronize()
+        to_gpu_time += time.time() - t
+    else:
+        extracted_result = result
 
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
     N = accum_params.polynomial_degree
 
-    thr = result.a.thread
-
     # Test polynomial
     t = time.time()
     thr.synchronize()
-    testvectbis = TorusPolynomialArray(thr, N, result.shape)
+    testvectbis = TorusPolynomialArray(thr, N, extracted_result.shape)
 
     # Accumulator
-    acc = TLweSampleArray(thr, accum_params, result.shape)
+    acc = TLweSampleArray(thr, accum_params, extracted_result.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 
@@ -170,14 +176,17 @@ def tfhe_blindRotateAndExtract_FFT(
     tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
     # includes blindrotate, extractlwesample and keyswitch
-    BlindRotate_ks_gpu(r, acc, bk, bk_ks.ks.a, bk_ks.ks.b, bara, n, bk_params)
-    return
+    #BlindRotate_ks_gpu(r, acc, bk, bk_ks.ks.a, bk_ks.ks.b, bara, n, bk_params)
+    #return
 
     # Blind rotation
-    tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
+    tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, n, bk_params)
 
     # Extraction
-    tLweExtractLweSample_gpu(result, acc, extract_params, accum_params)
+    tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
+
+    if not no_keyswitch:
+        lweKeySwitch(thr, result, bk.ks, extracted_result)
 
 
 """
@@ -187,10 +196,10 @@ def tfhe_blindRotateAndExtract_FFT(
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 """
-def tfhe_bootstrap_woKS_FFT(
-        r, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
+def bootstrap(
+        thr, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray,
+        no_keyswitch=False):
 
-    bk_params = bk.bk_params
     accum_params = bk.accum_params
     in_params = bk.in_out_params
     N = accum_params.polynomial_degree
@@ -206,7 +215,6 @@ def tfhe_bootstrap_woKS_FFT(
     to_gpu_time += time.time() - t
 
     # Modulus switching
-    # GPU: array operations or a custom kernel
     barb = thr.array(x.b.shape, Torus32)
     bara = thr.array(x.a.shape, Torus32)
 
@@ -214,32 +222,9 @@ def tfhe_bootstrap_woKS_FFT(
     modSwitchFromTorus32_gpu(bara, x.a, 2 * N)
 
     # the initial testvec = [mu,mu,mu,...,mu]
-    # TODO: use an appropriate method
-    # GPU: array operations or a custom kernel
     testvect.coefsT.fill(mu)
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(r, result, testvect, bk.bkFFT, bk.ks, barb, bara, n, bk_params)
-
-
-"""
- * result = LWE(mu) iff phase(x)>0, LWE(-mu) iff phase(x)<0
- * @param result The resulting LweSample
- * @param bk The bootstrapping + keyswitch key
- * @param mu The output message (if phase(x)>0)
- * @param x The input sample
-"""
-def tfhe_bootstrap_FFT(
-        thr, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray):
-
-    global to_gpu_time
-
-    t = time.time()
-    u = LweSampleArray(thr, bk.accum_params.extracted_lweparams, result.shape)
-    thr.synchronize()
-    to_gpu_time += time.time() - t
-
-    tfhe_bootstrap_woKS_FFT(result, u, bk, mu, x)
-
-    # Key switching
-    #lweKeySwitch(thr, result, bk.ks, u)
+    tfhe_blindRotateAndExtract_FFT(
+        thr, result, testvect, bk, barb, bara, n,
+        no_keyswitch=no_keyswitch)
