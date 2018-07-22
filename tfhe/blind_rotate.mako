@@ -1,5 +1,5 @@
-<%def name="BlindRotateKS(
-    kernel_declaration, lwe_a, lwe_b, accum_a, gsw, ks_a, ks_b, bara, cdata_forward, cdata_inverse, n)">
+<%def name="BlindRotate(
+    kernel_declaration, extracted_a, extracted_b, accum_a, gsw, bara, cdata_forward, cdata_inverse, n)">
 <%
     tpt = transform.threads_per_transform
     p_ept = transform.polynomial_length // transform.threads_per_transform
@@ -170,59 +170,18 @@ ${kernel_declaration}
     LOCAL_BARRIER;
     }
 
+    const unsigned int tlwe_n = 1024;
+
+    for (int i = tid; i <= tlwe_n; i += bdim)
     {
-        ## inner_n
-        const unsigned int lwe_n = 500;
-
-        ## outer_n
-        const unsigned int tlwe_n = 1024;
-        const unsigned int decomp_bits = 2;
-        const unsigned int decomp_size = 8;
-
-        const int decomp_mask = (1u << decomp_bits) - 1;
-        const int decomp_offset = 1u << (31 - decomp_size * decomp_bits);
-
-        int tmp;
-        int res;
-        int val;
-
-        for (int i = tid; i <= lwe_n; i += bdim)
+        if (i == tlwe_n)
         {
-            res = (i == lwe_n) ? shared_accum[1024] : 0;
-            for (int j = 0; j < tlwe_n; j ++)
-            {
-                if (j == 0)
-                    tmp = shared_accum[0];
-                else
-                    tmp = -shared_accum[1024 - j];
-
-                ##tmp = ${ai.load_combined_idx(slices)}(batch_id, j);
-                tmp += decomp_offset;
-
-                for (int k = 0; k < decomp_size; k++)
-                {
-                    val = (tmp >> (32 - (k + 1) * decomp_bits)) & decomp_mask;
-                    if (val != 0)
-                    {
-                        if (i == lwe_n)
-                        {
-                            res -= ${ks_b.load_idx}(j, k, val);
-                        }
-                        else
-                        {
-                            res -= ${ks_a.load_idx}(j, k, val, i);
-                        }
-                    }
-                }
-            }
-            if (i == lwe_n)
-            {
-                ${lwe_b.store_combined_idx(slices3)}(batch_id, res);
-            }
-            else
-            {
-                ${lwe_a.store_combined_idx(slices2)}(batch_id, i, res);
-            }
+            ${extracted_b.store_combined_idx(slices3)}(batch_id, shared_accum[1024]);
+        }
+        else
+        {
+            ${extracted_a.store_combined_idx(slices2)}(
+                batch_id, i, i == 0 ? shared_accum[0] : -shared_accum[1024 - i]);
         }
     }
 }

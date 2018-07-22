@@ -3,31 +3,34 @@ import numpy
 from reikna.core import Computation, Parameter, Annotation
 import reikna.helpers as helpers
 
+from .lwe import LweParams, LweSampleArray
 from .tgsw import TGswParams, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
+from .lwe_gpu import LweKeySwitchTranslate_fromArray
 
 
 TEMPLATE = helpers.template_for(__file__)
 
 
-class BlindRotateKS(Computation):
+class BlindRotate(Computation):
 
-    def __init__(self, out_a, out_b, accum_a, gsw, ks_a, ks_b, bara, params: TGswParams):
+    def __init__(
+            self, out_a, out_b, accum_a, gsw, bara, params: TGswParams, in_out_params: LweParams):
+
         self._params = params
+        self._in_out_params = in_out_params
+
         Computation.__init__(self,
             [
             Parameter('lwe_a', Annotation(out_a, 'io')),
             Parameter('lwe_b', Annotation(out_b, 'io')),
             Parameter('accum_a', Annotation(accum_a, 'io')),
             Parameter('gsw', Annotation(gsw, 'i')),
-            Parameter('ks_a', Annotation(ks_a, 'i')),
-            Parameter('ks_b', Annotation(ks_b, 'i')),
-            Parameter('bara', Annotation(bara, 'i')),
-            Parameter('n', Annotation(numpy.int32))])
+            Parameter('bara', Annotation(bara, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, ks_a, ks_b, bara, n):
+    def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, bara):
         plan = plan_factory()
 
         transform_type = self._params.tlwe_params.transform_type
@@ -49,8 +52,8 @@ class BlindRotateKS(Computation):
             cdata_inverse = plan.persistent_array(transform_module.cdata_inv)
 
         plan.kernel_call(
-            TEMPLATE.get_def("BlindRotateKS"),
-            [lwe_a, lwe_b, accum_a, gsw, ks_a, ks_b, bara, cdata_forward, cdata_inverse, n],
+            TEMPLATE.get_def("BlindRotate"),
+            [lwe_a, lwe_b, accum_a, gsw, bara, cdata_forward, cdata_inverse],
             global_size=(helpers.product(batch_shape), transform_module.threads_per_transform * 4),
             local_size=(1, transform_module.threads_per_transform * 4),
             render_kwds=dict(
@@ -60,6 +63,7 @@ class BlindRotateKS(Computation):
                 transform=transform_module,
                 k=k,
                 l=l,
+                n=self._in_out_params.size,
                 params=self._params,
                 mul=transform.transformed_mul(),
                 add=transform.transformed_add(),
@@ -70,10 +74,72 @@ class BlindRotateKS(Computation):
         return plan
 
 
-def BlindRotate_ks_gpu(
-        lwe_out, accum: TLweSampleArray, bkFFT: TGswSampleFFTArray, ks_a, ks_b, bara, n: int, bk_params: TGswParams):
+class BlindRotateAndKeySwitch(Computation):
+
+    def __init__(
+            self, out_a, out_b, accum_a, gsw, ks_a, ks_b, bara,
+            params: TGswParams, in_out_params: LweParams, ks: 'LweKeySwitchKey'):
+
+        self._params = params
+        self._in_out_params = in_out_params
+        self._ks = ks
+
+        Computation.__init__(self,
+            [
+            Parameter('lwe_a', Annotation(out_a, 'io')),
+            Parameter('lwe_b', Annotation(out_b, 'io')),
+            Parameter('accum_a', Annotation(accum_a, 'io')),
+            Parameter('gsw', Annotation(gsw, 'i')),
+            Parameter('ks_a', Annotation(ks_a, 'i')),
+            Parameter('ks_b', Annotation(ks_b, 'i')),
+            Parameter('bara', Annotation(bara, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, ks_a, ks_b, bara):
+        plan = plan_factory()
+
+        batch_shape = accum_a.shape[:-2]
+
+        tgsw_params = self._params
+        eparams = tgsw_params.tlwe_params.extracted_lweparams
+        extracted_a = plan.temp_array(batch_shape + (eparams.size,), numpy.int32)
+        extracted_b = plan.temp_array(batch_shape, numpy.int32)
+
+        blind_rotate = BlindRotate(
+            extracted_a, extracted_b, accum_a, gsw, bara, self._params, self._in_out_params)
+        plan.computation_call(blind_rotate, extracted_a, extracted_b, accum_a, gsw, bara)
+
+        outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
+        inner_n = self._in_out_params.size
+        outer_n = self._ks.input_size
+        basebit = self._ks.basebit
+        t = self._ks.t
+
+        ks = LweKeySwitchTranslate_fromArray(batch_shape, t, outer_n, inner_n, basebit)
+        result_cv = plan.temp_array_like(ks.parameter.result_cv)
+        ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
+        plan.computation_call(ks, lwe_a, lwe_b, result_cv, ks_a, ks_b, ks_cv, extracted_a, extracted_b)
+
+        return plan
+
+
+
+def BlindRotate_gpu(
+        lwe_out: LweSampleArray, accum: TLweSampleArray,
+        bk: 'LweBootstrappingKeyFFT', bara, no_keyswitch=False):
 
     thr = accum.a.coefsT.thread
-    comp = get_computation(thr, BlindRotateKS,
-        lwe_out.a, lwe_out.b, accum.a.coefsT, bkFFT.samples.a.coefsC, ks_a, ks_b, bara, bk_params)
-    comp(lwe_out.a, lwe_out.b, accum.a.coefsT, bkFFT.samples.a.coefsC, ks_a, ks_b, bara, n)
+
+    if no_keyswitch:
+        comp = get_computation(thr, BlindRotate,
+            lwe_out.a, lwe_out.b, accum.a.coefsT,
+            bk.bkFFT.samples.a.coefsC, bara, bk.bk_params, bk.in_out_params)
+        comp(lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC, bara)
+    else:
+        comp = get_computation(thr, BlindRotateAndKeySwitch,
+            lwe_out.a, lwe_out.b, accum.a.coefsT,
+            bk.bkFFT.samples.a.coefsC, bk.ks.ks.a, bk.ks.ks.b, bara,
+            bk.bk_params, bk.in_out_params, bk.ks)
+        comp(
+            lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC,
+            bk.ks.ks.a, bk.ks.ks.b, bara)
+

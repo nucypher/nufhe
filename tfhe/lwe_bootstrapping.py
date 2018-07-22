@@ -11,7 +11,7 @@ from .tlwe_gpu import (
     tLweExtractLweSample_gpu,
     )
 from .gpu_numeric_functions import modSwitchFromTorus32_gpu
-from .blind_rotate import BlindRotate_ks_gpu
+from .blind_rotate import BlindRotate_gpu
 from .gpu_polynomials import tp_mul_by_xai_gpu
 
 import time
@@ -138,7 +138,7 @@ def tfhe_blindRotate_FFT(
 def tfhe_blindRotateAndExtract_FFT(
         thr, result: LweSampleArray,
         v: TorusPolynomialArray, bk: LweBootstrappingKeyFFT,
-        barb, bara, n: int,
+        barb, bara,
         no_keyswitch=False):
 
     # TYPING: barb::Array{Int32},
@@ -175,12 +175,12 @@ def tfhe_blindRotateAndExtract_FFT(
 
     tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
-    # includes blindrotate, extractlwesample and keyswitch
-    #BlindRotate_ks_gpu(r, acc, bk, bk_ks.ks.a, bk_ks.ks.b, bara, n, bk_params)
+    # includes blindrotate, extractlwesample and (optionally) keyswitch
+    #BlindRotate_gpu(result, acc, bk, bara, no_keyswitch=no_keyswitch)
     #return
 
     # Blind rotation
-    tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, n, bk_params)
+    tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params)
 
     # Extraction
     tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
@@ -201,9 +201,7 @@ def bootstrap(
         no_keyswitch=False):
 
     accum_params = bk.accum_params
-    in_params = bk.in_out_params
     N = accum_params.polynomial_degree
-    n = in_params.size
 
     global to_gpu_time
 
@@ -225,6 +223,4 @@ def bootstrap(
     testvect.coefsT.fill(mu)
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(
-        thr, result, testvect, bk, barb, bara, n,
-        no_keyswitch=no_keyswitch)
+    tfhe_blindRotateAndExtract_FFT(thr, result, testvect, bk, barb, bara, no_keyswitch=no_keyswitch)
