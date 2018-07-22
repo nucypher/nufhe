@@ -10,6 +10,7 @@ from .lwe import (
     )
 from .keys import TFHECloudKey
 from .lwe_bootstrapping import bootstrap
+from .performance import PerformanceParameters
 
 from . import lwe_bootstrapping
 
@@ -23,7 +24,11 @@ from . import lwe_bootstrapping
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_NAND_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
+
+    if perf_params is None:
+        perf_params = PerformanceParameters()
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
@@ -41,7 +46,7 @@ def tfhe_gate_NAND_(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -303,7 +308,11 @@ def tfhe_gate_ORYN_(
 def tfhe_gate_MUX_(
         thr,
         bk: TFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, c: LweSampleArray):
+        a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
+        perf_params=None):
+
+    if perf_params is None:
+        perf_params = PerformanceParameters()
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
@@ -320,14 +329,14 @@ def tfhe_gate_MUX_(
     lweAddTo(thr, temp_result, a, in_out_params)
     lweAddTo(thr, temp_result, b, in_out_params)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u1, bk.bkFFT, MU, temp_result, no_keyswitch=True)
+    bootstrap(thr, u1, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     lweNoiselessTrivial(thr, temp_result, AndConst, in_out_params)
     lweSubTo(thr, temp_result, a, in_out_params)
     lweAddTo(thr, temp_result, c, in_out_params)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u2, bk.bkFFT, MU, temp_result, no_keyswitch=True)
+    bootstrap(thr, u2, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)

@@ -13,6 +13,7 @@ from .tlwe_gpu import (
 from .gpu_numeric_functions import modSwitchFromTorus32_gpu
 from .blind_rotate import BlindRotate_gpu
 from .gpu_polynomials import tp_mul_by_xai_gpu
+from .performance import PerformanceParameters
 
 import time
 
@@ -139,6 +140,7 @@ def tfhe_blindRotateAndExtract_FFT(
         thr, result: LweSampleArray,
         v: TorusPolynomialArray, bk: LweBootstrappingKeyFFT,
         barb, bara,
+        perf_params: PerformanceParameters,
         no_keyswitch=False):
 
     # TYPING: barb::Array{Int32},
@@ -175,18 +177,19 @@ def tfhe_blindRotateAndExtract_FFT(
 
     tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
 
-    # includes blindrotate, extractlwesample and (optionally) keyswitch
-    #BlindRotate_gpu(result, acc, bk, bara, no_keyswitch=no_keyswitch)
-    #return
+    if perf_params.single_kernel_bootstrap:
+        # includes blindrotate, extractlwesample and (optionally) keyswitch
+        BlindRotate_gpu(result, acc, bk, bara, no_keyswitch=no_keyswitch)
 
-    # Blind rotation
-    tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params)
+    else:
+        # Blind rotation
+        tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params)
 
-    # Extraction
-    tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
+        # Extraction
+        tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
 
-    if not no_keyswitch:
-        lweKeySwitch(thr, result, bk.ks, extracted_result)
+        if not no_keyswitch:
+            lweKeySwitch(thr, result, bk.ks, extracted_result)
 
 
 """
@@ -198,6 +201,7 @@ def tfhe_blindRotateAndExtract_FFT(
 """
 def bootstrap(
         thr, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray,
+        perf_params: PerformanceParameters,
         no_keyswitch=False):
 
     accum_params = bk.accum_params
@@ -223,4 +227,6 @@ def bootstrap(
     testvect.coefsT.fill(mu)
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(thr, result, testvect, bk, barb, bara, no_keyswitch=no_keyswitch)
+    tfhe_blindRotateAndExtract_FFT(
+        thr, result, testvect, bk, barb, bara, perf_params,
+        no_keyswitch=no_keyswitch)
