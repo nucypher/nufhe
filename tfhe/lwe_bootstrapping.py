@@ -10,7 +10,7 @@ from .tlwe_gpu import (
     tLweAddTo_gpu,
     tLweExtractLweSample_gpu,
     )
-from .gpu_numeric_functions import modSwitchFromTorus32_gpu
+from .numeric_functions_gpu import modSwitchFromTorus32_gpu
 from .blind_rotate import BlindRotate_gpu
 from .gpu_polynomials import tp_mul_by_xai_gpu
 from .performance import PerformanceParameters
