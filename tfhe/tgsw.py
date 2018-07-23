@@ -1,6 +1,6 @@
 import numpy
 
-from .numeric_functions import int64_to_int32, Torus32
+from .numeric_functions import Torus32
 from .tlwe import TLweParams, TLweKey, TLweSampleArray, TLweSampleFFTArray
 from .tlwe_gpu import tLweToFFTConvert_gpu
 
@@ -14,8 +14,8 @@ class TGswParams:
         self.base_powers = (2**(32 - decomp_range * bs_log2_base)).astype(Torus32)
 
         # offset = base/2 * Sum{j=1..decomp_length} 2^(32 - j * bs_log2_base)
-        self.offset = int64_to_int32(
-            self.base_powers.astype(numpy.int64).sum() * (2**bs_log2_base // 2))
+        self.offset = (
+            self.base_powers.astype(numpy.int64).sum() * (2**bs_log2_base // 2)).astype(numpy.int32)
 
         self.decomp_length = decomp_length
         self.bs_log2_base = bs_log2_base
