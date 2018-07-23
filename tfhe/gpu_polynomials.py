@@ -9,16 +9,6 @@ from .numeric_functions import Torus32
 from .polynomial_transform import get_transform
 
 
-class Polynomial:
-
-    def flat_coefs(self):
-        cp = _coefs(self)
-        return cp.reshape(numpy.prod(self.shape), cp.shape[-1])
-
-    def polynomial_size(self):
-        return self._polynomial_size
-
-
 class FakeThread:
 
     def array(self, shape, dtype):
@@ -26,10 +16,9 @@ class FakeThread:
 
 
 # This structure represents an integer polynomial modulo X^N+1
-class IntPolynomialArray(Polynomial):
-    def __init__(self, thr, N, shape):
-        Polynomial.__init__(self)
+class IntPolynomialArray:
 
+    def __init__(self, thr, N, shape):
         if thr is None:
             thr = FakeThread()
 
@@ -45,10 +34,9 @@ class IntPolynomialArray(Polynomial):
 
 
 # This structure represents an torus polynomial modulo X^N+1
-class TorusPolynomialArray(Polynomial):
-    def __init__(self, thr, N, shape):
-        Polynomial.__init__(self)
+class TorusPolynomialArray:
 
+    def __init__(self, thr, N, shape):
         if thr is None:
             thr = FakeThread()
 
@@ -56,18 +44,13 @@ class TorusPolynomialArray(Polynomial):
         self._polynomial_size = N
         self.shape = shape
 
-    @classmethod
-    def from_arr(cls, arr):
-        obj = cls(arr.shape[-1], arr.shape[:-1])
-        obj.coefsT = arr
-        return obj
-
 
 # This structure is used for FFT operations, and is a representation
 # over C of a polynomial in R[X]/X^N+1
-class LagrangeHalfCPolynomialArray(Polynomial):
+class LagrangeHalfCPolynomialArray:
+
     def __init__(self, thr, transform_type, N, shape):
-        Polynomial.__init__(self)
+
         assert N % 2 == 0
 
         transform = get_transform(transform_type)
@@ -79,19 +62,6 @@ class LagrangeHalfCPolynomialArray(Polynomial):
             shape + (transform.transformed_length(N),), transform.transformed_dtype())
         self._polynomial_size = N
         self.shape = shape
-
-
-def _coefs(p):
-    # TODO: different field names help with debugging, remove later
-    if type(p) == IntPolynomialArray:
-        return p.coefs
-    elif type(p) == TorusPolynomialArray:
-        return p.coefsT
-    elif type(p) == LagrangeHalfCPolynomialArray:
-        return p.coefsC
-    else:
-        raise Exception("Wrong type " + str(type(p)))
-
 
 
 def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
