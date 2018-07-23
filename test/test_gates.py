@@ -12,7 +12,7 @@ def key_pair(thread):
 
 
 @pytest.fixture(scope='module', params=[False, True], ids=['bs_loop', 'bs_kernel'])
-def single_kernel_bs(request):
+def single_kernel_bootstrap(request):
     return request.param
 
 
@@ -41,6 +41,34 @@ def check_gate(thread, key_pair, perf_params, num_arguments, tfhe_func, referenc
     assert (answer_bits == reference).all()
 
 
+@pytest.mark.parametrize('transform_type', ['FFT', 'NTT'])
+def test_transform_type(thread, transform_type):
+    rng = numpy.random.RandomState()
+    perf_params = PerformanceParameters()
+    key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
+    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+
+
+@pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
+def test_tlwe_mask_size(thread, tlwe_mask_size):
+    rng = numpy.random.RandomState()
+    perf_params = PerformanceParameters()
+    key_pair = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
+    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+
+
+def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
+    # Test a gate that employs a bootstrap with keyswitch
+    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+
+
+def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
+    # Test a gate that employs separate calls to bootstrap and keyswitch
+    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
+
+
 def mux_ref(plaintexts):
     assert len(plaintexts) == 3
     return plaintexts[0] * plaintexts[1] + numpy.logical_not(plaintexts[0]) * plaintexts[2]
@@ -51,12 +79,12 @@ def nand_ref(plaintexts):
     return numpy.logical_not(numpy.logical_and(plaintexts[0], plaintexts[1]))
 
 
-def test_mux_gate(thread, key_pair, single_kernel_bs):
-    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bs)
+def test_mux_gate(thread, key_pair):
+    perf_params = PerformanceParameters()
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
-def test_nand_gate(thread, key_pair, single_kernel_bs):
-    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bs)
+def test_nand_gate(thread, key_pair):
+    perf_params = PerformanceParameters()
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 

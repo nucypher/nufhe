@@ -10,14 +10,13 @@ from .lwe_bootstrapping import LweBootstrappingKeyFFT
 
 class TFHEParameters:
 
-    def __init__(self, transform_type='NTT'):
+    def __init__(self, transform_type='FFT', tlwe_mask_size=1):
+        # Note: the default parameters correspond to about 128bit of security!
 
         assert transform_type in ('FFT', 'NTT')
-
-        # the parameters are only implemented for about 128bit of security!
+        assert tlwe_mask_size >= 1
 
         tlwe_polynomial_degree = 1024
-        tlwe_mask_size = 1
         lwe_size = 500
 
         bs_decomp_length = 2 # bootstrap decomposition length
@@ -60,8 +59,8 @@ def tfhe_parameters(key): # union(TFHESecretKey, TFHECloudKey)
     return key.params
 
 
-def tfhe_key_pair(thr, rng):
-    params = TFHEParameters()
+def tfhe_key_pair(thr, rng, **params):
+    params = TFHEParameters(**params)
 
     lwe_key = LweKey.from_rng(thr, rng, params.in_out_params)
     tgsw_key = TGswKey(thr, rng, params.tgsw_params)
