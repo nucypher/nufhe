@@ -76,7 +76,7 @@ def test_transform_type(thread, transform_type):
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
-    perf_params = performance_parameters()
+    perf_params = performance_parameters(single_kernel_bootstrap=False)
     key_pair = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
