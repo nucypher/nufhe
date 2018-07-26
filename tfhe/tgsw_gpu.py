@@ -9,6 +9,7 @@ from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
+from .performance import PerformanceParameters
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -35,7 +36,9 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
         render_kwds=dict(params=params))
 
 
-def get_TLweFFTAddMulRTo_trf(N, transform_type, tmpa_a, gsw, tr_ctype):
+def get_TLweFFTAddMulRTo_trf(
+        N, transform_type, tmpa_a, gsw, tr_ctype, perf_params: PerformanceParameters):
+
     k = tmpa_a.shape[-2] - 1
     l = gsw.shape[-3]
     batch = tmpa_a.shape[:-2]
@@ -70,13 +73,15 @@ def get_TLweFFTAddMulRTo_trf(N, transform_type, tmpa_a, gsw, tr_ctype):
         """,
         connectors=['tmpa_a'],
         render_kwds=dict(
-            k=k, l=l, add=transform.transformed_add(), mul=transform.transformed_mul(),
+            k=k, l=l,
+            add=transform.transformed_add(perf_params),
+            mul=transform.transformed_mul(perf_params),
             tr_ctype=tr_ctype))
 
 
 class TGswFFTExternMulToTLwe(Computation):
 
-    def __init__(self, accum_a, gsw, params: TGswParams):
+    def __init__(self, accum_a, gsw, params: TGswParams, perf_params: PerformanceParameters):
         tlwe_params = params.tlwe_params
         k = tlwe_params.mask_size
         l = params.decomp_length
@@ -97,14 +102,14 @@ class TGswFFTExternMulToTLwe(Computation):
         self._tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
 
         decomp = get_TGswTorus32PolynomialDecompH_trf(self._deca_type, params)
-        self._ip_ifft = transform.ForwardTransform(deca_shape, N)
+        self._ip_ifft = transform.ForwardTransform(deca_shape, N, perf_params)
         self._ip_ifft.parameter.input.connect(
             decomp, decomp.output, sample=decomp.sample)
 
         add = get_TLweFFTAddMulRTo_trf(
             N, tlwe_params.transform_type, self._tmpa_a_type, gsw,
-            transform.transformed_internal_ctype())
-        self._tp_fft = transform.InverseTransform(tmpa_shape, N)
+            transform.transformed_internal_ctype(), perf_params)
+        self._tp_fft = transform.InverseTransform(tmpa_shape, N, perf_params)
         self._tp_fft.parameter.input.connect(
             add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
 
@@ -126,10 +131,12 @@ class TGswFFTExternMulToTLwe(Computation):
 
 
 def tGswFFTExternMulToTLwe_gpu(
-        result: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int, bk_params: TGswParams):
+        result: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int, bk_params: TGswParams,
+        perf_params: PerformanceParameters):
 
     thr = result.a.coefsT.thread
-    comp = get_computation(thr, TGswFFTExternMulToTLwe, result.a.coefsT, bki.samples.a.coefsC, bk_params)
+    comp = get_computation(
+        thr, TGswFFTExternMulToTLwe, result.a.coefsT, bki.samples.a.coefsC, bk_params, perf_params)
     comp(result.a.coefsT, bki.samples.a.coefsC, bk_idx)
 
 
@@ -174,13 +181,18 @@ def tGswAddMuIntH_gpu(thr, result: 'TGswSampleArray', messages, params: 'TGswPar
 
 
 # Result = tGsw(0)
-def tGswEncryptZero(thr, rng, result: TGswSampleArray, alpha: float, key: 'TGswKey'):
+def tGswEncryptZero(
+        thr, rng, result: TGswSampleArray, alpha: float, key: 'TGswKey',
+        perf_params: PerformanceParameters):
     rlkey = key.tlwe_key
-    tLweSymEncryptZero_gpu(thr, rng, result.samples, alpha, rlkey)
+    tLweSymEncryptZero_gpu(thr, rng, result.samples, alpha, rlkey, perf_params)
 
 
 # encrypts a constant message
-def tGswSymEncryptInt_gpu(thr, rng, result: TGswSampleArray, messages, alpha: float, key: 'TGswKey'):
+def tGswSymEncryptInt_gpu(
+        thr, rng, result: TGswSampleArray, messages, alpha: float, key: 'TGswKey',
+        perf_params: PerformanceParameters):
+
     # TYPING: messages::Array{Int32, 1}
-    tGswEncryptZero(thr, rng, result, alpha, key)
+    tGswEncryptZero(thr, rng, result, alpha, key, perf_params)
     tGswAddMuIntH_gpu(thr, result, messages, key.params)

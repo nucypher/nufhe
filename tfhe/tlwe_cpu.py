@@ -5,7 +5,7 @@ from .polynomial_transform import get_transform
 
 
 # create an homogeneous tlwe sample
-def TLweSymEncryptZero_ref(shape, alpha: float, params: 'TLweParams'):
+def TLweSymEncryptZero_ref(shape, alpha: float, params: 'TLweParams', perf_params):
     N = params.polynomial_degree
     k = params.mask_size
 

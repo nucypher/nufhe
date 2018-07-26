@@ -9,6 +9,7 @@ from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
 from .lwe_gpu import LweKeySwitchTranslate_fromArray
+from .performance import PerformanceParameters
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -17,10 +18,12 @@ TEMPLATE = helpers.template_for(__file__)
 class BlindRotate(Computation):
 
     def __init__(
-            self, out_a, out_b, accum_a, gsw, bara, params: TGswParams, in_out_params: LweParams):
+            self, out_a, out_b, accum_a, gsw, bara, params: TGswParams, in_out_params: LweParams,
+            perf_params: PerformanceParameters):
 
         self._params = params
         self._in_out_params = in_out_params
+        self._perf_params = perf_params
 
         Computation.__init__(self,
             [
@@ -36,7 +39,7 @@ class BlindRotate(Computation):
         transform_type = self._params.tlwe_params.transform_type
         transform = get_transform(transform_type)
 
-        transform_module = transform.transform_module()
+        transform_module = transform.transform_module(self._perf_params)
 
         tlwe_params = self._params.tlwe_params
         k = tlwe_params.mask_size
@@ -65,8 +68,8 @@ class BlindRotate(Computation):
                 l=l,
                 n=self._in_out_params.size,
                 params=self._params,
-                mul=transform.transformed_mul(),
-                add=transform.transformed_add(),
+                mul=transform.transformed_mul(self._perf_params),
+                add=transform.transformed_add(self._perf_params),
                 tr_ctype=transform.transformed_internal_ctype(),
                 )
             )
@@ -78,11 +81,13 @@ class BlindRotateAndKeySwitch(Computation):
 
     def __init__(
             self, out_a, out_b, accum_a, gsw, ks_a, ks_b, bara,
-            params: TGswParams, in_out_params: LweParams, ks: 'LweKeySwitchKey'):
+            params: TGswParams, in_out_params: LweParams, ks: 'LweKeySwitchKey',
+            perf_params: PerformanceParameters):
 
         self._params = params
         self._in_out_params = in_out_params
         self._ks = ks
+        self._perf_params = perf_params
 
         Computation.__init__(self,
             [
@@ -105,7 +110,8 @@ class BlindRotateAndKeySwitch(Computation):
         extracted_b = plan.temp_array(batch_shape, numpy.int32)
 
         blind_rotate = BlindRotate(
-            extracted_a, extracted_b, accum_a, gsw, bara, self._params, self._in_out_params)
+            extracted_a, extracted_b, accum_a, gsw, bara, self._params, self._in_out_params,
+            self._perf_params)
         plan.computation_call(blind_rotate, extracted_a, extracted_b, accum_a, gsw, bara)
 
         outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
@@ -125,20 +131,20 @@ class BlindRotateAndKeySwitch(Computation):
 
 def BlindRotate_gpu(
         lwe_out: LweSampleArray, accum: TLweSampleArray,
-        bk: 'LweBootstrappingKeyFFT', bara, no_keyswitch=False):
+        bk: 'LweBootstrappingKeyFFT', bara, perf_params: PerformanceParameters, no_keyswitch=False):
 
     thr = accum.a.coefsT.thread
 
     if no_keyswitch:
         comp = get_computation(thr, BlindRotate,
             lwe_out.a, lwe_out.b, accum.a.coefsT,
-            bk.bkFFT.samples.a.coefsC, bara, bk.bk_params, bk.in_out_params)
+            bk.bkFFT.samples.a.coefsC, bara, bk.bk_params, bk.in_out_params, perf_params)
         comp(lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC, bara)
     else:
         comp = get_computation(thr, BlindRotateAndKeySwitch,
             lwe_out.a, lwe_out.b, accum.a.coefsT,
             bk.bkFFT.samples.a.coefsC, bk.ks.ks.a, bk.ks.ks.b, bara,
-            bk.bk_params, bk.in_out_params, bk.ks)
+            bk.bk_params, bk.in_out_params, bk.ks, perf_params)
         comp(
             lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC,
             bk.ks.ks.a, bk.ks.ks.b, bara)

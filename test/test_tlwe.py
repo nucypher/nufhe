@@ -13,8 +13,7 @@ from tfhe.tlwe_cpu import (
     tLweNoiselessTrivial_reference,
     tLweExtractLweSample_reference,
     )
-
-
+from tfhe.performance import performance_parameters
 import tfhe.random_numbers as rn
 
 
@@ -75,6 +74,7 @@ def test_TLweSymEncryptZero(thread):
     rng = numpy.random.RandomState(123)
 
     tfhe_params = TFHEParameters()
+    perf_params = performance_parameters()
     params = tfhe_params.tgsw_params.tlwe_params
 
     k = params.mask_size
@@ -90,8 +90,8 @@ def test_TLweSymEncryptZero(thread):
     noises1 = rn._rand_uniform_torus32(rng, shape + (k, N))
     key = rn._rand_uniform_int32(rng, (k, N))
 
-    comp = TLweSymEncryptZero(shape, alpha, params).compile(thread)
-    ref = TLweSymEncryptZero_ref(shape, alpha, params)
+    comp = TLweSymEncryptZero(shape, alpha, params, perf_params).compile(thread)
+    ref = TLweSymEncryptZero_ref(shape, alpha, params, perf_params)
 
     result_a_dev = thread.empty_like(result_a)
     result_cv_dev = thread.empty_like(result_cv)

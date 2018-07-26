@@ -6,6 +6,7 @@ from .lwe_gpu import lweSymEncrypt_gpu, lwePhase_gpu
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .lwe_bootstrapping import LweBootstrappingKeyFFT
+from .performance import performance_parameters
 
 
 class TFHEParameters:
@@ -66,8 +67,11 @@ def tfhe_key_pair(thr, rng, **params):
     tgsw_key = TGswKey(thr, rng, params.tgsw_params)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
+    # TODO: use PerformanceParameters from the user
+    perf_params = performance_parameters()
+
     bkFFT = LweBootstrappingKeyFFT(
-        thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key)
+        thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key, perf_params)
     cloud_key = TFHECloudKey(params, bkFFT)
 
     return secret_key, cloud_key

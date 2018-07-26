@@ -21,7 +21,8 @@ to_gpu_time = 0
 
 
 def lwe_bootstrapping_key(
-        thr, rng, ks_decomp_length: int, ks_log2_base: int, key_in: LweKey, rgsw_key: TGswKey):
+        thr, rng, ks_decomp_length: int, ks_log2_base: int, key_in: LweKey, rgsw_key: TGswKey,
+        perf_params: PerformanceParameters):
 
     bk_params = rgsw_key.params
     in_out_params = key_in.params
@@ -40,7 +41,7 @@ def lwe_bootstrapping_key(
     kin = key_in.key
     alpha = accum_params.alpha_min
 
-    tGswSymEncryptInt_gpu(thr, rng, bk, kin, alpha, rgsw_key)
+    tGswSymEncryptInt_gpu(thr, rng, bk, kin, alpha, rgsw_key, perf_params)
 
     return bk, ks
 
@@ -49,20 +50,21 @@ class LweBootstrappingKeyFFT:
 
     def __init__(
             self, thr, rng, ks_decomp_length: int, ks_log2_base: int,
-            lwe_key: LweKey, tgsw_key: TGswKey):
+            lwe_key: LweKey, tgsw_key: TGswKey, perf_params: PerformanceParameters):
 
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        bk, ks = lwe_bootstrapping_key(thr, rng, ks_decomp_length, ks_log2_base, lwe_key, tgsw_key)
+        bk, ks = lwe_bootstrapping_key(
+            thr, rng, ks_decomp_length, ks_log2_base, lwe_key, tgsw_key, perf_params)
 
         n = in_out_params.size
 
         # Bootstrapping Key FFT
         bkFFT = TGswSampleFFTArray(thr, bk_params, (n,))
-        tGswToFFTConvert(thr, bkFFT, bk, bk_params)
+        tGswToFFTConvert(thr, bkFFT, bk, bk_params, perf_params)
 
         self.in_out_params = in_out_params # paramètre de l'input et de l'output. key: s
         self.bk_params = bk_params # params of the Gsw elems in bk. key: s"
@@ -74,7 +76,7 @@ class LweBootstrappingKeyFFT:
 
 def tfhe_MuxRotate_FFT(
         result: TLweSampleArray, accum: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int,
-        barai, bk_params: TGswParams):
+        barai, bk_params: TGswParams, perf_params: PerformanceParameters):
 
     # TYPING: barai::Array{Int32}
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
@@ -82,7 +84,7 @@ def tfhe_MuxRotate_FFT(
     tLweMulByXaiMinusOne_gpu(result, barai, bk_idx, accum, bk_params.tlwe_params)
 
     # temp *= BKi
-    tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params)
+    tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params, perf_params)
 
     # ACC += temp
     tLweAddTo_gpu(result, accum, bk_params.tlwe_params)
@@ -96,7 +98,8 @@ def tfhe_MuxRotate_FFT(
  * @param bk_params The parameters of bk
 """
 def tfhe_blindRotate_FFT(
-        accum: TLweSampleArray, bkFFT: TGswSampleFFTArray, bara, n: int, bk_params: TGswParams):
+        accum: TLweSampleArray, bkFFT: TGswSampleFFTArray, bara, n: int, bk_params: TGswParams,
+        perf_params: PerformanceParameters):
 
     thr = accum.a.coefsT.thread
 
@@ -118,7 +121,7 @@ def tfhe_blindRotate_FFT(
         # TODO: here we only need to pass bkFFT[i] and bara[:,i],
         # but Reikna kernels have to be recompiled for every set of strides/offsets,
         # so for now we are just passing full arrays and an index.
-        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, bara, bk_params)
+        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, bara, bk_params, perf_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
@@ -179,11 +182,11 @@ def tfhe_blindRotateAndExtract_FFT(
 
     if perf_params.single_kernel_bootstrap:
         # includes blindrotate, extractlwesample and (optionally) keyswitch
-        BlindRotate_gpu(result, acc, bk, bara, no_keyswitch=no_keyswitch)
+        BlindRotate_gpu(result, acc, bk, bara, perf_params, no_keyswitch=no_keyswitch)
 
     else:
         # Blind rotation
-        tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params)
+        tfhe_blindRotate_FFT(acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params, perf_params)
 
         # Extraction
         tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)

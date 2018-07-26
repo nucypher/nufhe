@@ -19,6 +19,7 @@ from tfhe.tgsw_cpu import (
     TLweFFTAddMulRTo_reference,
     TGswFFTExternMulToTLwe_reference,
     )
+from tfhe.performance import performance_parameters
 
 
 def test_TGswTorus32PolynomialDecompH(thread):
@@ -53,6 +54,7 @@ def test_TLweFFTAddMulRTo(thread):
 
     batch = (2,)
     params = TFHEParameters()
+    perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
     transform_type = tgsw_params.tlwe_params.transform_type
@@ -88,7 +90,8 @@ def test_TLweFFTAddMulRTo(thread):
     gsw_dev = thread.to_device(gsw)
 
     trf = get_TLweFFTAddMulRTo_trf(
-        N, transform_type, tmpa_a, gsw, transform.transformed_internal_ctype())
+        N, transform_type, tmpa_a, gsw, transform.transformed_internal_ctype(),
+        perf_params)
     test = PureParallel.from_trf(trf, guiding_array='tmpa_a').compile(thread)
     ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw, tgsw_params.tlwe_params)
 
@@ -104,6 +107,7 @@ def test_TGswFFTExternMulToTLwe(thread):
 
     batch = (16,)
     params = TFHEParameters()
+    perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
     transform_type = tgsw_params.tlwe_params.transform_type
@@ -130,8 +134,8 @@ def test_TGswFFTExternMulToTLwe(thread):
     gsw_dev = thread.to_device(gsw)
     accum_a_dev = thread.to_device(accum_a)
 
-    test = TGswFFTExternMulToTLwe(accum_a, gsw, tgsw_params).compile(thread)
-    ref = TGswFFTExternMulToTLwe_reference(accum_a, gsw, tgsw_params)
+    test = TGswFFTExternMulToTLwe(accum_a, gsw, tgsw_params, perf_params).compile(thread)
+    ref = TGswFFTExternMulToTLwe_reference(accum_a, gsw, tgsw_params, perf_params)
 
     test(accum_a_dev, gsw_dev, bk_idx)
     accum_a_test = accum_a_dev.get()

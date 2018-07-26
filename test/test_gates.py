@@ -44,7 +44,7 @@ def check_gate(thread, key_pair, perf_params, num_arguments, tfhe_func, referenc
 @pytest.mark.parametrize('transform_type', ['FFT', 'NTT'])
 def test_transform_type(thread, transform_type):
     rng = numpy.random.RandomState()
-    perf_params = PerformanceParameters()
+    perf_params = performance_parameters()
     key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
@@ -52,20 +52,20 @@ def test_transform_type(thread, transform_type):
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
-    perf_params = PerformanceParameters()
+    perf_params = performance_parameters()
     key_pair = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs a bootstrap with keyswitch
-    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = performance_parameters(single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs separate calls to bootstrap and keyswitch
-    perf_params = PerformanceParameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = performance_parameters(single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
@@ -80,11 +80,11 @@ def nand_ref(plaintexts):
 
 
 def test_mux_gate(thread, key_pair):
-    perf_params = PerformanceParameters()
+    perf_params = performance_parameters()
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
 def test_nand_gate(thread, key_pair):
-    perf_params = PerformanceParameters()
+    perf_params = performance_parameters()
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 

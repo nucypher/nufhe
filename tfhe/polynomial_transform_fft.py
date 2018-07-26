@@ -4,6 +4,7 @@ from reikna.cluda import functions, Module
 
 from .transform import fft512, Transform
 from .transform.fft import fft_transform_ref
+from .performance import PerformanceParameters
 
 
 def transformed_dtype():
@@ -49,25 +50,27 @@ def transformed_space_mul_ref(data1, data2):
     return data1 * data2
 
 
-def transformed_add():
+def transformed_add(perf_params):
     return functions.add(transformed_dtype(), transformed_dtype())
 
 
-def transformed_mul():
+def transformed_mul(perf_params):
     return functions.mul(transformed_dtype(), transformed_dtype())
 
 
-def transform_module():
-    return fft512(use_constant_memory=True)
+def transform_module(perf_params: PerformanceParameters):
+    return fft512(use_constant_memory=perf_params.use_constant_memory)
 
 
-def ForwardTransform(batch_shape, N):
+def ForwardTransform(batch_shape, N, perf_params: PerformanceParameters):
     assert N == 1024
     return Transform(
-        fft512(), batch_shape, transforms_per_block=1, i32_conversion=True)
+        fft512(perf_params.use_constant_memory), batch_shape,
+        transforms_per_block=perf_params.transforms_per_block, i32_conversion=True)
 
 
-def InverseTransform(batch_shape, N):
+def InverseTransform(batch_shape, N, perf_params: PerformanceParameters):
     assert N == 1024
     return Transform(
-        fft512(), batch_shape, transforms_per_block=1, i32_conversion=True, inverse=True)
+        fft512(perf_params.use_constant_memory), batch_shape,
+        transforms_per_block=perf_params.transforms_per_block, i32_conversion=True, inverse=True)

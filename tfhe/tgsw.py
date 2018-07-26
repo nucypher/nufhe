@@ -3,6 +3,7 @@ import numpy
 from .numeric_functions import Torus32
 from .tlwe import TLweParams, TLweKey, TLweSampleArray, TLweSampleFFTArray
 from .tlwe_gpu import tLweToFFTConvert_gpu
+from .performance import PerformanceParameters
 
 
 class TGswParams:
@@ -50,5 +51,7 @@ class TGswSampleFFTArray:
 
 # For all the kpl TLWE samples composing the TGSW sample
 # It computes the inverse FFT of the coefficients of the TLWE sample
-def tGswToFFTConvert(thr, result: TGswSampleFFTArray, source: TGswSampleArray, params: TGswParams):
-    tLweToFFTConvert_gpu(thr, result.samples, source.samples, params.tlwe_params)
+def tGswToFFTConvert(
+        thr, result: TGswSampleFFTArray, source: TGswSampleArray, params: TGswParams,
+        perf_params: PerformanceParameters):
+    tLweToFFTConvert_gpu(thr, result.samples, source.samples, params.tlwe_params, perf_params)

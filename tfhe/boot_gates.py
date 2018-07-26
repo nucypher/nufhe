@@ -10,7 +10,7 @@ from .lwe import (
     )
 from .keys import TFHECloudKey
 from .lwe_bootstrapping import bootstrap
-from .performance import PerformanceParameters
+from .performance import performance_parameters
 
 from . import lwe_bootstrapping
 
@@ -28,7 +28,7 @@ def tfhe_gate_NAND_(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = PerformanceParameters()
+        perf_params = performance_parameters()
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
@@ -312,7 +312,7 @@ def tfhe_gate_MUX_(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = PerformanceParameters()
+        perf_params = performance_parameters()
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params

@@ -7,4 +7,4 @@ from .keys import (
     )
 
 from .boot_gates import tfhe_gate_MUX_, tfhe_gate_CONSTANT_, tfhe_gate_XNOR_, tfhe_gate_NAND_
-from .performance import PerformanceParameters
+from .performance import performance_parameters

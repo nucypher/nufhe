@@ -64,7 +64,7 @@ def TLweFFTAddMulRTo_reference(res, gsw, tlwe_params):
 
 
 # External product (*): accum = gsw (*) accum
-def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams'):
+def TGswFFTExternMulToTLwe_reference(accum_a, gsw, params: 'TGswParams', perf_params):
 
     transform = get_transform(params.tlwe_params.transform_type)
 
