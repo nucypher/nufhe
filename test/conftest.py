@@ -17,6 +17,9 @@ def pytest_addoption(parser):
     parser.addoption("--include-duplicate-devices", action="store_true",
         help="Run tests on all available devices and not only on uniquely named ones",
         default=False)
+    parser.addoption("--transform", action="store",
+        help="The type of polynomial transform to use for tests.",
+        default="all", choices=["NTT", "FFT", "all"])
 
 
 def pytest_generate_tests(metafunc):
@@ -43,6 +46,15 @@ def pytest_generate_tests(metafunc):
                     ids.append("{api_id}:{pnum}:{dnum}".format(api_id=api_id, pnum=pnum, dnum=dnum))
 
         metafunc.parametrize("thread", vals, ids=ids, indirect=True)
+
+    if 'transform_type' in metafunc.fixturenames:
+
+        if config.option.transform == 'all':
+            vals = ['NTT', 'FFT']
+        else:
+            vals = [config.option.transform]
+
+        metafunc.parametrize("transform_type", vals)
 
 
 @pytest.fixture(scope='session')

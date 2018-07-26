@@ -41,7 +41,6 @@ def check_gate(thread, key_pair, perf_params, num_arguments, tfhe_func, referenc
     assert (answer_bits == reference).all()
 
 
-@pytest.mark.parametrize('transform_type', ['FFT', 'NTT'])
 def test_transform_type(thread, transform_type):
     rng = numpy.random.RandomState()
     perf_params = performance_parameters()
