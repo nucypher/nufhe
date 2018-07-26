@@ -15,10 +15,17 @@ def pytest_addoption(parser):
         help="Run tests on matching devices only",
         default=[])
     parser.addoption("--include-duplicate-devices", action="store_true",
-        help="Run tests on all available devices and not only on uniquely named ones",
+        help="Run tests on all available devices and not only on uniquely named ones.",
+        default=False)
+    parser.addoption("--heavy-performance-load", action="store_true",
+        help=(
+            "Use large data sizes and numbers of iterations for performance tests. "
+            "Recommended for high-tier videocards."),
         default=False)
     parser.addoption("--transform", action="store",
-        help="The type of polynomial transform to use for tests.",
+        help=(
+            "The type of polynomial transform to use for tests "
+            "that can use different transform types."),
         default="all", choices=["NTT", "FFT", "all"])
 
 
@@ -76,3 +83,9 @@ def thread(request):
     # CUDA is sensitive to the exact timing of the destruction
     # because of the stateful nature of its API.
     clear_computation_cache()
+
+
+@pytest.fixture(scope='session')
+def heavy_performance_load(request):
+    return request.config.option.heavy_performance_load
+
