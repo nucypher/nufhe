@@ -54,13 +54,16 @@ def transformed_mul(perf_params: PerformanceParameters):
     return mul(ff_elem=ff_elem, method=perf_params.ntt_mul_method).module
 
 
-def transform_module(perf_params: PerformanceParameters):
+def transform_module(perf_params: PerformanceParameters, multi_iter=False):
+    use_constant_memory = (
+        perf_params.use_constant_memory_multi_iter if multi_iter
+        else perf_params.use_constant_memory_single_iter)
     return ntt1024(
         ff_elem=ff_elem,
         base_method=perf_params.ntt_base_method,
         mul_method=perf_params.ntt_mul_method,
         lsh_method=perf_params.ntt_lsh_method,
-        use_constant_memory=perf_params.use_constant_memory)
+        use_constant_memory=use_constant_memory)
 
 
 def ForwardTransform(batch_shape, N, perf_params: PerformanceParameters):

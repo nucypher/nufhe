@@ -76,20 +76,26 @@ def test_transform_type(thread, transform_type):
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
-    perf_params = performance_parameters(single_kernel_bootstrap=False)
-    key_pair = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
-    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
+    perf_params = performance_parameters(tfhe_params=secret_key.params)
+    check_gate(thread, (secret_key, cloud_key), perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs a bootstrap with keyswitch
-    perf_params = performance_parameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    secret_key, cloud_key = key_pair
+    perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
+        single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs separate calls to bootstrap and keyswitch
-    perf_params = performance_parameters(single_kernel_bootstrap=single_kernel_bootstrap)
+    secret_key, cloud_key = key_pair
+    perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
+        single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
@@ -172,10 +178,12 @@ def test_single_kernel_bs_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    perf_params = performance_parameters(single_kernel_bootstrap=single_kernel_bootstrap)
     rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
-    results = check_performance(thread, key_pair, perf_params, size=size)
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
+    perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
+        single_kernel_bootstrap=single_kernel_bootstrap)
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))
 
@@ -188,12 +196,22 @@ def test_constant_mem_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    perf_params = performance_parameters(
-        single_kernel_bootstrap=single_kernel_bootstrap,
-        use_constant_memory=use_constant_memory)
     rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
-    results = check_performance(thread, key_pair, perf_params, size=size)
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
+
+    # We want to test the effect of using constant memory on the bootstrap calculation.
+    # A single-kernel bootstrap uses the `use_constant_memory_multi_iter` option,
+    # and a multi-kernel bootstrap uses the `use_constant_memory_single_iter` option.
+    kwds = dict(
+        tfhe_params=secret_key.params,
+        single_kernel_bootstrap=single_kernel_bootstrap)
+    if single_kernel_bootstrap:
+        kwds.update(dict(use_constant_memory_multi_iter=use_constant_memory))
+    else:
+        kwds.update(dict(use_constant_memory_single_iter=use_constant_memory))
+    perf_params = performance_parameters(**kwds)
+
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))
 
@@ -227,12 +245,14 @@ def test_ntt_base_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
+    rng = numpy.random.RandomState()
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_base_method=ntt_base_method)
-    rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type='NTT')
-    results = check_performance(thread, key_pair, perf_params, size=size)
+
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))
 
@@ -250,12 +270,14 @@ def test_ntt_mul_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
+    rng = numpy.random.RandomState()
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_mul_method=ntt_mul_method)
-    rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type='NTT')
-    results = check_performance(thread, key_pair, perf_params, size=size)
+
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))
 
@@ -273,11 +295,13 @@ def test_ntt_lsh_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
+    rng = numpy.random.RandomState()
+    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
+        tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_lsh_method=ntt_lsh_method)
-    rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type='NTT')
-    results = check_performance(thread, key_pair, perf_params, size=size)
+
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))

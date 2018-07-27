@@ -68,7 +68,7 @@ def tfhe_key_pair(thr, rng, **params):
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
     # TODO: use PerformanceParameters from the user
-    perf_params = performance_parameters()
+    perf_params = performance_parameters(tfhe_params=params)
 
     bkFFT = LweBootstrappingKeyFFT(
         thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key, perf_params)

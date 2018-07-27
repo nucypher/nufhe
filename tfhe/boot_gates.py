@@ -28,7 +28,7 @@ def tfhe_gate_NAND_(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters()
+        perf_params = performance_parameters(tfhe_params=bk.params)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
@@ -312,7 +312,7 @@ def tfhe_gate_MUX_(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters()
+        perf_params = performance_parameters(tfhe_params=bk.params)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params

@@ -9,7 +9,7 @@ from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
 from .lwe_gpu import LweKeySwitchTranslate_fromArray
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, performance_parameters_for_device
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -36,14 +36,18 @@ class BlindRotate(Computation):
     def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, bara):
         plan = plan_factory()
 
+        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+
         transform_type = self._params.tlwe_params.transform_type
         transform = get_transform(transform_type)
 
-        transform_module = transform.transform_module(self._perf_params)
+        transform_module = transform.transform_module(perf_params, multi_iter=True)
 
         tlwe_params = self._params.tlwe_params
         k = tlwe_params.mask_size
         l = self._params.decomp_length
+
+        assert k == 1 and l == 2
 
         batch_shape = accum_a.shape[:-2]
 
@@ -68,8 +72,8 @@ class BlindRotate(Computation):
                 l=l,
                 n=self._in_out_params.size,
                 params=self._params,
-                mul=transform.transformed_mul(self._perf_params),
-                add=transform.transformed_add(self._perf_params),
+                mul=transform.transformed_mul(perf_params),
+                add=transform.transformed_add(perf_params),
                 tr_ctype=transform.transformed_internal_ctype(),
                 )
             )

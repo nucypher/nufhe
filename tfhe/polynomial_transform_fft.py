@@ -58,19 +58,22 @@ def transformed_mul(perf_params):
     return functions.mul(transformed_dtype(), transformed_dtype())
 
 
-def transform_module(perf_params: PerformanceParameters):
-    return fft512(use_constant_memory=perf_params.use_constant_memory)
+def transform_module(perf_params: PerformanceParameters, multi_iter=False):
+    use_constant_memory = (
+        perf_params.use_constant_memory_multi_iter if multi_iter
+        else perf_params.use_constant_memory_single_iter)
+    return fft512(use_constant_memory=use_constant_memory)
 
 
 def ForwardTransform(batch_shape, N, perf_params: PerformanceParameters):
     assert N == 1024
     return Transform(
-        fft512(perf_params.use_constant_memory), batch_shape,
+        transform_module(perf_params), batch_shape,
         transforms_per_block=perf_params.transforms_per_block, i32_conversion=True)
 
 
 def InverseTransform(batch_shape, N, perf_params: PerformanceParameters):
     assert N == 1024
     return Transform(
-        fft512(perf_params.use_constant_memory), batch_shape,
+        transform_module(perf_params), batch_shape,
         transforms_per_block=perf_params.transforms_per_block, i32_conversion=True, inverse=True)

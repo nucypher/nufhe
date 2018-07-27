@@ -11,7 +11,7 @@ from .gpu_polynomials import TorusPolynomialArray, tp_mul_by_xai_minus_one_gpu
 from .numeric_functions import Torus32, Float
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, performance_parameters_for_device
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -181,15 +181,17 @@ class TLweSymEncryptZero(Computation):
 
         N = self._N
 
+        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+
         transform = get_transform(self._transform_type)
 
-        ft_key = transform.ForwardTransform(key.shape[:-1], N, self._perf_params)
+        ft_key = transform.ForwardTransform(key.shape[:-1], N, perf_params)
         key_tr = plan.temp_array_like(ft_key.parameter.output)
 
-        ft_noises = transform.ForwardTransform(noises1.shape[:-1], N, self._perf_params)
+        ft_noises = transform.ForwardTransform(noises1.shape[:-1], N, perf_params)
         noises1_tr = plan.temp_array_like(ft_noises.parameter.output)
 
-        ift = transform.InverseTransform(noises1.shape[:-1], N, self._perf_params)
+        ift = transform.InverseTransform(noises1.shape[:-1], N, perf_params)
         ift_res = plan.temp_array_like(ift.parameter.output)
 
         mul_tr = Transformation(
@@ -206,7 +208,7 @@ class TLweSymEncryptZero(Computation):
             """,
             connectors=['output', 'noises1'],
             render_kwds=dict(
-                mul=transform.transformed_mul(self._perf_params),
+                mul=transform.transformed_mul(perf_params),
                 tr_ctype=transform.transformed_internal_ctype()))
 
         ift.parameter.input.connect(mul_tr, mul_tr.output, key=mul_tr.key, noises1=mul_tr.noises1)
@@ -251,6 +253,8 @@ def tLweSymEncryptZero_gpu(
 def tLweToFFTConvert_gpu(
         thr, result: 'TLweSampleFFTArray', source: 'TLweSampleArray', params: 'TLweParams',
         perf_params: PerformanceParameters):
+
+    perf_params = performance_parameters_for_device(perf_params, thr.device_params)
 
     transform = get_transform(params.transform_type)
     comp = get_computation(

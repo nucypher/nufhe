@@ -9,7 +9,7 @@ from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, performance_parameters_for_device
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -82,6 +82,20 @@ def get_TLweFFTAddMulRTo_trf(
 class TGswFFTExternMulToTLwe(Computation):
 
     def __init__(self, accum_a, gsw, params: TGswParams, perf_params: PerformanceParameters):
+        self._params = params
+        self._perf_params = perf_params
+        Computation.__init__(self,
+            [Parameter('accum_a', Annotation(accum_a, 'io')),
+            Parameter('gsw', Annotation(gsw, 'i')),
+            Parameter('bk_idx', Annotation(numpy.int32))])
+
+    def _build_plan(self, plan_factory, device_params, accum_a, gsw, bk_idx):
+        plan = plan_factory()
+
+        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+        print(perf_params)
+        params = self._params
+
         tlwe_params = params.tlwe_params
         k = tlwe_params.mask_size
         l = params.decomp_length
@@ -97,35 +111,26 @@ class TGswFFTExternMulToTLwe(Computation):
         deca_shape = batch_shape + (k + 1, l)
         tmpa_shape = batch_shape + (k + 1,)
 
-        self._deca_type = Type(numpy.int32, deca_shape + (N,))
-        self._deca_fft_type = Type(tdtype, deca_shape + (tlength,))
-        self._tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
+        deca_type = Type(numpy.int32, deca_shape + (N,))
+        deca_fft_type = Type(tdtype, deca_shape + (tlength,))
+        tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
 
-        decomp = get_TGswTorus32PolynomialDecompH_trf(self._deca_type, params)
-        self._ip_ifft = transform.ForwardTransform(deca_shape, N, perf_params)
-        self._ip_ifft.parameter.input.connect(
+        decomp = get_TGswTorus32PolynomialDecompH_trf(deca_type, params)
+        ip_ifft = transform.ForwardTransform(deca_shape, N, perf_params)
+        ip_ifft.parameter.input.connect(
             decomp, decomp.output, sample=decomp.sample)
 
         add = get_TLweFFTAddMulRTo_trf(
-            N, tlwe_params.transform_type, self._tmpa_a_type, gsw,
+            N, tlwe_params.transform_type, tmpa_a_type, gsw,
             transform.transformed_internal_ctype(), perf_params)
-        self._tp_fft = transform.InverseTransform(tmpa_shape, N, perf_params)
-        self._tp_fft.parameter.input.connect(
+        tp_fft = transform.InverseTransform(tmpa_shape, N, perf_params)
+        tp_fft.parameter.input.connect(
             add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
 
-        Computation.__init__(self,
-            [Parameter('accum_a', Annotation(accum_a, 'io')),
-            Parameter('gsw', Annotation(gsw, 'i')),
-            Parameter('bk_idx', Annotation(numpy.int32))])
+        decaFFT = plan.temp_array_like(deca_fft_type)
 
-
-    def _build_plan(self, plan_factory, device_params, accum_a, gsw, bk_idx):
-        plan = plan_factory()
-
-        decaFFT = plan.temp_array_like(self._deca_fft_type)
-
-        plan.computation_call(self._ip_ifft, decaFFT, accum_a)
-        plan.computation_call(self._tp_fft, accum_a, decaFFT, gsw, bk_idx)
+        plan.computation_call(ip_ifft, decaFFT, accum_a)
+        plan.computation_call(tp_fft, accum_a, decaFFT, gsw, bk_idx)
 
         return plan
 
