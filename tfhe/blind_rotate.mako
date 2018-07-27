@@ -55,7 +55,7 @@ ${kernel_declaration}
     for (unsigned int bk_idx = 0; bk_idx < ${n}; bk_idx++)
     {
 
-    ${bara.ctype} ai = ${bara.load_idx}(batch_id, bk_idx);
+    ${bara.ctype} ai = ${bara.load_combined_idx(slices2)}(batch_id, bk_idx);
 
     if (tid < ${4 * transform.threads_per_transform})
     {

@@ -77,10 +77,20 @@ def tfhe_key_pair(thr, rng, **params):
     return secret_key, cloud_key
 
 
+_1s8 = modSwitchToTorus32(1, 8)
+
+@numpy.vectorize
+def _to_mu(bit):
+    return _1s8 if bit else -_1s8
+
+@numpy.vectorize
+def _from_mu(mu):
+    return mu > 0
+
+
 def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
     result = empty_ciphertext(thr, key.params, message.shape)
-    _1s8 = modSwitchToTorus32(1, 8)
-    mus = thr.to_device(numpy.array([_1s8 if bit else -_1s8 for bit in message], dtype=numpy.int32))
+    mus = thr.to_device(_to_mu(message))
     alpha = key.params.in_out_params.alpha_min # TODO: specify noise
     lweSymEncrypt_gpu(thr, rng, result, mus, alpha, key.lwe_key)
     return result
@@ -88,7 +98,7 @@ def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
 
 def tfhe_decrypt(thr, key: TFHESecretKey, ciphertext: LweSampleArray):
     mus = lwePhase_gpu(thr, ciphertext, key.lwe_key)
-    return numpy.array([(mu > 0) for mu in mus])
+    return _from_mu(mus)
 
 
 def empty_ciphertext(thr, params: TFHEParameters, shape):

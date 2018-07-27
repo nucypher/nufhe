@@ -66,10 +66,15 @@ class LagrangeHalfCPolynomialArray:
 
 def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
     # arr: ... x N
-    # ais: arr.shape[0], int
+    # ais: ..., int
 
-    assert len(ais.shape) == 2 if ai_view else 1
-    assert ais.shape[0] == arr.shape[0]
+    if ai_view:
+        assert len(ais.shape) == len(arr.shape) - 1
+        assert ais.shape[:-1] == arr.shape[:-2]
+    else:
+        assert len(ais.shape) == len(arr.shape) - 1
+        assert ais.shape == arr.shape[:-1]
+
     N = arr.shape[-1]
 
     return Transformation(
@@ -81,9 +86,9 @@ def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=Fa
         ],
         """
         %if ai_view:
-        ${ai_ctype} ai = ${ais.load_idx}(${idxs[0]}, ${ai_idx});
+        ${ai_ctype} ai = ${ais.load_idx}(${", ".join(idxs[:batch_len])}, ${ai_idx});
         %else:
-        ${ai_ctype} ai = ${ais.load_idx}(${idxs[0]});
+        ${ai_ctype} ai = ${ais.load_idx}(${", ".join(idxs[:batch_len])});
         %endif
 
         %if invert_ais:
@@ -131,6 +136,7 @@ def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=Fa
         ${output.store_same}(res);
         """,
         render_kwds=dict(
+            batch_len=len(arr.shape) - 1 - int(ai_view),
             N=N, ai_ctype=dtypes.ctype(ais.dtype),
             ai_view=ai_view, minus_one=minus_one, invert_ais=invert_ais),
         connectors=['output'])

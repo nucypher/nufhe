@@ -20,20 +20,17 @@ TEMPLATE = helpers.template_for(__file__)
 class TLweNoiselessTrivial(Computation):
 
     def __init__(self, a):
-
-        assert len(a.shape) == 3
-
         cv_type = Type(Float, a.shape[:-2])
-        mu_type = Type(a.dtype, (a.shape[0], a.shape[-1]))
+        mu_type = Type(a.dtype, a.shape[:-2] + (a.shape[-1],))
 
         self._fill_a = PureParallel(
             [Parameter('a', Annotation(a, 'o')),
             Parameter('mu', Annotation(mu_type, 'i'))],
             """
             ${a.ctype} a;
-            if (${idxs[1]} == ${k})
+            if (${idxs[-2]} == ${k})
             {
-                a = ${mu.load_idx}(${idxs[0]}, ${idxs[2]});
+                a = ${mu.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-1]});
             }
             else
             {
@@ -41,7 +38,7 @@ class TLweNoiselessTrivial(Computation):
             }
             ${a.store_same}(a);
             """,
-            render_kwds=dict(k=a.shape[1] - 1))
+            render_kwds=dict(k=a.shape[-2] - 1))
 
         self._fill_cv = PureParallel(
             [Parameter('current_variances', Annotation(cv_type, 'o'))],
