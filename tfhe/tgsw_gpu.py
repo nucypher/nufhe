@@ -93,7 +93,6 @@ class TGswFFTExternMulToTLwe(Computation):
         plan = plan_factory()
 
         perf_params = performance_parameters_for_device(self._perf_params, device_params)
-        print(perf_params)
         params = self._params
 
         tlwe_params = params.tlwe_params
