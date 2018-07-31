@@ -335,8 +335,12 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     params = tfhe_parameters(cloud_key)
 
     size = (5, 8,)
+
+    # FIXME: negative steps are supported as well, but the current stable PyCUDA
+    # has a bug where in that case it calculates strides incorrectly.
+    # It is fixed in the trunk, so we must add some negative steps here as soon as it is released.
     slices1 = (slice(3, 5), slice(1, 7, 2))
-    slices2 = (slice(1, 3), slice(7, 1, -2))
+    slices2 = (slice(1, 3), slice(2, 8, 2))
     result_slices = (slice(2, 4), slice(0, 6, 2))
 
     plaintexts = get_plaintexts(rng, num_arguments, size=size)
