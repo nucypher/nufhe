@@ -200,7 +200,7 @@ def test_fft_performance(thread, transforms_per_block, constant_memory):
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(a_dev)
 
-    res_ref = fft_transform_ref(a)
+    res_ref = tr_fft.fft_transform_ref(a)
 
     transform = fft512(use_constant_memory=constant_memory)
 
