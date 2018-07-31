@@ -118,12 +118,9 @@ def get_times(thread, comp, out_arr, in_arr, attempts=10):
 @pytest.mark.perf
 @pytest.mark.parametrize('transforms_per_block', [1, 2, 4])
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
-def test_ntt_performance(thread, transforms_per_block, constant_memory):
+def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
     is_cuda = thread.api.get_id() == cuda_id()
-
-    if not is_cuda and transforms_per_block == 4:
-        pytest.skip()
 
     methods = list(itertools.product(
         ['cuda_asm', 'c'], # base method
@@ -138,7 +135,7 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory):
     batch_shape = (2**14,)
     a = get_test_array(batch_shape + (1024,), "ff_number")
 
-    kernel_repetitions = 10
+    kernel_repetitions = 100 if heavy_performance_load else 1
 
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(a_dev)
@@ -188,14 +185,14 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory):
 @pytest.mark.perf
 @pytest.mark.parametrize('transforms_per_block', [1, 2, 3, 4])
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
-def test_fft_performance(thread, transforms_per_block, constant_memory):
+def test_fft_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
     is_cuda = thread.api.get_id() == cuda_id()
 
     batch_shape = (2**14,)
     a = get_test_array(batch_shape + (512,), numpy.complex128)
 
-    kernel_repetitions = 5000
+    kernel_repetitions = 100 if heavy_performance_load else 1
 
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(a_dev)
