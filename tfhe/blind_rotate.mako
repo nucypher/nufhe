@@ -110,19 +110,16 @@ ${kernel_declaration}
 
     if (tid < ${4 * transform.threads_per_transform})
     {
-    ##%for k_in_id in range(k + 1):
         // Forward transform
         ${transform.module}forward_i32_shared(
             sh + (k_id * 2 + l_id) * ${sh_length_tr},
             (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + (k_id * 2 + l_id) * ${sh_length_tr}),
             (${transform.module}CDATA_QUALIFIER ${transform.cdata_fw_ctype}*)${cdata_forward},
             thread_in_transform);
-    ##%endfor
     }
     else
     {
-        ${transform.module}noop2();
-        ${transform.module}noop2();
+        ${transform.module}noop_shared();
     }
 
     LOCAL_BARRIER;
@@ -164,7 +161,7 @@ ${kernel_declaration}
     }
     else
     {
-        ${transform.module}noop2();
+        ${transform.module}noop_shared();
     }
 
     LOCAL_BARRIER;

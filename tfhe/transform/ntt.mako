@@ -402,22 +402,7 @@ WITHIN_KERNEL INLINE void ${prefix}noop()
     LOCAL_BARRIER;
     LOCAL_BARRIER;
     LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
 }
-
-
-
-WITHIN_KERNEL INLINE void ${prefix}noop2()
-{
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-}
-
-
 
 
 WITHIN_KERNEL INLINE void ${prefix}forward_i32_shared(
@@ -456,6 +441,14 @@ WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
     %for i in range(8):
     out[${i * 128} + thread_in_xform] += ${prefix}ff_to_i32(r[${i}]);
     %endfor
+}
+
+
+WITHIN_KERNEL INLINE void ${prefix}noop_shared()
+{
+    LOCAL_BARRIER;
+    ${prefix}noop();
+    LOCAL_BARRIER;
 }
 
 </%def>

@@ -252,8 +252,7 @@ WITHIN_KERNEL INLINE ${elem_ctype} ${prefix}i32_to_elem(${i32} x, ${i32} y)
 }
 
 
-
-WITHIN_KERNEL INLINE ${i32} f64_to_i32(double x)
+WITHIN_KERNEL INLINE ${i32} ${prefix}f64_to_i32(double x)
 {
     // The result is within the range of int64, so it must be first
     // converted to signed integer and then taken modulo 2^31
@@ -270,8 +269,8 @@ WITHIN_KERNEL INLINE void ${prefix}inverse_i32(
 {
     ${prefix}inverse(r_in, r_in, temp, cdata, thread_in_xform);
     %for i in range(8):
-    r_out[${i}] = f64_to_i32(r_in[${i}].x);
-    r_out[${i + 8}] = f64_to_i32(r_in[${i}].y);
+    r_out[${i}] = ${prefix}f64_to_i32(r_in[${i}].x);
+    r_out[${i + 8}] = ${prefix}f64_to_i32(r_in[${i}].y);
     %endfor
 }
 
@@ -286,23 +285,6 @@ WITHIN_KERNEL INLINE void ${prefix}noop()
     LOCAL_BARRIER;
     LOCAL_BARRIER;
     LOCAL_BARRIER;
-}
-
-
-WITHIN_KERNEL INLINE void ${prefix}noop2()
-{
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-
-    LOCAL_BARRIER;
-    LOCAL_BARRIER;
-
 }
 
 
@@ -340,8 +322,17 @@ WITHIN_KERNEL INLINE void ${prefix}inverse_i32_shared_add(
     ${prefix}inverse(r, r, temp, cdata, thread_in_xform);
     LOCAL_BARRIER;
     %for i in range(8):
-    out[${i * 64} + thread_in_xform] += f64_to_i32(r[${i}].x);
-    out[${(i + 8) * 64} + thread_in_xform] += f64_to_i32(r[${i}].y);
+    out[${i * 64} + thread_in_xform] += ${prefix}f64_to_i32(r[${i}].x);
+    out[${(i + 8) * 64} + thread_in_xform] += ${prefix}f64_to_i32(r[${i}].y);
     %endfor
 }
+
+
+WITHIN_KERNEL INLINE void ${prefix}noop_shared()
+{
+    LOCAL_BARRIER;
+    ${prefix}noop();
+    LOCAL_BARRIER;
+}
+
 </%def>
