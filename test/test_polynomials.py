@@ -12,34 +12,54 @@ def int_prod(arr):
 
 # minus_one=True: result = (X^ai-1) * source
 # minus_one=False: result = X^{a} * source
-def tp_mul_by_xai_reference(
-        out_c, ais, ai_idx, in_c, ai_view=False, invert_ais=False, minus_one=False):
-
-    assert out_c.dtype == in_c.dtype
-    assert out_c.shape == in_c.shape
-    assert ais.shape == (out_c.shape[0],)
-
-    bc_shape = (out_c.shape[0], int_prod(out_c.shape[1:-1]), out_c.shape[-1])
-    out_c = out_c.reshape(bc_shape)
-    in_c = in_c.reshape(bc_shape)
-
-    N = out_c.shape[-1]
+def TPMulByXai_ref(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
 
     if ai_view:
-        ais = ais[:,ai_idx]
+        assert len(ais.shape) == len(arr.shape) - 1
+        assert ais.shape[:-1] == arr.shape[:-2]
+    else:
+        assert len(ais.shape) == len(arr.shape) - 1
+        assert ais.shape == arr.shape[:-1]
 
-    if invert_ais:
-        ais = 2 * N - ais
+    N = arr.shape[-1]
 
-    for i in range(out_c.shape[0]):
-        ai = ais[i]
-        if ai < N:
-            out_c[i,:,:ai] = -in_c[i,:,(N-ai):N] - (in_c[i,:,:ai] if minus_one else 0)
-            out_c[i,:,ai:N] = in_c[i,:,:(N-ai)] - (in_c[i,:,ai:N] if minus_one else 0)
+    def _kernel(output, ais, ai_idx, input_):
+
+        if ai_view:
+            ai_batch_len = int_prod(ais.shape[:-int(ai_view)])
+            arr_batch_len = int_prod(arr.shape[len(ais.shape)-1:-1])
+
+            ais = ais.reshape(ai_batch_len, ais.shape[-1])
+            ais = ais[:,ai_idx]
+
+            out_c = output.reshape(ai_batch_len, arr_batch_len, N)
+            in_c = input_.reshape(ai_batch_len, arr_batch_len, N)
+
         else:
-            aa = ai - N
-            out_c[i,:,:aa] = in_c[i,:,(N-aa):N] - (in_c[i,:,:aa] if minus_one else 0)
-            out_c[i,:,aa:N] = -in_c[i,:,:(N-aa)] - (in_c[i,:,aa:N] if minus_one else 0)
+            ais = ais.flatten()
+            ai_batch_len = ais.size
+
+            out_c = output.reshape(ai_batch_len, 1, N)
+            in_c = input_.reshape(ai_batch_len, 1, N)
+
+
+        if invert_ais:
+            ais = 2 * N - ais
+
+        for i in range(ai_batch_len):
+            ai = ais[i]
+            if ai < N:
+                out_c[i,:,:ai] = -in_c[i,:,(N-ai):N]
+                out_c[i,:,ai:N] = in_c[i,:,:(N-ai)]
+            else:
+                aa = ai - N
+                out_c[i,:,:aa] = in_c[i,:,(N-aa):N]
+                out_c[i,:,aa:N] = -in_c[i,:,:(N-aa)]
+
+        if minus_one:
+            out_c -= in_c
+
+    return _kernel
 
 
 def test_mul_by_xai(thread):
@@ -47,7 +67,7 @@ def test_mul_by_xai(thread):
     N = 16
 
     data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=300)
+    ais = numpy.random.randint(0, 2 * N, size=(300, 10))
     res_ref = numpy.empty_like(data)
 
     data_dev = thread.to_device(data)
@@ -55,11 +75,12 @@ def test_mul_by_xai(thread):
     res_dev = thread.empty_like(res_ref)
 
     comp = TPMulByXai(ais, data, minus_one=False).compile(thread)
+    ref = TPMulByXai_ref(ais, data, minus_one=False)
 
     comp(res_dev, ais_dev, 0, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, ais, 0, data, minus_one=False)
+    ref(res_ref, ais, 0, data)
 
     assert numpy.allclose(res_test, res_ref)
 
@@ -69,7 +90,7 @@ def test_mul_by_xai_invert_ais(thread):
     N = 16
 
     data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=300)
+    ais = numpy.random.randint(0, 2 * N, size=(300, 10))
     res_ref = numpy.empty_like(data)
 
     data_dev = thread.to_device(data)
@@ -77,11 +98,12 @@ def test_mul_by_xai_invert_ais(thread):
     res_dev = thread.empty_like(res_ref)
 
     comp = TPMulByXai(ais, data, minus_one=False, invert_ais=True).compile(thread)
+    ref = TPMulByXai_ref(ais, data, minus_one=False, invert_ais=True)
 
     comp(res_dev, ais_dev, 0, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, ais, 0, data, invert_ais=True, minus_one=False)
+    ref(res_ref, ais, 0, data)
 
     assert numpy.allclose(res_test, res_ref)
 
@@ -90,19 +112,20 @@ def test_mul_by_xai_minus_one(thread):
 
     N = 16
 
-    data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=300)
+    data = numpy.random.randint(0, 10000, size=(20, 10, 2, N))
+    ais = numpy.random.randint(0, 2 * N, size=(20, 10, 15))
     res_ref = numpy.empty_like(data)
 
     data_dev = thread.to_device(data)
     ais_dev = thread.to_device(ais)
     res_dev = thread.empty_like(res_ref)
 
-    comp = TPMulByXai(ais, data, minus_one=True).compile(thread)
+    comp = TPMulByXai(ais, data, minus_one=True, ai_view=True).compile(thread)
+    ref = TPMulByXai_ref(ais, data, minus_one=True, ai_view=True)
 
-    comp(res_dev, ais_dev, 0, data_dev)
+    comp(res_dev, ais_dev, 3, data_dev)
     res_test = res_dev.get()
 
-    tp_mul_by_xai_reference(res_ref, ais, 0, data, minus_one=True)
+    ref(res_ref, ais, 3, data)
 
     assert numpy.allclose(res_test, res_ref)
