@@ -134,7 +134,7 @@ def test_sub(thread, method):
 
 
 def ref_mod(data):
-    return data % ntt_cpu.modulus
+    return data % ntt_cpu.GaloisNumber.modulus
 
 
 def test_mod(thread, method):
@@ -142,7 +142,10 @@ def test_mod(thread, method):
         pytest.skip()
     check_func(
         thread, ntt.mod(method=method), ref_mod, 'ff_number', [numpy.uint64],
-        test_values=[(ntt_cpu.modulus - 1,), (ntt_cpu.modulus,), (ntt_cpu.modulus + 1,)])
+        test_values=[
+            (ntt_cpu.GaloisNumber.modulus - 1,),
+            (ntt_cpu.GaloisNumber.modulus,),
+            (ntt_cpu.GaloisNumber.modulus + 1,)])
 
 
 def ref_mul(data1, data2):
@@ -157,7 +160,7 @@ def test_mul(thread, method):
     check_func(
         thread, ntt.mul(method=method), ref_mul, 'ff_number', ['ff_number', 'ff_number'],
         test_values=[
-            (ntt_cpu.modulus - 1, 2**33) # regression test for an error in method=c
+            (ntt_cpu.GaloisNumber.modulus - 1, 2**33) # regression test for an error in method=c
             ]
         )
 

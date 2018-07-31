@@ -13,7 +13,7 @@ def tp_dtype(tp):
 
 def tp_limits(tp):
     if isinstance(tp, str) and tp == 'ff_number':
-        return 0, ntt_cpu.modulus
+        return 0, ntt_cpu.GaloisNumber.modulus
     elif numpy.issubdtype(tp, numpy.integer):
         ii = numpy.iinfo(tp)
         return ii.min, ii.max + 1

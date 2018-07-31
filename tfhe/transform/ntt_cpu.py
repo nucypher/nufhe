@@ -1,24 +1,22 @@
 import numpy
 
-import numpy
-
-
-modulus = 2**64 - 2**32 + 1
-
 
 class GaloisNumber:
 
+    modulus = 2**64 - 2**32 + 1
+    factors = [2, 3, 5, 17, 257, 65537] # prime factors of (modulus - 1)
+
     def __init__(self, val):
-        self.val = int(val) % modulus
+        self.val = int(val) % self.modulus
 
     def __add__(self, other: "GaloisNumber"):
-        return GaloisNumber((self.val + other.val) % modulus)
+        return GaloisNumber((self.val + other.val) % self.modulus)
 
     def __sub__(self, other: "GaloisNumber"):
-        return GaloisNumber((self.val - other.val) % modulus)
+        return GaloisNumber((self.val - other.val) % self.modulus)
 
     def __mul__(self, other: "GaloisNumber"):
-        return GaloisNumber((self.val * other.val) % modulus)
+        return GaloisNumber((self.val * other.val) % self.modulus)
 
     def __truediv__(self, other: "GaloisNumber"):
         return self * other.inverse()
@@ -39,7 +37,7 @@ class GaloisNumber:
             return x * y
 
     def inverse(self):
-        return self**(modulus - 2)
+        return self**(self.modulus - 2)
 
     def __eq__(self, other):
         if isinstance(other, GaloisNumber):
@@ -57,10 +55,10 @@ class GaloisNumber:
 gnum = numpy.vectorize(GaloisNumber)
 
 def _gnum_to_i32(x):
-    # Treats any value less than the half of P as a positive integer,
-    # and anything less as a negative integer (P - x),
-    # then trims the result to the i32 range.
-    med = modulus // 2
+    # Treats any value less than the half of the finite field modulus as a positive integer,
+    # and anything greater that that as a negative integer -(modulus - x),
+    # then truncate the result to the i32 range.
+    med = x.modulus // 2
     val = x.val
     return numpy.int32(val & 0xffffffff) - (val > med)
 
@@ -70,11 +68,10 @@ gnum_to_u64 = numpy.vectorize(lambda x: numpy.uint64(x.val))
 
 
 def find_generator(start=2):
-    factors = [2, 3, 5, 17, 257, 65537] # prime factors of (modulus - 1)
-    for w in range(start, modulus):
+    for w in range(start, GaloisNumber.modulus):
         w = GaloisNumber(w)
-        for q in factors:
-            if w**((modulus - 1) // q) == 1:
+        for q in GaloisNumber.factors:
+            if w**((GaloisNumber.modulus - 1) // q) == 1:
                 break
         else:
             return w
@@ -82,12 +79,15 @@ def find_generator(start=2):
 
 def root_of_unity(N):
     """
-    Returns a root of unity of order N (that is, x^N=1)
-    """
-    #assert (modulus - 1) % N == 0
-    #return find_generator()**((modulus - 1) // N)
+    Returns a root of unity of order N (that is, x^N=1).
+    Different roots produce different results.
+    A standard approach is to use
 
-    # To match the CUDA NTT
+        find_generator()**((GaloisNumber.modulus - 1) // N)
+
+    To compare the results against the GPU version,
+    we return the root the GPU implementation uses.
+    """
     assert 2**32 % N == 0
     return GaloisNumber(0xa70dc47e4cbdf43f)**(2**32 // N)
 
@@ -156,7 +156,7 @@ def fft_generic(fft_base_func, fft_inverse_coeff_func, data, inverse):
                 data[j] = data[i] - temp
                 data[i] += temp
 
-    data = numpy.ascontiguousarray(data.transpose().reshape(batch_shape + (n,)))
+    data = data.transpose().reshape(batch_shape + (n,))
 
     if inverse:
         return data * fft_inverse_coeff_func(n)
@@ -166,21 +166,3 @@ def fft_generic(fft_base_func, fft_inverse_coeff_func, data, inverse):
 
 def ntt(data, inverse):
     return fft_generic(galois_fft_base, galois_fft_inverse_coeff, data, inverse)
-
-
-def test_galois_fft():
-    a = gnum(numpy.random.randint(0, 1000, size=16))
-
-    af = ntt(a, False)
-    ab = ntt(af, True)
-
-    af_ref = ntt_naive(a, False)
-    ab_ref = ntt_naive(af_ref, True)
-
-    print((a == ab).all())
-    print((af == af_ref).all())
-    print((ab == ab_ref).all())
-
-
-if __name__ == '__main__':
-    test_galois_fft()
