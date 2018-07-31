@@ -3,6 +3,7 @@ import numpy
 from tfhe.keys import TFHEParameters
 from tfhe.numeric_functions import Torus32
 
+from tfhe.lwe import LweSampleArrayShapeInfo
 from tfhe.lwe_gpu import (
     LweKeySwitchTranslate_fromArray,
     LweKeySwitchKeyComputation,
@@ -52,8 +53,9 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     ai_dev = thread.to_device(ai)
     bi_dev = thread.to_device(bi)
 
-    test = LweKeySwitchTranslate_fromArray(batch_shape, t, outer_n, inner_n, basebit).compile(thread)
-    ref = LweKeySwitchTranslate_fromArray_reference(batch_shape, t, outer_n, inner_n, basebit)
+    shape_info = LweSampleArrayShapeInfo(a_dev, b_dev, cv_dev)
+    test = LweKeySwitchTranslate_fromArray(shape_info, t, outer_n, inner_n, basebit).compile(thread)
+    ref = LweKeySwitchTranslate_fromArray_reference(shape_info, t, outer_n, inner_n, basebit)
 
     test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev, bi_dev)
     a_test = a_dev.get()

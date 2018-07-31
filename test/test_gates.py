@@ -99,14 +99,14 @@ def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
+lnot = numpy.logical_not
+land = numpy.logical_and
+lor = numpy.logical_or
+
+
 def mux_ref(plaintexts):
     assert len(plaintexts) == 3
-    return plaintexts[0] * plaintexts[1] + numpy.logical_not(plaintexts[0]) * plaintexts[2]
-
-
-def nand_ref(plaintexts):
-    assert len(plaintexts) == 2
-    return numpy.logical_not(numpy.logical_and(plaintexts[0], plaintexts[1]))
+    return lor(land(plaintexts[0], plaintexts[1]), land(lnot(plaintexts[0]), plaintexts[2]))
 
 
 def test_mux_gate(thread, key_pair):
@@ -114,9 +114,26 @@ def test_mux_gate(thread, key_pair):
     check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
 
 
+def nand_ref(plaintexts):
+    assert len(plaintexts) == 2
+    return lnot(land(plaintexts[0], plaintexts[1]))
+
+
 def test_nand_gate(thread, key_pair):
     perf_params = performance_parameters()
     check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+
+
+def xnor_ref(plaintexts):
+    assert len(plaintexts) == 2
+    return lor(
+        land(plaintexts[0], plaintexts[1]),
+        land(lnot(plaintexts[0]), lnot(plaintexts[1])))
+
+
+def test_xnor_gate(thread, key_pair):
+    perf_params = performance_parameters()
+    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_XNOR_, xnor_ref)
 
 
 def check_performance(thread, key_pair, perf_params, size):
@@ -305,3 +322,41 @@ def test_ntt_lsh_method_performance(
     results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
     print()
     print(check_performance_str(results))
+
+
+def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
+
+    tfhe_func = tfhe_gate_NAND_
+    reference_func = nand_ref
+    num_arguments = 2
+
+    secret_key, cloud_key = key_pair
+    rng = numpy.random.RandomState(123)
+    params = tfhe_parameters(cloud_key)
+
+    size = (5, 8,)
+    slices1 = (slice(3, 5), slice(1, 7, 2))
+    slices2 = (slice(1, 3), slice(7, 1, -2))
+    result_slices = (slice(2, 4), slice(0, 6, 2))
+
+    plaintexts = get_plaintexts(rng, num_arguments, size=size)
+    pt1 = plaintexts[0][slices1]
+    pt2 = plaintexts[1][slices2]
+
+    ciphertexts = [tfhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
+    ct1 = ciphertexts[0][slices1]
+    ct2 = ciphertexts[1][slices2]
+
+    reference = reference_func([pt1, pt2])
+
+    answer = empty_ciphertext(thread, params, size)
+    answer_view = answer[result_slices]
+
+    tfhe_func(thread, cloud_key, answer_view, ct1, ct2,
+        perf_params=performance_parameters(
+            tfhe_params=params, single_kernel_bootstrap=single_kernel_bootstrap))
+
+    answer_bits = tfhe_decrypt(thread, secret_key, answer)
+    answer_bits_view = answer_bits[result_slices]
+
+    assert (answer_bits_view == reference).all()

@@ -155,7 +155,8 @@ def tfhe_blindRotateAndExtract_FFT(
 
     if not no_keyswitch:
         t = time.time()
-        extracted_result = LweSampleArray(thr, bk.accum_params.extracted_lweparams, result.shape)
+        extracted_result = LweSampleArray.empty(
+            thr, bk.accum_params.extracted_lweparams, result.shape_info.shape)
         thr.synchronize()
         to_gpu_time += time.time() - t
     else:
@@ -168,10 +169,10 @@ def tfhe_blindRotateAndExtract_FFT(
     # Test polynomial
     t = time.time()
     thr.synchronize()
-    testvectbis = TorusPolynomialArray(thr, N, extracted_result.shape)
+    testvectbis = TorusPolynomialArray(thr, N, extracted_result.shape_info.shape)
 
     # Accumulator
-    acc = TLweSampleArray(thr, accum_params, extracted_result.shape)
+    acc = TLweSampleArray(thr, accum_params, extracted_result.shape_info.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 
@@ -215,7 +216,7 @@ def bootstrap(
     thr = result.a.thread
     t = time.time()
     thr.synchronize()
-    testvect = TorusPolynomialArray(thr, N, result.shape)
+    testvect = TorusPolynomialArray(thr, N, result.shape_info.shape)
     thr.synchronize()
     to_gpu_time += time.time() - t
 

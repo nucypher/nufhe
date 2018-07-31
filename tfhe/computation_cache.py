@@ -2,8 +2,8 @@ _computations = {}
 
 
 def clean_arg(arg):
-    if hasattr(arg, 'shape'):
-        return ('Type', arg.dtype, arg.shape)
+    if hasattr(arg, 'dtype'):
+        return ('Type', arg.dtype, arg.shape, arg.strides, arg.offset)
     else:
         return arg
 

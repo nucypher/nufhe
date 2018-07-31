@@ -1,5 +1,6 @@
 import numpy
 
+from reikna.core import Type
 from .numeric_functions import (
     Torus32,
     Float,
@@ -44,14 +45,47 @@ class LweKey:
         return cls(params, key)
 
 
+class LweSampleArrayShapeInfo:
+
+    def __init__(self, a, b, current_variances):
+        self.a = Type.from_value(a)
+        self.b = Type.from_value(b)
+        self.current_variances = Type.from_value(current_variances)
+        self.shape = self.b.shape
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__
+            and self.a == other.a
+            and self.b == other.b
+            and self.current_variances == other.current_variances
+            )
+
+    def __hash__(self):
+        return hash((self.__class__, self.a, self.b, self.current_variances))
+
+
 class LweSampleArray:
 
-    def __init__(self, thr, params: LweParams, shape):
-        self.a = thr.array(shape + (params.size,), Torus32)
-        self.b = thr.array(shape, Torus32)
-        self.current_variances = thr.array(shape, Float)
-        self.shape = shape
+    def __init__(self, params: LweParams, a, b, current_variances):
         self.params = params
+        self.a = a
+        self.b = b
+        self.current_variances = current_variances
+        self.shape_info = LweSampleArrayShapeInfo(a, b, current_variances)
+
+    @classmethod
+    def empty(cls, thr, params: LweParams, shape):
+        a = thr.array(shape + (params.size,), Torus32)
+        b = thr.array(shape, Torus32)
+        current_variances = thr.array(shape, Float)
+        return cls(params, a, b, current_variances)
+
+    def __getitem__(self, index):
+        a_view = self.a[index]
+        b_view = self.b[index]
+        cv_view = self.current_variances[index]
+        return LweSampleArray(self.params, a_view, b_view, cv_view)
 
 
 class LweKeySwitchKey:
@@ -60,7 +94,7 @@ class LweKeySwitchKey:
         extracted_n = n
         base = 1 << basebit
         out_params = out_key.params
-        self.ks = LweSampleArray(thr, out_params, (extracted_n, t, base))
+        self.ks = LweSampleArray.empty(thr, out_params, (extracted_n, t, base))
         LweKeySwitchKey_gpu(
             thr, rng, self.ks, extracted_n, t, basebit, in_key, out_key)
 
@@ -128,13 +162,8 @@ def lweSubTo(thr, result: LweSampleArray, sample: LweSampleArray, params: LwePar
 
 
 # result = (0,mu)
-def lweNoiselessTrivial(thr, result: LweSampleArray, mus, params: LweParams):
+def lweNoiselessTrivial(thr, result: LweSampleArray, mu, params: LweParams):
     # TYPING: mus: Union{Array{Torus32}, Torus32}
     result.a.fill(0)
-    if isinstance(mus, numpy.ndarray):
-        raise NotImplementedError()
-    elif hasattr(mus, 'thread'):
-        thr.copy_array(mus, dest=result.b)
-    else:
-        result.b.fill(mus)
+    result.b.fill(mu)
     result.current_variances.fill(0)

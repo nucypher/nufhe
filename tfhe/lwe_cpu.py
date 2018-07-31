@@ -16,7 +16,7 @@ from .numeric_functions import Torus32, dtot32
  * @param basebit Log_2 of base
 """
 def LweKeySwitchTranslate_fromArray_reference(
-        batch_shape, t: int, outer_n, inner_n, basebit: int):
+        shape_info, t: int, outer_n, inner_n, basebit: int):
 
     def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai, bi):
 
@@ -34,7 +34,7 @@ def LweKeySwitchTranslate_fromArray_reference(
         b[:] = bi
         current_variances.fill(0)
 
-        for i in range(batch_shape[0]):
+        for i in range(shape_info.shape[0]):
             for l in range(outer_n):
                 for j in range(t):
                     x = aijs[i,l,j]

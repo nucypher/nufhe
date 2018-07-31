@@ -102,4 +102,4 @@ def tfhe_decrypt(thr, key: TFHESecretKey, ciphertext: LweSampleArray):
 
 
 def empty_ciphertext(thr, params: TFHEParameters, shape):
-    return LweSampleArray(thr, params.in_out_params, shape)
+    return LweSampleArray.empty(thr, params.in_out_params, shape)

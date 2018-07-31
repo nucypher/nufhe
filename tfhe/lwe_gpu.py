@@ -29,20 +29,20 @@ TEMPLATE = helpers.template_for(__file__)
 
 class LweKeySwitchTranslate_fromArray(Computation):
 
-    def __init__(self, batch_shape, t: int, outer_n, inner_n, basebit: int):
+    def __init__(self, result_shape_info, t: int, outer_n, inner_n, basebit: int):
 
         base = 1 << basebit
 
-        a = Type(Torus32, batch_shape + (inner_n,))
-        b = Type(Torus32, batch_shape)
-        cv = Type(Float, batch_shape)
+        a = result_shape_info.a
+        b = result_shape_info.b
+        cv = result_shape_info.current_variances
 
         ks_a = Type(Torus32, (outer_n, t, base, inner_n))
         ks_b = Type(Torus32, (outer_n, t, base))
         ks_cv = Type(Float, (outer_n, t, base))
 
-        ai = Type(Torus32, batch_shape + (outer_n,))
-        bi = Type(Torus32, batch_shape)
+        ai = Type(Torus32, result_shape_info.shape + (outer_n,))
+        bi = Type(Torus32, result_shape_info.shape)
 
         self._t = t
         self._outer_n = outer_n
@@ -86,13 +86,12 @@ class LweKeySwitchTranslate_fromArray(Computation):
 
 def lweKeySwitchTranslate_fromArray_gpu(result, ks, params, a, b, outer_n, t, basebit):
 
-    batch_shape = result.a.shape[:-1]
     inner_n = result.a.shape[-1]
     thr = result.a.thread
 
     comp = get_computation(
         thr, LweKeySwitchTranslate_fromArray,
-        batch_shape, t, outer_n, inner_n, basebit)
+        result.shape_info, t, outer_n, inner_n, basebit)
     comp(
         result.a, result.b, result.current_variances,
         ks.a, ks.b, ks.current_variances,
@@ -339,7 +338,101 @@ class LwePhase(Computation):
 
 
 def lwePhase_gpu(thr, sample: 'LweSampleArray', key: 'LweKey'):
-    comp = get_computation(thr, LwePhase, sample.shape, key.params.size)
+    comp = get_computation(thr, LwePhase, sample.shape_info.shape, key.params.size)
     result = thr.empty_like(sample.b)
     comp(result, sample.a, sample.b, key.key)
     return result.get()
+
+
+class LweSubOrAddTo(Computation):
+
+    def __init__(self, result_shape_info, source_shape_info, params, op):
+
+        assert op in ('+', '-')
+        self._op = op
+
+        Computation.__init__(self,
+            [
+            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
+            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
+            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
+            Parameter('source_a', Annotation(source_shape_info.a, 'i')),
+            Parameter('source_b', Annotation(source_shape_info.b, 'i')),
+            Parameter('source_cv', Annotation(source_shape_info.current_variances, 'i')),
+            Parameter('p', Annotation(Type(Torus32))),
+            ])
+
+    def _build_plan(
+            self, plan_factory, device_params,
+            result_a, result_b, result_cv, source_a, source_b, source_cv, p):
+
+        plan = plan_factory()
+        batch_shape = result_b.shape
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_sub_or_add"),
+            [result_a, result_b, result_cv, source_a, source_b, source_cv, p],
+            global_size=batch_shape + (result_a.shape[-1],),
+            render_kwds=dict(
+                op=self._op
+                ))
+
+        return plan
+
+
+def lweSubTo_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '-')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances, 1)
+
+
+def lweSubMulTo_gpu(thr, result: 'LweSampleArray', p: int, source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '-')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances, p)
+
+
+def lweAddTo_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '+')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances, 1)
+
+
+def lweAddMulTo_gpu(thr, result: 'LweSampleArray', p: int, source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '+')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances, p)
+
+
+class LweNoiselessTrivial(Computation):
+
+    def __init__(self, result_shape_info, params):
+        Computation.__init__(self,
+            [
+            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
+            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
+            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
+            Parameter('mu', Annotation(Type(Torus32))),
+            ])
+
+    def _build_plan(
+            self, plan_factory, device_params,
+            result_a, result_b, result_cv, mu):
+
+        plan = plan_factory()
+
+        batch_shape = result_b.shape
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_noiseless_trivial"),
+            [result_a, result_b, result_cv, mu],
+            global_size=batch_shape + (result_a.shape[-1],))
+
+        return plan
+
+
+def lweNoiselessTrivial_gpu(thr, result: 'LweSampleArray', mu, params):
+    comp = get_computation(thr, LweNoiselessTrivial, result.shape_info, params)
+    comp(result.a, result.b, result.current_variances, mu)
