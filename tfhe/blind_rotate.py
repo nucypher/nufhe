@@ -2,15 +2,15 @@ import numpy
 
 from reikna.core import Computation, Parameter, Annotation
 import reikna.helpers as helpers
+from reikna.core import Type
 
 from .lwe import LweParams, LweSampleArray
 from .tgsw import TGswParams, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .lwe_gpu import LweKeySwitchTranslate_fromArray
+from .lwe import LweKeySwitchTranslate_fromArray
 from .performance import PerformanceParameters, performance_parameters_for_device
-from reikna.core import Type
 from .numeric_functions import Torus32
 
 

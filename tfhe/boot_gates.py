@@ -5,7 +5,7 @@ from .lwe import (
     LweSampleArray,
     lweKeySwitch,
     )
-from .lwe_gpu import (
+from .lwe import (
     lweAddTo_gpu,
     lweSubTo_gpu,
     lweAddMulTo_gpu,

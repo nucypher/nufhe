@@ -1,8 +1,7 @@
 import numpy
 
 from .numeric_functions import modSwitchToTorus32
-from .lwe import LweParams, LweKey, LweSampleArray
-from .lwe_gpu import lweSymEncrypt_gpu, lwePhase_gpu
+from .lwe import LweParams, LweKey, LweSampleArray, lweSymEncrypt_gpu, lwePhase_gpu
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .lwe_bootstrapping import LweBootstrappingKeyFFT

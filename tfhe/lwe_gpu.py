@@ -19,9 +19,7 @@ from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
-from .computation_cache import get_computation
 from .numeric_functions import Torus32, Float, dtot32_gpu
-from .random_numbers import rand_gaussian_float, rand_uniform_torus32, rand_gaussian_torus32
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -82,20 +80,6 @@ class LweKeySwitchTranslate_fromArray(Computation):
             )
 
         return plan
-
-
-def lweKeySwitchTranslate_fromArray_gpu(result, ks, params, a, b, outer_n, t, basebit):
-
-    inner_n = result.a.shape[-1]
-    thr = result.a.thread
-
-    comp = get_computation(
-        thr, LweKeySwitchTranslate_fromArray,
-        result.shape_info, t, outer_n, inner_n, basebit)
-    comp(
-        result.a, result.b, result.current_variances,
-        ks.a, ks.b, ks.current_variances,
-        a, b)
 
 
 class MatrixMulVector(Computation):
@@ -205,25 +189,6 @@ class LweKeySwitchKeyComputation(Computation):
         return plan
 
 
-def LweKeySwitchKey_gpu(
-        thr, rng, ks, extracted_n: int, t: int, basebit: int, in_key: 'LweKey', out_key: 'LweKey'):
-
-    inner_n = out_key.params.size
-    alpha = out_key.params.alpha_min
-
-    comp = get_computation(
-        thr, LweKeySwitchKeyComputation,
-        extracted_n, t, basebit, inner_n, alpha
-        )
-
-    base = 1 << basebit
-    b_noises = rand_gaussian_float(thr, rng, alpha, (extracted_n, t, base - 1))
-    a_noises = rand_uniform_torus32(thr, rng, (extracted_n, t, base - 1, inner_n))
-    comp(
-        ks.a, ks.b, ks.current_variances,
-        in_key.key, out_key.key, a_noises, b_noises)
-
-
 class LweSymEncrypt(Computation):
 
     def __init__(self, shape, n, alpha):
@@ -287,14 +252,6 @@ class LweSymEncrypt(Computation):
         return plan
 
 
-def lweSymEncrypt_gpu(thr, rng, result: 'LweSampleArray', messages, alpha: float, key: 'LweKey'):
-    n = key.params.size
-    noises_b = rand_gaussian_torus32(thr, rng, 0, alpha, messages.shape)
-    noises_a = rand_uniform_torus32(thr, rng, messages.shape + (n,))
-    comp = get_computation(thr, LweSymEncrypt, messages.shape, n, alpha)
-    comp(result.a, result.b, result.current_variances, messages, key.key, noises_a, noises_b)
-
-
 class LwePhase(Computation):
 
     def __init__(self, shape, n):
@@ -337,19 +294,11 @@ class LwePhase(Computation):
         return plan
 
 
-def lwePhase_gpu(thr, sample: 'LweSampleArray', key: 'LweKey'):
-    comp = get_computation(thr, LwePhase, sample.shape_info.shape, key.params.size)
-    result = thr.empty_like(sample.b)
-    comp(result, sample.a, sample.b, key.key)
-    return result.get()
+class LweLinear(Computation):
 
+    def __init__(self, result_shape_info, source_shape_info, params, add_result=False):
 
-class LweSubOrAddTo(Computation):
-
-    def __init__(self, result_shape_info, source_shape_info, params, op):
-
-        assert op in ('+', '-')
-        self._op = op
+        self._add_result = add_result
 
         Computation.__init__(self,
             [
@@ -369,42 +318,14 @@ class LweSubOrAddTo(Computation):
         plan = plan_factory()
         batch_shape = result_b.shape
         plan.kernel_call(
-            TEMPLATE.get_def("lwe_sub_or_add"),
+            TEMPLATE.get_def("lwe_linear"),
             [result_a, result_b, result_cv, source_a, source_b, source_cv, p],
             global_size=batch_shape + (result_a.shape[-1],),
             render_kwds=dict(
-                op=self._op
+                add_result=self._add_result,
                 ))
 
         return plan
-
-
-def lweSubTo_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '-')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances, 1)
-
-
-def lweSubMulTo_gpu(thr, result: 'LweSampleArray', p: int, source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '-')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances, p)
-
-
-def lweAddTo_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '+')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances, 1)
-
-
-def lweAddMulTo_gpu(thr, result: 'LweSampleArray', p: int, source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweSubOrAddTo, result.shape_info, source.shape_info, params, '+')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances, p)
 
 
 class LweNoiselessTrivial(Computation):
@@ -431,11 +352,6 @@ class LweNoiselessTrivial(Computation):
             global_size=batch_shape + (result_a.shape[-1],))
 
         return plan
-
-
-def lweNoiselessTrivial_gpu(thr, result: 'LweSampleArray', mu, params):
-    comp = get_computation(thr, LweNoiselessTrivial, result.shape_info, params)
-    comp(result.a, result.b, result.current_variances, mu)
 
 
 class LweCopyOrNegate(Computation):
@@ -470,17 +386,3 @@ class LweCopyOrNegate(Computation):
                 ))
 
         return plan
-
-
-def lweCopy_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweCopyOrNegate, result.shape_info, source.shape_info, params, '+')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances)
-
-
-def lweNegate_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
-    comp = get_computation(thr, LweCopyOrNegate, result.shape_info, source.shape_info, params, '-')
-    comp(
-        result.a, result.b, result.current_variances,
-        source.a, source.b, source.current_variances)

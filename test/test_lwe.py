@@ -1,3 +1,4 @@
+import pytest
 import numpy
 
 from tfhe.keys import TFHEParameters
@@ -9,12 +10,14 @@ from tfhe.lwe_gpu import (
     LweKeySwitchKeyComputation,
     LweSymEncrypt,
     LwePhase,
+    LweLinear,
     )
 from tfhe.lwe_cpu import (
     LweKeySwitchTranslate_fromArray_reference,
     LweKeySwitchKeyComputation_ref,
     LweSymEncrypt_ref,
-    LwePhase_ref
+    LwePhase_ref,
+    LweLinear_ref,
     )
 
 from tfhe.numeric_functions import Torus32
@@ -183,3 +186,41 @@ def test_LwePhase(thread):
     result_test = result_dev.get()
 
     assert (result_test == result).all()
+
+
+@pytest.mark.parametrize('positive_coeff', [False, True], ids=['p<0', 'p>0'])
+@pytest.mark.parametrize('add_result', [False, True], ids=['replace_result', 'update_result'])
+def test_LweLinear(thread, positive_coeff, add_result):
+
+    rng = numpy.random.RandomState(123)
+
+    params = TFHEParameters()
+    lwe_params = params.in_out_params
+    n = lwe_params.size
+
+    shape = (10, 20)
+
+    res_a = rng.randint(-2**31, 2**31, size=shape + (n,), dtype=numpy.int32)
+    res_b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
+    res_cv = rng.normal(size=shape).astype(numpy.float64)
+
+    src_a = rng.randint(-2**31, 2**31, size=shape + (n,), dtype=numpy.int32)
+    src_b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
+    src_cv = rng.normal(size=shape).astype(numpy.float64)
+
+    p = -1 if positive_coeff else 1
+
+    shape_info = LweSampleArrayShapeInfo(src_a, src_b, src_cv)
+
+    test = LweLinear(shape_info, shape_info, lwe_params, add_result=add_result).compile(thread)
+    ref = LweLinear_ref(shape_info, shape_info, lwe_params, add_result=add_result)
+
+    res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev = [
+        thread.to_device(arr) for arr in [res_a, res_b, res_cv, src_a, src_b, src_cv]]
+
+    test(res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev, p)
+    ref(res_a, res_b, res_cv, src_a, src_b, src_cv, p)
+
+    assert (res_a_dev.get() == res_a).all()
+    assert (res_b_dev.get() == res_b).all()
+    assert numpy.allclose(res_cv_dev.get(), res_cv)

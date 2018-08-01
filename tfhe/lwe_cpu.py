@@ -113,3 +113,14 @@ def LwePhase_ref(shape, n):
         numpy.copyto(result, b - vec_mul_mat(key, a))
 
     return _kernel
+
+
+def LweLinear_ref(result_shape_info, source_shape_info, params, add_result=False):
+
+    def _kernel(result_a, result_b, result_cv, source_a, source_b, source_cv, p):
+        p = numpy.int32(p)
+        numpy.copyto(result_a, (result_a if add_result else 0) + p * source_a)
+        numpy.copyto(result_b, (result_b if add_result else 0) + p * source_b)
+        numpy.copyto(result_cv, (result_cv if add_result else 0) + p**2 * source_cv)
+
+    return _kernel
