@@ -26,16 +26,20 @@ def get_plaintexts(rng, num, size=32):
 
 
 def check_gate(
-        thread, key_pair, perf_params, num_arguments, tfhe_func, reference_func,
-        size=32, performance_test=False):
+        thread, key_pair, num_arguments, tfhe_func, reference_func,
+        size=32, performance_test=False, perf_params=None):
 
     secret_key, cloud_key = key_pair
+
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=secret_key.params)
+
     rng = numpy.random.RandomState()
 
     plaintexts = get_plaintexts(rng, num_arguments, size=size)
     ciphertexts = [tfhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
 
-    reference = reference_func(plaintexts)
+    reference = reference_func(*plaintexts)
 
     params = tfhe_parameters(cloud_key)
     answer = empty_ciphertext(thread, params, (size,))
@@ -68,17 +72,15 @@ def check_gate(
 
 def test_transform_type(thread, transform_type):
     rng = numpy.random.RandomState()
-    perf_params = performance_parameters()
     key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
-    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref)
 
 
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
     secret_key, cloud_key = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
-    perf_params = performance_parameters(tfhe_params=secret_key.params)
-    check_gate(thread, (secret_key, cloud_key), perf_params, 2, tfhe_gate_NAND_, nand_ref)
+    check_gate(thread, (secret_key, cloud_key), 2, tfhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
@@ -87,7 +89,7 @@ def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     perf_params = performance_parameters(
         tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref, perf_params=perf_params)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
@@ -96,44 +98,116 @@ def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     perf_params = performance_parameters(
         tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
+    check_gate(thread, key_pair, 3, tfhe_gate_MUX_, mux_ref, perf_params=perf_params)
 
 
-lnot = numpy.logical_not
-land = numpy.logical_and
-lor = numpy.logical_or
+def nand_ref(a, b):
+    return ~(a * b)
 
+def or_ref(a, b):
+    return a + b
 
-def mux_ref(plaintexts):
-    assert len(plaintexts) == 3
-    return lor(land(plaintexts[0], plaintexts[1]), land(lnot(plaintexts[0]), plaintexts[2]))
+def and_ref(a, b):
+    return a * b
 
+def xor_ref(a, b):
+    return a ^ b
 
-def test_mux_gate(thread, key_pair):
-    perf_params = performance_parameters()
-    check_gate(thread, key_pair, perf_params, 3, tfhe_gate_MUX_, mux_ref)
+def xnor_ref(a, b):
+    return ~(a ^ b)
 
+def not_ref(a):
+    return ~a
 
-def nand_ref(plaintexts):
-    assert len(plaintexts) == 2
-    return lnot(land(plaintexts[0], plaintexts[1]))
+def copy_ref(a):
+    return a
+
+def nor_ref(a, b):
+    return ~(a + b)
+
+def andny_ref(a, b):
+    return ~a * b
+
+def andyn_ref(a, b):
+    return a * ~b
+
+def orny_ref(a, b):
+    return ~a + b
+
+def oryn_ref(a, b):
+    return a + ~b
+
+def mux_ref(a, b, c):
+    return a * b + ~a * c
 
 
 def test_nand_gate(thread, key_pair):
-    perf_params = performance_parameters()
-    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref)
+    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref)
 
 
-def xnor_ref(plaintexts):
-    assert len(plaintexts) == 2
-    return lor(
-        land(plaintexts[0], plaintexts[1]),
-        land(lnot(plaintexts[0]), lnot(plaintexts[1])))
+def test_or_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_OR_, or_ref)
+
+
+def test_and_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_AND_, and_ref)
+
+
+def test_xor_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_XOR_, xor_ref)
 
 
 def test_xnor_gate(thread, key_pair):
-    perf_params = performance_parameters()
-    check_gate(thread, key_pair, perf_params, 2, tfhe_gate_XNOR_, xnor_ref)
+    check_gate(thread, key_pair, 2, tfhe_gate_XNOR_, xnor_ref)
+
+
+def test_not_gate(thread, key_pair):
+    check_gate(thread, key_pair, 1, tfhe_gate_NOT_, not_ref)
+
+
+def test_copy_gate(thread, key_pair):
+    check_gate(thread, key_pair, 1, tfhe_gate_COPY_, copy_ref)
+
+
+def test_nor_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_NOR_, nor_ref)
+
+
+def test_andny_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_ANDNY_, andny_ref)
+
+
+def test_andyn_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_ANDYN_, andyn_ref)
+
+
+def test_orny_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_ORNY_, orny_ref)
+
+
+def test_oryn_gate(thread, key_pair):
+    check_gate(thread, key_pair, 2, tfhe_gate_ORYN_, oryn_ref)
+
+
+def test_mux_gate(thread, key_pair):
+    check_gate(thread, key_pair, 3, tfhe_gate_MUX_, mux_ref)
+
+
+def test_constant_gate(thread, key_pair):
+    # Not using check_gate(), because no encryption is required.
+
+    size = 32
+
+    secret_key, cloud_key = key_pair
+    rng = numpy.random.RandomState()
+
+    params = tfhe_parameters(cloud_key)
+    answer = empty_ciphertext(thread, params, (size,))
+
+    for val in (False, True):
+        tfhe_gate_CONSTANT_(thread, cloud_key, answer, val)
+        answer_bits = tfhe_decrypt(thread, secret_key, answer)
+        assert (answer_bits == val).all()
 
 
 def check_performance(thread, key_pair, perf_params, size):
@@ -147,11 +221,11 @@ def check_performance(thread, key_pair, perf_params, size):
     size2 = size // 2
 
     times1 = check_gate(
-        thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref,
-        size=size1, performance_test=True)
+        thread, key_pair, 2, tfhe_gate_NAND_, nand_ref,
+        size=size1, performance_test=True, perf_params=perf_params)
     times2 = check_gate(
-        thread, key_pair, perf_params, 2, tfhe_gate_NAND_, nand_ref,
-        size=size2, performance_test=True)
+        thread, key_pair, 2, tfhe_gate_NAND_, nand_ref,
+        size=size2, performance_test=True, perf_params=perf_params)
 
     mean1 = times1.mean()
     err1 = times1.std() / times1.size**0.5
@@ -351,7 +425,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     ct1 = ciphertexts[0][slices1]
     ct2 = ciphertexts[1][slices2]
 
-    reference = reference_func([pt1, pt2])
+    reference = reference_func(pt1, pt2)
 
     answer = empty_ciphertext(thread, params, size)
     answer_view = answer[result_slices]

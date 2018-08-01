@@ -151,6 +151,46 @@ ${kernel_declaration}
 </%def>
 
 
+<%def name="lwe_copy_or_negate(
+    kernel_declaration, result_a, result_b, result_cv, source_a, source_b, source_cv)">
+
+<%
+    sshape = source_b.shape
+    rshape = result_b.shape
+
+    batch_ids = ["batch_id_" + str(i) for i in range(len(rshape))]
+    result_ids = ", ".join(batch_ids)
+    source_ids = ", ".join(
+        "0" if sshape[i - (len(rshape) - len(sshape))] == 1 else batch_ids[i]
+        for i in range(len(rshape) - len(sshape), len(rshape)))
+%>
+
+${kernel_declaration}
+{
+    VIRTUAL_SKIP_THREADS;
+
+    %for i in range(len(rshape)):
+    int ${batch_ids[i]} = virtual_global_id(${i});
+    %endfor
+    int n_id = virtual_global_id(${len(rshape)});
+
+    ${result_a.store_idx}(
+        ${result_ids}, n_id,
+        ${op} ${source_a.load_idx}(${source_ids}, n_id));
+
+    if (n_id == 0)
+    {
+        ${result_b.store_idx}(
+            ${result_ids},
+            ${op} ${source_b.load_idx}(${source_ids}));
+        ${result_cv.store_idx}(
+            ${result_ids},
+            ${source_cv.load_idx}(${source_ids}));
+    }
+}
+</%def>
+
+
 <%def name="lwe_noiseless_trivial(
     kernel_declaration, result_a, result_b, result_cv, mu)">
 

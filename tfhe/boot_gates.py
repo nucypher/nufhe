@@ -3,12 +3,17 @@ import time
 from .numeric_functions import modSwitchToTorus32
 from .lwe import (
     LweSampleArray,
-    lweNoiselessTrivial,
-    lweSubTo,
-    lweAddTo,
     lweKeySwitch,
     )
-from .lwe_gpu import lweSubTo_gpu, lweAddTo_gpu, lweSubMulTo_gpu, lweNoiselessTrivial_gpu
+from .lwe_gpu import (
+    lweAddTo_gpu,
+    lweSubTo_gpu,
+    lweAddMulTo_gpu,
+    lweSubMulTo_gpu,
+    lweNoiselessTrivial_gpu,
+    lweNegate_gpu,
+    lweCopy_gpu,
+    )
 from .keys import TFHECloudKey
 from .lwe_bootstrapping import bootstrap
 from .performance import performance_parameters
@@ -44,11 +49,10 @@ def tfhe_gate_NAND_(
     if perf_params is None:
         perf_params = performance_parameters(tfhe_params=bk.params)
 
-    MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
-
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
+
+    in_out_params = bk.params.in_out_params
 
     t = time.time()
     temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
@@ -57,12 +61,13 @@ def tfhe_gate_NAND_(
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(thr, temp_result, NandConst, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, NandConst, in_out_params)
     lweSubTo_gpu(thr, temp_result, ca, in_out_params)
     lweSubTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
+    MU = modSwitchToTorus32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -72,22 +77,28 @@ def tfhe_gate_NAND_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_OR_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, OrConst, in_out_params)
+    lweAddTo_gpu(thr, temp_result, ca, in_out_params)
+    lweAddTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -96,22 +107,28 @@ def tfhe_gate_OR_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_AND_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, AndConst, in_out_params)
+    lweAddTo_gpu(thr, temp_result, ca, in_out_params)
+    lweAddTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -120,22 +137,28 @@ def tfhe_gate_AND_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_XOR_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
-    lweNoiselessTrivial(temp_result, XorConst, in_out_params)
-    lweAddMulTo(temp_result, 2, ca, in_out_params)
-    lweAddMulTo(temp_result, 2, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, XorConst, in_out_params)
+    lweAddMulTo_gpu(thr, temp_result, 2, ca, in_out_params)
+    lweAddMulTo_gpu(thr, temp_result, 2, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -150,12 +173,10 @@ def tfhe_gate_XNOR_(
     if perf_params is None:
         perf_params = performance_parameters(tfhe_params=bk.params)
 
-    MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
-
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
+    in_out_params = bk.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/4) + 2*(-ca-cb)
@@ -166,6 +187,7 @@ def tfhe_gate_XNOR_(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
+    MU = modSwitchToTorus32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -174,9 +196,11 @@ def tfhe_gate_XNOR_(
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_NOT_(bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray):
+def tfhe_gate_NOT_(
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+        perf_params=None):
     in_out_params = bk.params.in_out_params
-    lweNegate(result, ca, in_out_params)
+    lweNegate_gpu(thr, result, ca, in_out_params)
 
 
 """
@@ -184,9 +208,11 @@ def tfhe_gate_NOT_(bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray)
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_COPY_(bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray):
+def tfhe_gate_COPY_(
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+        perf_params=None):
     in_out_params = bk.params.in_out_params
-    lweCopy(result, ca, in_out_params)
+    lweCopy_gpu(thr, result, ca, in_out_params)
 
 
 """
@@ -206,22 +232,28 @@ def tfhe_gate_CONSTANT_(thr, bk: TFHECloudKey, result: LweSampleArray, val):
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_NOR_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, NorConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, NorConst, in_out_params)
+    lweSubTo_gpu(thr, temp_result, ca, in_out_params)
+    lweSubTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -230,22 +262,28 @@ def tfhe_gate_NOR_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_ANDNY_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndNYConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, AndNYConst, in_out_params)
+    lweSubTo_gpu(thr, temp_result, ca, in_out_params)
+    lweAddTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -254,22 +292,28 @@ def tfhe_gate_ANDNY_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_ANDYN_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndYNConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, AndYNConst, in_out_params)
+    lweAddTo_gpu(thr, temp_result, ca, in_out_params)
+    lweSubTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -278,22 +322,28 @@ def tfhe_gate_ANDYN_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_ORNY_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrNYConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, OrNYConst, in_out_params)
+    lweSubTo_gpu(thr, temp_result, ca, in_out_params)
+    lweAddTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """
@@ -302,22 +352,28 @@ def tfhe_gate_ORNY_(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def tfhe_gate_ORYN_(
-        bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray):
+        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        perf_params=None):
 
-    MU = modSwitchToTorus32(1, 8)
+    if perf_params is None:
+        perf_params = performance_parameters(tfhe_params=bk.params)
+
+    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    assert rshape == result.shape_info.shape
+
     in_out_params = bk.params.in_out_params
-
-    temp_result = LweSampleArray.empty(in_out_params, result.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrYNConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    lweNoiselessTrivial_gpu(thr, temp_result, OrYNConst, in_out_params)
+    lweAddTo_gpu(thr, temp_result, ca, in_out_params)
+    lweSubTo_gpu(thr, temp_result, cb, in_out_params)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    MU = modSwitchToTorus32(1, 8)
+    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
 """

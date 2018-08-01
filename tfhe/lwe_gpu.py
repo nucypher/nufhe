@@ -436,3 +436,51 @@ class LweNoiselessTrivial(Computation):
 def lweNoiselessTrivial_gpu(thr, result: 'LweSampleArray', mu, params):
     comp = get_computation(thr, LweNoiselessTrivial, result.shape_info, params)
     comp(result.a, result.b, result.current_variances, mu)
+
+
+class LweCopyOrNegate(Computation):
+
+    def __init__(self, result_shape_info, source_shape_info, params, op):
+
+        assert op in ('+', '-')
+        self._op = op
+
+        Computation.__init__(self,
+            [
+            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
+            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
+            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
+            Parameter('source_a', Annotation(source_shape_info.a, 'i')),
+            Parameter('source_b', Annotation(source_shape_info.b, 'i')),
+            Parameter('source_cv', Annotation(source_shape_info.current_variances, 'i')),
+            ])
+
+    def _build_plan(
+            self, plan_factory, device_params,
+            result_a, result_b, result_cv, source_a, source_b, source_cv):
+
+        plan = plan_factory()
+        batch_shape = result_b.shape
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_copy_or_negate"),
+            [result_a, result_b, result_cv, source_a, source_b, source_cv],
+            global_size=batch_shape + (result_a.shape[-1],),
+            render_kwds=dict(
+                op=self._op
+                ))
+
+        return plan
+
+
+def lweCopy_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweCopyOrNegate, result.shape_info, source.shape_info, params, '+')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances)
+
+
+def lweNegate_gpu(thr, result: 'LweSampleArray', source: 'LweSampleArray', params):
+    comp = get_computation(thr, LweCopyOrNegate, result.shape_info, source.shape_info, params, '-')
+    comp(
+        result.a, result.b, result.current_variances,
+        source.a, source.b, source.current_variances)
