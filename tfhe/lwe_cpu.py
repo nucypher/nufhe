@@ -3,20 +3,8 @@ import numpy
 from .numeric_functions import Torus32, dtot32
 
 
-"""
- * translates the message of the result sample by -sum(a[i].s[i]) where s is the secret
- * embedded in ks.
- * @param result the LWE sample to translate by -sum(ai.si).
- * @param ks The (n x t x base) key switching key
- *        ks[i][j][k] encodes k.s[i]/base^(j+1)
- * @param params The common LWE parameters of ks and result
- * @param ai The input torus array
- * @param n The size of the input key
- * @param t The precision of the keyswitch (technically, 1/2.base^t)
- * @param basebit Log_2 of base
-"""
 def LweKeySwitchTranslate_fromArray_reference(
-        shape_info, t: int, outer_n, inner_n, basebit: int):
+        shape_info, outer_n, inner_n, t: int, basebit: int):
 
     def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai, bi):
 
@@ -50,7 +38,6 @@ def vec_mul_mat(b, a):
     return (a * b).sum(-1, dtype=numpy.int32)
 
 
-# This function encrypts a message by using key and a given noise value
 def lweSymEncryptWithExternalNoise(
         ks_a, ks_b, ks_cv, messages, a_noises, b_noises, alpha: float, key):
 
@@ -65,7 +52,7 @@ def lweSymEncryptWithExternalNoise(
     ks_cv[:,:,1:] = alpha**2
 
 
-def LweKeySwitchKeyComputation_ref(extracted_n: int, t: int, basebit: int, inner_n: int, alpha):
+def LweKeySwitchKeyComputation_ref(extracted_n: int, inner_n: int, t: int, basebit: int, alpha):
 
     base = 1 << basebit
 
@@ -92,9 +79,6 @@ def LweKeySwitchKeyComputation_ref(extracted_n: int, t: int, basebit: int, inner
     return _kernel
 
 
-# * This function encrypts message by using key, with stdev alpha
-# * The Lwe sample for the result must be allocated and initialized
-# * (this means that the parameters are already in the result)
 def LweSymEncrypt_ref(shape, n, alpha: float):
 
     def _kernel(result_a, result_b, result_cv, messages, key, noises_a, noises_b):
@@ -106,7 +90,6 @@ def LweSymEncrypt_ref(shape, n, alpha: float):
     return _kernel
 
 
-# This function computes the phase of sample by using key : phi = b - a.s
 def LwePhase_ref(shape, n):
 
     def _kernel(result, a, b, key):
@@ -115,7 +98,7 @@ def LwePhase_ref(shape, n):
     return _kernel
 
 
-def LweLinear_ref(result_shape_info, source_shape_info, params, add_result=False):
+def LweLinear_ref(result_shape_info, source_shape_info, add_result=False):
 
     def _kernel(result_a, result_b, result_cv, source_a, source_b, source_cv, p):
         p = numpy.int32(p)

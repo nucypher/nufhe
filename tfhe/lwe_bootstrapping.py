@@ -29,15 +29,12 @@ def lwe_bootstrapping_key(
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
 
-    n = in_out_params.size
-    N = extract_params.size
-
     accum_key = rgsw_key.tlwe_key
-    extracted_key = LweKey.from_key(extract_params, accum_key)
+    extracted_key = LweKey.from_tlwe_key(extract_params, accum_key)
 
-    ks = LweKeySwitchKey(thr, rng, N, ks_decomp_length, ks_log2_base, extracted_key, key_in)
+    ks = LweKeySwitchKey(thr, rng, extracted_key, key_in, ks_decomp_length, ks_log2_base)
 
-    bk = TGswSampleArray(thr, bk_params, (n,))
+    bk = TGswSampleArray(thr, bk_params, (in_out_params.size,))
     kin = key_in.key
     alpha = accum_params.alpha_min
 

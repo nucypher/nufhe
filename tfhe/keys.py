@@ -22,7 +22,7 @@ class TFHEParameters:
         bs_decomp_length = 2 # bootstrap decomposition length
         bs_log2_base = 10 # bootstrap log2(decomposition_base)
 
-        ks_decomp_length = 8 # keyswitch decomposition length
+        ks_decomp_length = 8 # keyswitch decomposition length (the precision of the keyswitch)
         ks_log2_base = 2 # keyswitch log2(decomposition base)
 
         coeff = (2 / numpy.pi)**0.5
@@ -62,7 +62,7 @@ def tfhe_parameters(key): # union(TFHESecretKey, TFHECloudKey)
 def tfhe_key_pair(thr, rng, **params):
     params = TFHEParameters(**params)
 
-    lwe_key = LweKey.from_rng(thr, rng, params.in_out_params)
+    lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
     tgsw_key = TGswKey(thr, rng, params.tgsw_params)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 

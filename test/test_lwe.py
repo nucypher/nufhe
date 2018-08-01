@@ -57,8 +57,8 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     bi_dev = thread.to_device(bi)
 
     shape_info = LweSampleArrayShapeInfo(a_dev, b_dev, cv_dev)
-    test = LweKeySwitchTranslate_fromArray(shape_info, t, outer_n, inner_n, basebit).compile(thread)
-    ref = LweKeySwitchTranslate_fromArray_reference(shape_info, t, outer_n, inner_n, basebit)
+    test = LweKeySwitchTranslate_fromArray(shape_info, outer_n, inner_n, t, basebit).compile(thread)
+    ref = LweKeySwitchTranslate_fromArray_reference(shape_info, outer_n, inner_n, t, basebit)
 
     test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev, bi_dev)
     a_test = a_dev.get()
@@ -94,8 +94,8 @@ def test_LweKeySwitchKey(thread):
     a_noises = numpy.random.randint(-2**31, 2**31, size=(extracted_n, t, base - 1, inner_n), dtype=Torus32)
     b_noises = numpy.random.normal(scale=params.in_out_params.alpha_min, size=(extracted_n, t, base - 1))
 
-    test = LweKeySwitchKeyComputation(extracted_n, t, basebit, inner_n, alpha).compile(thread)
-    ref = LweKeySwitchKeyComputation_ref(extracted_n, t, basebit, inner_n, alpha)
+    test = LweKeySwitchKeyComputation(extracted_n, inner_n, t, basebit, alpha).compile(thread)
+    ref = LweKeySwitchKeyComputation_ref(extracted_n, inner_n, t, basebit, alpha)
 
     ks_a_dev = thread.empty_like(ks_a)
     ks_b_dev = thread.empty_like(ks_b)
@@ -212,8 +212,8 @@ def test_LweLinear(thread, positive_coeff, add_result):
 
     shape_info = LweSampleArrayShapeInfo(src_a, src_b, src_cv)
 
-    test = LweLinear(shape_info, shape_info, lwe_params, add_result=add_result).compile(thread)
-    ref = LweLinear_ref(shape_info, shape_info, lwe_params, add_result=add_result)
+    test = LweLinear(shape_info, shape_info, add_result=add_result).compile(thread)
+    ref = LweLinear_ref(shape_info, shape_info, add_result=add_result)
 
     res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev = [
         thread.to_device(arr) for arr in [res_a, res_b, res_cv, src_a, src_b, src_cv]]

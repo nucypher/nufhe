@@ -27,7 +27,7 @@ TEMPLATE = helpers.template_for(__file__)
 
 class LweKeySwitchTranslate_fromArray(Computation):
 
-    def __init__(self, result_shape_info, t: int, outer_n, inner_n, basebit: int):
+    def __init__(self, result_shape_info, outer_n, inner_n, t: int, basebit: int):
 
         base = 1 << basebit
 
@@ -118,7 +118,7 @@ class MatrixMulVector(Computation):
 
 class LweKeySwitchKeyComputation(Computation):
 
-    def __init__(self, extracted_n: int, t: int, basebit: int, inner_n: int, alpha):
+    def __init__(self, extracted_n: int, inner_n: int, t: int, basebit: int, alpha):
 
         base = 1 << basebit
 
@@ -296,7 +296,7 @@ class LwePhase(Computation):
 
 class LweLinear(Computation):
 
-    def __init__(self, result_shape_info, source_shape_info, params, add_result=False):
+    def __init__(self, result_shape_info, source_shape_info, add_result=False):
 
         self._add_result = add_result
 
@@ -330,7 +330,7 @@ class LweLinear(Computation):
 
 class LweNoiselessTrivial(Computation):
 
-    def __init__(self, result_shape_info, params):
+    def __init__(self, result_shape_info):
         Computation.__init__(self,
             [
             Parameter('result_a', Annotation(result_shape_info.a, 'o')),

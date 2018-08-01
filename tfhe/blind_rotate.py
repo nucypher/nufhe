@@ -127,10 +127,10 @@ class BlindRotateAndKeySwitch(Computation):
         outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
         inner_n = self._in_out_params.size
         outer_n = self._ks.input_size
-        basebit = self._ks.basebit
-        t = self._ks.t
+        basebit = self._ks.log2_base
+        t = self._ks.decomp_length
 
-        ks = LweKeySwitchTranslate_fromArray(self._result_shape_info, t, outer_n, inner_n, basebit)
+        ks = LweKeySwitchTranslate_fromArray(self._result_shape_info, outer_n, inner_n, t, basebit)
         result_cv = plan.temp_array_like(ks.parameter.result_cv)
         ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
         plan.computation_call(ks, lwe_a, lwe_b, result_cv, ks_a, ks_b, ks_cv, extracted_a, extracted_b)
@@ -153,9 +153,9 @@ def BlindRotate_gpu(
     else:
         comp = get_computation(thr, BlindRotateAndKeySwitch,
             lwe_out.shape_info, lwe_out.a, lwe_out.b, accum.a.coefsT,
-            bk.bkFFT.samples.a.coefsC, bk.ks.ks.a, bk.ks.ks.b, bara,
+            bk.bkFFT.samples.a.coefsC, bk.ks.lwe.a, bk.ks.lwe.b, bara,
             bk.bk_params, bk.in_out_params, bk.ks, perf_params)
         comp(
             lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC,
-            bk.ks.ks.a, bk.ks.ks.b, bara)
+            bk.ks.lwe.a, bk.ks.lwe.b, bara)
 
