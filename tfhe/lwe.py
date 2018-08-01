@@ -10,10 +10,10 @@ from .numeric_functions import (
     Float,
     )
 from .lwe_gpu import (
-    LweKeySwitchTranslate_fromArray,
-    LweKeySwitchKeyComputation,
-    LweSymEncrypt,
-    LwePhase,
+    Keyswitch,
+    MakeKeyswitchKey,
+    LweEncrypt,
+    LweDecrypt,
     LweLinear,
     LweNoiselessTrivial,
     )
@@ -28,10 +28,10 @@ from .computation_cache import get_computation
 
 class LweParams:
 
-    def __init__(self, size: int, alpha_min: float, alpha_max: float):
+    def __init__(self, size: int, min_noise: float, max_noise: float):
         self.size = size
-        self.alpha_min = alpha_min # the smallest noise that makes it secure
-        self.alpha_max = alpha_max # the biggest noise that allows decryption
+        self.min_noise = min_noise # the smallest noise that makes it secure
+        self.max_noise = max_noise # the biggest noise that allows decryption
 
 
 class LweKey:
@@ -106,7 +106,7 @@ class LweSampleArray:
         return LweSampleArray(self.params, a_view, b_view, cv_view)
 
 
-class LweKeySwitchKey:
+class LweKeyswitchKey:
 
     def __init__(
             self, thr: Thread, rng,
@@ -114,19 +114,19 @@ class LweKeySwitchKey:
 
         input_size = in_key.params.size
         output_size = out_key.params.size
-        alpha = out_key.params.alpha_min
+        noise = out_key.params.min_noise
         base = 2**log2_base
 
         lwe = LweSampleArray.empty(thr, out_key.params, (input_size, decomp_length, base))
 
         b_noises = rand_gaussian_float(
-            thr, rng, alpha, (input_size, decomp_length, base - 1))
+            thr, rng, noise, (input_size, decomp_length, base - 1))
         a_noises = rand_uniform_torus32(
             thr, rng, (input_size, decomp_length, base - 1, output_size))
 
         comp = get_computation(
-            thr, LweKeySwitchKeyComputation,
-            input_size, output_size, decomp_length, log2_base, alpha)
+            thr, MakeKeyswitchKey,
+            input_size, output_size, decomp_length, log2_base, noise)
         comp(lwe.a, lwe.b, lwe.current_variances, in_key.key, out_key.key, a_noises, b_noises)
 
         self.lwe = lwe
@@ -136,42 +136,41 @@ class LweKeySwitchKey:
         self.log2_base = log2_base # log_2(decomposition base)
 
 
-def lweKeySwitch(thr: Thread, result: LweSampleArray, ks: LweKeySwitchKey, sample: LweSampleArray):
+def keyswitch(thr: Thread, result: LweSampleArray, ks: LweKeyswitchKey, sample: LweSampleArray):
     """
     Translate the message of the result sample by -sum(a[i].s[i]) where s is the secret.
     """
     lwe = ks.lwe
     comp = get_computation(
-        thr, LweKeySwitchTranslate_fromArray,
+        thr, Keyswitch,
         result.shape_info, ks.input_size, ks.output_size, ks.decomp_length, ks.log2_base)
     comp(
         result.a, result.b, result.current_variances,
         lwe.a, lwe.b, lwe.current_variances, sample.a, sample.b)
 
 
-def lweSymEncrypt_gpu(
-        thr: Thread, rng, result: LweSampleArray, messages, alpha: float, key: LweKey):
+def lwe_encrypt(thr: Thread, rng, result: LweSampleArray, messages, noise: float, key: LweKey):
     """
-    Encrypt a message with the secret key, with stdev alpha.
+    Encrypt a message with the secret key, with stdev `noise`.
     """
     lwe_size = key.params.size
-    noises_b = rand_gaussian_torus32(thr, rng, 0, alpha, messages.shape)
+    noises_b = rand_gaussian_torus32(thr, rng, 0, noise, messages.shape)
     noises_a = rand_uniform_torus32(thr, rng, messages.shape + (lwe_size,))
-    comp = get_computation(thr, LweSymEncrypt, messages.shape, lwe_size, alpha)
+    comp = get_computation(thr, LweEncrypt, messages.shape, lwe_size, noise)
     comp(result.a, result.b, result.current_variances, messages, key.key, noises_a, noises_b)
 
 
-def lwePhase_gpu(thr: Thread, sample: LweSampleArray, key: LweKey):
+def lwe_decrypt(thr: Thread, sample: LweSampleArray, key: LweKey):
     """
-    Compute the phase of the sample using the secret key: phi = b - a.s
+    Decrypt an LWE array with the secret key.
     """
     result = thr.empty_like(sample.b)
-    comp = get_computation(thr, LwePhase, sample.shape_info.shape, key.params.size)
+    comp = get_computation(thr, LweDecrypt, sample.shape_info.shape, key.params.size)
     comp(result, sample.a, sample.b, key.key)
     return result.get()
 
 
-def lweNoiselessTrivial_gpu(thr: Thread, result: LweSampleArray, mu: Torus32):
+def lwe_noiseless_trivial(thr: Thread, result: LweSampleArray, mu: Torus32):
     """
     Initialize an LWE sample with (0, mu).
     """
@@ -182,7 +181,7 @@ def lweNoiselessTrivial_gpu(thr: Thread, result: LweSampleArray, mu: Torus32):
 # Arithmetic operations on LWE samples
 
 
-def lweNegate_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
+def lwe_negate(thr: Thread, result: LweSampleArray, source: LweSampleArray):
     """
     result = -sample
     """
@@ -192,7 +191,7 @@ def lweNegate_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
         source.a, source.b, source.current_variances, -1)
 
 
-def lweCopy_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
+def lwe_copy(thr: Thread, result: LweSampleArray, source: LweSampleArray):
     """
     result = sample
     """
@@ -202,45 +201,41 @@ def lweCopy_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
         source.a, source.b, source.current_variances, 1)
 
 
-def lweAddTo_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
+def lwe_add_to(thr: Thread, result: LweSampleArray, source: LweSampleArray):
     """
     result += sample
     """
-    comp = get_computation(
-        thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
+    comp = get_computation(thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
     comp(
         result.a, result.b, result.current_variances,
         source.a, source.b, source.current_variances, 1)
 
 
-def lweAddMulTo_gpu(thr: Thread, result: LweSampleArray, p: int, source: LweSampleArray):
+def lwe_add_mul_to(thr: Thread, result: LweSampleArray, p: int, source: LweSampleArray):
     """
     result += p * sample
     """
-    comp = get_computation(
-        thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
+    comp = get_computation(thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
     comp(
         result.a, result.b, result.current_variances,
         source.a, source.b, source.current_variances, p)
 
 
-def lweSubTo_gpu(thr: Thread, result: LweSampleArray, source: LweSampleArray):
+def lwe_sub_to(thr: Thread, result: LweSampleArray, source: LweSampleArray):
     """
     result -= sample
     """
-    comp = get_computation(
-        thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
+    comp = get_computation(thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
     comp(
         result.a, result.b, result.current_variances,
         source.a, source.b, source.current_variances, -1)
 
 
-def lweSubMulTo_gpu(thr: Thread, result: LweSampleArray, p: int, source: LweSampleArray):
+def lwe_sub_mul_to(thr: Thread, result: LweSampleArray, p: int, source: LweSampleArray):
     """
     result -= p * sample
     """
-    comp = get_computation(
-        thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
+    comp = get_computation(thr, LweLinear, result.shape_info, source.shape_info, add_result=True)
     comp(
         result.a, result.b, result.current_variances,
         source.a, source.b, source.current_variances, -p)

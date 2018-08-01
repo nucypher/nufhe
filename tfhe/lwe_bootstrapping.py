@@ -1,6 +1,6 @@
 from .numeric_functions import Torus32
 from .gpu_polynomials import TorusPolynomialArray
-from .lwe import LweKey, LweSampleArray, LweKeySwitchKey, lweKeySwitch
+from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, keyswitch
 from .tgsw import TGswKey, TGswSampleFFTArray, TGswParams, TGswSampleArray, tGswToFFTConvert
 from .tgsw_gpu import tGswSymEncryptInt_gpu, tGswFFTExternMulToTLwe_gpu
 from .tlwe import TLweSampleArray
@@ -32,13 +32,13 @@ def lwe_bootstrapping_key(
     accum_key = rgsw_key.tlwe_key
     extracted_key = LweKey.from_tlwe_key(extract_params, accum_key)
 
-    ks = LweKeySwitchKey(thr, rng, extracted_key, key_in, ks_decomp_length, ks_log2_base)
+    ks = LweKeyswitchKey(thr, rng, extracted_key, key_in, ks_decomp_length, ks_log2_base)
 
     bk = TGswSampleArray(thr, bk_params, (in_out_params.size,))
     kin = key_in.key
-    alpha = accum_params.alpha_min
+    noise = accum_params.min_noise
 
-    tGswSymEncryptInt_gpu(thr, rng, bk, kin, alpha, rgsw_key, perf_params)
+    tGswSymEncryptInt_gpu(thr, rng, bk, kin, noise, rgsw_key, perf_params)
 
     return bk, ks
 
@@ -190,7 +190,7 @@ def tfhe_blindRotateAndExtract_FFT(
         tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
 
         if not no_keyswitch:
-            lweKeySwitch(thr, result, bk.ks, extracted_result)
+            keyswitch(thr, result, bk.ks, extracted_result)
 
 
 """

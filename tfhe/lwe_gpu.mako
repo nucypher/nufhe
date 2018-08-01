@@ -26,7 +26,7 @@
             ${noises_b.load_idx}(extracted_n_idx, t_idx, base_idx - 1)
             - ${noises_b_mean.load_idx}();
 
-        ${ks_cv.store_idx}(extracted_n_idx, t_idx, base_idx, ${alpha**2});
+        ${ks_cv.store_idx}(extracted_n_idx, t_idx, base_idx, ${noise**2});
 
         for (int i = 0; i < ${inner_n}; i++)
         {

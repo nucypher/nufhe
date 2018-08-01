@@ -80,18 +80,18 @@ def test_TLweSymEncryptZero(thread):
     k = params.mask_size
     l = tfhe_params.tgsw_params.decomp_length
     N = params.polynomial_degree
-    alpha = params.alpha_min
+    noise = params.min_noise
 
     shape = (5, k + 1, l)
 
     result_a = numpy.empty(shape + (k + 1, N), numpy.int32)
     result_cv = numpy.empty(shape, numpy.float64)
-    noises2 = rn._rand_gaussian_torus32(rng, 0, alpha, shape + (N,))
+    noises2 = rn._rand_gaussian_torus32(rng, 0, noise, shape + (N,))
     noises1 = rn._rand_uniform_torus32(rng, shape + (k, N))
     key = rn._rand_uniform_int32(rng, (k, N))
 
-    comp = TLweSymEncryptZero(shape, alpha, params, perf_params).compile(thread)
-    ref = TLweSymEncryptZero_ref(shape, alpha, params, perf_params)
+    comp = TLweSymEncryptZero(shape, noise, params, perf_params).compile(thread)
+    ref = TLweSymEncryptZero_ref(shape, noise, params, perf_params)
 
     result_a_dev = thread.empty_like(result_a)
     result_cv_dev = thread.empty_like(result_cv)

@@ -3,16 +3,16 @@ import time
 from .numeric_functions import modSwitchToTorus32
 from .lwe import (
     LweSampleArray,
-    lweKeySwitch,
+    keyswitch,
     )
 from .lwe import (
-    lweAddTo_gpu,
-    lweSubTo_gpu,
-    lweAddMulTo_gpu,
-    lweSubMulTo_gpu,
-    lweNoiselessTrivial_gpu,
-    lweNegate_gpu,
-    lweCopy_gpu,
+    lwe_add_to,
+    lwe_sub_to,
+    lwe_add_mul_to,
+    lwe_sub_mul_to,
+    lwe_noiseless_trivial,
+    lwe_negate,
+    lwe_copy,
     )
 from .keys import TFHECloudKey
 from .lwe_bootstrapping import bootstrap
@@ -61,9 +61,9 @@ def tfhe_gate_NAND_(
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, NandConst)
-    lweSubTo_gpu(thr, temp_result, ca)
-    lweSubTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, NandConst)
+    lwe_sub_to(thr, temp_result, ca)
+    lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -91,9 +91,9 @@ def tfhe_gate_OR_(
 
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, OrConst)
-    lweAddTo_gpu(thr, temp_result, ca)
-    lweAddTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, OrConst)
+    lwe_add_to(thr, temp_result, ca)
+    lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -121,9 +121,9 @@ def tfhe_gate_AND_(
 
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, AndConst)
-    lweAddTo_gpu(thr, temp_result, ca)
-    lweAddTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_add_to(thr, temp_result, ca)
+    lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -151,9 +151,9 @@ def tfhe_gate_XOR_(
 
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
-    lweNoiselessTrivial_gpu(thr, temp_result, XorConst)
-    lweAddMulTo_gpu(thr, temp_result, 2, ca)
-    lweAddMulTo_gpu(thr, temp_result, 2, cb)
+    lwe_noiseless_trivial(thr, temp_result, XorConst)
+    lwe_add_mul_to(thr, temp_result, 2, ca)
+    lwe_add_mul_to(thr, temp_result, 2, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -181,9 +181,9 @@ def tfhe_gate_XNOR_(
 
     #compute: (0,-1/4) + 2*(-ca-cb)
     XnorConst = modSwitchToTorus32(-1, 4)
-    lweNoiselessTrivial_gpu(thr, temp_result, XnorConst)
-    lweSubMulTo_gpu(thr, temp_result, 2, ca)
-    lweSubMulTo_gpu(thr, temp_result, 2, cb)
+    lwe_noiseless_trivial(thr, temp_result, XnorConst)
+    lwe_sub_mul_to(thr, temp_result, 2, ca)
+    lwe_sub_mul_to(thr, temp_result, 2, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -200,7 +200,7 @@ def tfhe_gate_NOT_(
         thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
-    lweNegate_gpu(thr, result, ca)
+    lwe_negate(thr, result, ca)
 
 
 """
@@ -212,7 +212,7 @@ def tfhe_gate_COPY_(
         thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
-    lweCopy_gpu(thr, result, ca)
+    lwe_copy(thr, result, ca)
 
 
 """
@@ -223,7 +223,7 @@ def tfhe_gate_COPY_(
 def tfhe_gate_CONSTANT_(thr, bk: TFHECloudKey, result: LweSampleArray, val):
     in_out_params = bk.params.in_out_params
     MU = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, result, MU if val else -MU)
+    lwe_noiseless_trivial(thr, result, MU if val else -MU)
 
 
 """
@@ -246,9 +246,9 @@ def tfhe_gate_NOR_(
 
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, NorConst)
-    lweSubTo_gpu(thr, temp_result, ca)
-    lweSubTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, NorConst)
+    lwe_sub_to(thr, temp_result, ca)
+    lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -276,9 +276,9 @@ def tfhe_gate_ANDNY_(
 
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, AndNYConst)
-    lweSubTo_gpu(thr, temp_result, ca)
-    lweAddTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, AndNYConst)
+    lwe_sub_to(thr, temp_result, ca)
+    lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -306,9 +306,9 @@ def tfhe_gate_ANDYN_(
 
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, AndYNConst)
-    lweAddTo_gpu(thr, temp_result, ca)
-    lweSubTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, AndYNConst)
+    lwe_add_to(thr, temp_result, ca)
+    lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -336,9 +336,9 @@ def tfhe_gate_ORNY_(
 
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, OrNYConst)
-    lweSubTo_gpu(thr, temp_result, ca)
-    lweAddTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, OrNYConst)
+    lwe_sub_to(thr, temp_result, ca)
+    lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -366,9 +366,9 @@ def tfhe_gate_ORYN_(
 
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, OrYNConst)
-    lweAddTo_gpu(thr, temp_result, ca)
-    lweSubTo_gpu(thr, temp_result, cb)
+    lwe_noiseless_trivial(thr, temp_result, OrYNConst)
+    lwe_add_to(thr, temp_result, ca)
+    lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
@@ -404,24 +404,24 @@ def tfhe_gate_MUX_(
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result, AndConst)
-    lweAddTo_gpu(thr, temp_result, a)
-    lweAddTo_gpu(thr, temp_result, b)
+    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_add_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, b)
     # Bootstrap without KeySwitch
     bootstrap(thr, u1, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
-    lweNoiselessTrivial_gpu(thr, temp_result, AndConst)
-    lweSubTo_gpu(thr, temp_result, a)
-    lweAddTo_gpu(thr, temp_result, c)
+    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_sub_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, c)
     # Bootstrap without KeySwitch
     bootstrap(thr, u2, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial_gpu(thr, temp_result1, MuxConst)
-    lweAddTo_gpu(thr, temp_result1, u1)
-    lweAddTo_gpu(thr, temp_result1, u2)
+    lwe_noiseless_trivial(thr, temp_result1, MuxConst)
+    lwe_add_to(thr, temp_result1, u1)
+    lwe_add_to(thr, temp_result1, u2)
 
     # Key switching
-    lweKeySwitch(thr, result, bk.bkFFT.ks, temp_result1)
+    keyswitch(thr, result, bk.bkFFT.ks, temp_result1)

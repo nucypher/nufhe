@@ -144,7 +144,7 @@ def tLweCopy_gpu(result: TLweSampleArray, sample: TLweSampleArray, params: TLweP
 
 class TLweSymEncryptZero(Computation):
 
-    def __init__(self, shape, alpha: float, params: TLweParams, perf_params: PerformanceParameters):
+    def __init__(self, shape, noise: float, params: TLweParams, perf_params: PerformanceParameters):
 
         N = params.polynomial_degree
         k = params.mask_size
@@ -157,7 +157,7 @@ class TLweSymEncryptZero(Computation):
         noises1 = Type(Torus32, shape + (k, N))
         noises2 = Type(Torus32, shape + (N,))
 
-        self._alpha = alpha
+        self._noise = noise
         self._k = k
         self._N = N
         self._perf_params = perf_params
@@ -220,7 +220,7 @@ class TLweSymEncryptZero(Computation):
             [result_a, result_cv, noises1, noises2, ift_res],
             global_size=(helpers.product(result_a.shape[:-2]), self._k + 1, N),
             render_kwds=dict(
-                alpha=self._alpha, k=self._k,
+                noise=self._noise, k=self._k,
                 noises1_slices=(batch_len, 1, 1),
                 noises2_slices=(batch_len, 1),
                 cv_slices=(batch_len,)
@@ -231,18 +231,18 @@ class TLweSymEncryptZero(Computation):
 
 # create an homogeneous tlwe sample
 def tLweSymEncryptZero_gpu(
-        thr, rng, result: 'TLweSampleArray', alpha: float, key: 'TLweKey',
+        thr, rng, result: 'TLweSampleArray', noise: float, key: 'TLweKey',
         perf_params: PerformanceParameters):
 
     N = key.params.polynomial_degree
     k = key.params.mask_size
 
-    noises2 = rand_gaussian_torus32(thr, rng, 0, alpha, result.shape + (N,))
+    noises2 = rand_gaussian_torus32(thr, rng, 0, noise, result.shape + (N,))
     noises1 = rand_uniform_torus32(thr, rng, result.shape + (k, N))
 
     comp = get_computation(
         thr, TLweSymEncryptZero,
-        result.shape, alpha, key.params, perf_params)
+        result.shape, noise, key.params, perf_params)
     comp(result.a.coefsT, result.current_variances, key.key.coefs, noises1, noises2)
 
 

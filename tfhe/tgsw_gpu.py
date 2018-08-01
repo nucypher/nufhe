@@ -186,17 +186,17 @@ def tGswAddMuIntH_gpu(thr, result: 'TGswSampleArray', messages, params: 'TGswPar
 
 # Result = tGsw(0)
 def tGswEncryptZero(
-        thr, rng, result: TGswSampleArray, alpha: float, key: 'TGswKey',
+        thr, rng, result: TGswSampleArray, noise: float, key: 'TGswKey',
         perf_params: PerformanceParameters):
     rlkey = key.tlwe_key
-    tLweSymEncryptZero_gpu(thr, rng, result.samples, alpha, rlkey, perf_params)
+    tLweSymEncryptZero_gpu(thr, rng, result.samples, noise, rlkey, perf_params)
 
 
 # encrypts a constant message
 def tGswSymEncryptInt_gpu(
-        thr, rng, result: TGswSampleArray, messages, alpha: float, key: 'TGswKey',
+        thr, rng, result: TGswSampleArray, messages, noise: float, key: 'TGswKey',
         perf_params: PerformanceParameters):
 
     # TYPING: messages::Array{Int32, 1}
-    tGswEncryptZero(thr, rng, result, alpha, key, perf_params)
+    tGswEncryptZero(thr, rng, result, noise, key, perf_params)
     tGswAddMuIntH_gpu(thr, result, messages, key.params)

@@ -25,7 +25,7 @@ from .numeric_functions import Torus32, Float, dtot32_gpu
 TEMPLATE = helpers.template_for(__file__)
 
 
-class LweKeySwitchTranslate_fromArray(Computation):
+class Keyswitch(Computation):
 
     def __init__(self, result_shape_info, outer_n, inner_n, t: int, basebit: int):
 
@@ -116,9 +116,9 @@ class MatrixMulVector(Computation):
         return plan
 
 
-class LweKeySwitchKeyComputation(Computation):
+class MakeKeyswitchKey(Computation):
 
-    def __init__(self, extracted_n: int, inner_n: int, t: int, basebit: int, alpha):
+    def __init__(self, extracted_n: int, inner_n: int, t: int, basebit: int, noise):
 
         base = 1 << basebit
 
@@ -132,7 +132,7 @@ class LweKeySwitchKeyComputation(Computation):
         noises_b = Type(numpy.float64, (extracted_n, t, base - 1))
 
         self._basebit = basebit
-        self._alpha = alpha
+        self._noise = noise
 
         Computation.__init__(self,
             [Parameter('ks_a', Annotation(a, 'o')),
@@ -178,7 +178,7 @@ class LweKeySwitchKeyComputation(Computation):
                 TEMPLATE.get_def("build_keyswitch_key"),
                 render_kwds=dict(
                     extracted_n=extracted_n, t=t, basebit=self._basebit, inner_n=inner_n,
-                    dtot32=dtot32_gpu, alpha=self._alpha)),
+                    dtot32=dtot32_gpu, noise=self._noise)),
             guiding_array="ks_b")
 
         plan.computation_call(
@@ -189,9 +189,9 @@ class LweKeySwitchKeyComputation(Computation):
         return plan
 
 
-class LweSymEncrypt(Computation):
+class LweEncrypt(Computation):
 
-    def __init__(self, shape, n, alpha):
+    def __init__(self, shape, n, noise):
 
         a = Type(numpy.int32, shape + (n,))
         b = Type(numpy.int32, shape)
@@ -201,7 +201,7 @@ class LweSymEncrypt(Computation):
         noises_a = Type(Torus32, shape + (n,))
         noises_b = Type(Torus32, shape)
 
-        self._alpha = alpha
+        self._noise = noise
 
         Computation.__init__(self,
             [Parameter('result_a', Annotation(a, 'o')),
@@ -234,10 +234,10 @@ class LweSymEncrypt(Computation):
                 ${noises_b.load_same}
                 + ${messages.load_same}
                 + ${noises_a_times_key.load_same});
-            ${result_cv.store_same}(${alpha**2});
+            ${result_cv.store_same}(${noise**2});
             """,
             connectors=['noises_a_times_key'],
-            render_kwds=dict(alpha=self._alpha))
+            render_kwds=dict(noise=self._noise))
 
         mul_key.parameter.output.connect(
             fill_b_cv, fill_b_cv.noises_a_times_key,
@@ -252,7 +252,10 @@ class LweSymEncrypt(Computation):
         return plan
 
 
-class LwePhase(Computation):
+class LweDecrypt(Computation):
+    """
+    Compute the phase of the sample using the secret key: phi = b - a.s
+    """
 
     def __init__(self, shape, n):
 

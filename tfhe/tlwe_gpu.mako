@@ -28,7 +28,7 @@ ${kernel_declaration}
 
     if (poly_idx == 0 && k_idx == 0)
     {
-        ${result_cv.store_combined_idx(cv_slices)}(batch_idx, ${alpha**2});
+        ${result_cv.store_combined_idx(cv_slices)}(batch_idx, ${noise**2});
     }
 }
 </%def>

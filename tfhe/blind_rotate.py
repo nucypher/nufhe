@@ -9,7 +9,7 @@ from .tgsw import TGswParams, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .lwe import LweKeySwitchTranslate_fromArray
+from .lwe import Keyswitch
 from .performance import PerformanceParameters, performance_parameters_for_device
 from .numeric_functions import Torus32
 
@@ -87,7 +87,7 @@ class BlindRotateAndKeySwitch(Computation):
 
     def __init__(
             self, result_shape_info, out_a, out_b, accum_a, gsw, ks_a, ks_b, bara,
-            params: TGswParams, in_out_params: LweParams, ks: 'LweKeySwitchKey',
+            params: TGswParams, in_out_params: LweParams, ks: 'LweKeyswitchKey',
             perf_params: PerformanceParameters):
 
         out_a = result_shape_info.a
@@ -130,7 +130,7 @@ class BlindRotateAndKeySwitch(Computation):
         basebit = self._ks.log2_base
         t = self._ks.decomp_length
 
-        ks = LweKeySwitchTranslate_fromArray(self._result_shape_info, outer_n, inner_n, t, basebit)
+        ks = Keyswitch(self._result_shape_info, outer_n, inner_n, t, basebit)
         result_cv = plan.temp_array_like(ks.parameter.result_cv)
         ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
         plan.computation_call(ks, lwe_a, lwe_b, result_cv, ks_a, ks_b, ks_cv, extracted_a, extracted_b)

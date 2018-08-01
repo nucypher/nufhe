@@ -9,14 +9,14 @@ from .gpu_polynomials import TorusPolynomialArray, IntPolynomialArray, LagrangeH
 class TLweParams:
 
     def __init__(
-            self, polynomial_degree: int, mask_size: int, alpha_min: float, alpha_max: float, transform_type):
+            self, polynomial_degree: int, mask_size: int, min_noise: float, max_noise: float, transform_type):
 
         self.polynomial_degree = polynomial_degree # must be a power of 2
         self.mask_size = mask_size # number of polynomials in the mask
-        self.alpha_min = alpha_min # minimal noise s.t. the sample is secure
-        self.alpha_max = alpha_max # maximal noise s.t. we can decrypt
+        self.min_noise = min_noise # minimum noise s.t. the sample is secure
+        self.max_noise = max_noise # maximum noise s.t. we can decrypt
         self.extracted_lweparams = LweParams(
-            polynomial_degree * mask_size, alpha_min, alpha_max) # lwe params if one extracts
+            polynomial_degree * mask_size, min_noise, max_noise) # lwe params if one extracts
         self.transform_type = transform_type
 
 

@@ -6,25 +6,24 @@ from tfhe.numeric_functions import Torus32
 
 from tfhe.lwe import LweSampleArrayShapeInfo
 from tfhe.lwe_gpu import (
-    LweKeySwitchTranslate_fromArray,
-    LweKeySwitchKeyComputation,
-    LweSymEncrypt,
-    LwePhase,
+    Keyswitch,
+    MakeKeyswitchKey,
+    LweEncrypt,
+    LweDecrypt,
     LweLinear,
     )
 from tfhe.lwe_cpu import (
-    LweKeySwitchTranslate_fromArray_reference,
-    LweKeySwitchKeyComputation_ref,
-    LweSymEncrypt_ref,
-    LwePhase_ref,
-    LweLinear_ref,
+    KeyswitchReference,
+    MakeKeyswitchKeyReference,
+    LweEncryptReference,
+    LweDecryptReference,
+    LweLinearReference,
     )
-
 from tfhe.numeric_functions import Torus32
 import tfhe.random_numbers as rn
 
 
-def test_LweKeySwitchTranslate_fromArray(thread):
+def test_Keyswitch(thread):
 
     numpy.random.seed(123)
 
@@ -57,8 +56,8 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     bi_dev = thread.to_device(bi)
 
     shape_info = LweSampleArrayShapeInfo(a_dev, b_dev, cv_dev)
-    test = LweKeySwitchTranslate_fromArray(shape_info, outer_n, inner_n, t, basebit).compile(thread)
-    ref = LweKeySwitchTranslate_fromArray_reference(shape_info, outer_n, inner_n, t, basebit)
+    test = Keyswitch(shape_info, outer_n, inner_n, t, basebit).compile(thread)
+    ref = KeyswitchReference(shape_info, outer_n, inner_n, t, basebit)
 
     test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev, bi_dev)
     a_test = a_dev.get()
@@ -72,7 +71,7 @@ def test_LweKeySwitchTranslate_fromArray(thread):
     assert numpy.allclose(cv, cv_test)
 
 
-def test_LweKeySwitchKey(thread):
+def test_make_keyswitch_key(thread):
 
     numpy.random.seed(123)
 
@@ -83,7 +82,7 @@ def test_LweKeySwitchKey(thread):
     basebit = params.ks_log2_base
     base = 1 << basebit
     inner_n = params.in_out_params.size
-    alpha = params.tgsw_params.tlwe_params.alpha_min
+    noise = params.tgsw_params.tlwe_params.min_noise
 
     ks_a = numpy.empty((extracted_n, t, base, inner_n), dtype=Torus32)
     ks_b = numpy.empty((extracted_n, t, base), dtype=Torus32)
@@ -92,10 +91,10 @@ def test_LweKeySwitchKey(thread):
     in_key = numpy.random.randint(0, 2, size=extracted_n, dtype=numpy.int32)
     out_key = numpy.random.randint(0, 2, size=inner_n, dtype=numpy.int32)
     a_noises = numpy.random.randint(-2**31, 2**31, size=(extracted_n, t, base - 1, inner_n), dtype=Torus32)
-    b_noises = numpy.random.normal(scale=params.in_out_params.alpha_min, size=(extracted_n, t, base - 1))
+    b_noises = numpy.random.normal(scale=params.in_out_params.min_noise, size=(extracted_n, t, base - 1))
 
-    test = LweKeySwitchKeyComputation(extracted_n, inner_n, t, basebit, alpha).compile(thread)
-    ref = LweKeySwitchKeyComputation_ref(extracted_n, inner_n, t, basebit, alpha)
+    test = MakeKeyswitchKey(extracted_n, inner_n, t, basebit, noise).compile(thread)
+    ref = MakeKeyswitchKeyReference(extracted_n, inner_n, t, basebit, noise)
 
     ks_a_dev = thread.empty_like(ks_a)
     ks_b_dev = thread.empty_like(ks_b)
@@ -123,7 +122,7 @@ def test_LweSymEncrypt(thread):
 
     params = TFHEParameters()
     n = params.in_out_params.size
-    alpha = params.tgsw_params.tlwe_params.alpha_min
+    noise = params.tgsw_params.tlwe_params.min_noise
 
     shape = (16, 20)
     result_a = numpy.empty(shape + (n,), numpy.int32)
@@ -132,10 +131,10 @@ def test_LweSymEncrypt(thread):
     key = rn._rand_uniform_int32(rng, (n,))
     messages = numpy.random.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
     noises_a = rn._rand_uniform_torus32(rng, messages.shape + (n,))
-    noises_b = rn._rand_gaussian_torus32(rng, 0, alpha, messages.shape)
+    noises_b = rn._rand_gaussian_torus32(rng, 0, noise, messages.shape)
 
-    test = LweSymEncrypt(shape, n, alpha).compile(thread)
-    ref = LweSymEncrypt_ref(shape, n, alpha)
+    test = LweEncrypt(shape, n, noise).compile(thread)
+    ref = LweEncryptReference(shape, n, noise)
 
     result_a_dev = thread.empty_like(result_a)
     result_b_dev = thread.empty_like(result_b)
@@ -159,7 +158,7 @@ def test_LweSymEncrypt(thread):
     assert numpy.allclose(result_cv_test, result_cv)
 
 
-def test_LwePhase(thread):
+def test_LweDecrypt(thread):
 
     rng = numpy.random.RandomState(123)
 
@@ -172,8 +171,8 @@ def test_LwePhase(thread):
     b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
     key = rn._rand_uniform_int32(rng, (n,))
 
-    test = LwePhase(shape, n).compile(thread)
-    ref = LwePhase_ref(shape, n)
+    test = LweDecrypt(shape, n).compile(thread)
+    ref = LweDecryptReference(shape, n)
 
     result_dev = thread.empty_like(result)
     a_dev = thread.to_device(a)
@@ -213,7 +212,7 @@ def test_LweLinear(thread, positive_coeff, add_result):
     shape_info = LweSampleArrayShapeInfo(src_a, src_b, src_cv)
 
     test = LweLinear(shape_info, shape_info, add_result=add_result).compile(thread)
-    ref = LweLinear_ref(shape_info, shape_info, add_result=add_result)
+    ref = LweLinearReference(shape_info, shape_info, add_result=add_result)
 
     res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev = [
         thread.to_device(arr) for arr in [res_a, res_b, res_cv, src_a, src_b, src_cv]]

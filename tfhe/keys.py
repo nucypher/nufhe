@@ -1,7 +1,7 @@
 import numpy
 
 from .numeric_functions import modSwitchToTorus32
-from .lwe import LweParams, LweKey, LweSampleArray, lweSymEncrypt_gpu, lwePhase_gpu
+from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .lwe_bootstrapping import LweBootstrappingKeyFFT
@@ -90,13 +90,13 @@ def _from_mu(mu):
 def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(_to_mu(message))
-    alpha = key.params.in_out_params.alpha_min # TODO: specify noise
-    lweSymEncrypt_gpu(thr, rng, result, mus, alpha, key.lwe_key)
+    noise = key.params.in_out_params.min_noise
+    lwe_encrypt(thr, rng, result, mus, noise, key.lwe_key)
     return result
 
 
 def tfhe_decrypt(thr, key: TFHESecretKey, ciphertext: LweSampleArray):
-    mus = lwePhase_gpu(thr, ciphertext, key.lwe_key)
+    mus = lwe_decrypt(thr, ciphertext, key.lwe_key)
     return _from_mu(mus)
 
 
