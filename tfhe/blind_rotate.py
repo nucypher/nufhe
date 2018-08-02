@@ -4,12 +4,11 @@ from reikna.core import Computation, Parameter, Annotation
 import reikna.helpers as helpers
 from reikna.core import Type
 
-from .lwe import LweParams, LweSampleArray
+from .lwe import LweParams, LweSampleArray, LweKeyswitch
 from .tgsw import TGswParams, TGswSampleFFTArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .lwe import Keyswitch
 from .performance import PerformanceParameters, performance_parameters_for_device
 from .numeric_functions import Torus32
 
@@ -130,7 +129,7 @@ class BlindRotateAndKeySwitch(Computation):
         basebit = self._ks.log2_base
         t = self._ks.decomp_length
 
-        ks = Keyswitch(self._result_shape_info, outer_n, inner_n, t, basebit)
+        ks = LweKeyswitch(self._result_shape_info, outer_n, inner_n, t, basebit)
         result_cv = plan.temp_array_like(ks.parameter.result_cv)
         ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
         plan.computation_call(ks, lwe_a, lwe_b, result_cv, ks_a, ks_b, ks_cv, extracted_a, extracted_b)

@@ -1,6 +1,6 @@
 from .numeric_functions import Torus32
 from .gpu_polynomials import TorusPolynomialArray
-from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, keyswitch
+from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
 from .tgsw import TGswKey, TGswSampleFFTArray, TGswParams, TGswSampleArray, tGswToFFTConvert
 from .tgsw_gpu import tGswSymEncryptInt_gpu, tGswFFTExternMulToTLwe_gpu
 from .tlwe import TLweSampleArray
@@ -190,7 +190,7 @@ def tfhe_blindRotateAndExtract_FFT(
         tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
 
         if not no_keyswitch:
-            keyswitch(thr, result, bk.ks, extracted_result)
+            lwe_keyswitch(thr, result, bk.ks, extracted_result)
 
 
 """

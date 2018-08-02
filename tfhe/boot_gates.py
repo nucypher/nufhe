@@ -3,7 +3,7 @@ import time
 from .numeric_functions import modSwitchToTorus32
 from .lwe import (
     LweSampleArray,
-    keyswitch,
+    lwe_keyswitch,
     )
 from .lwe import (
     lwe_add_to,
@@ -424,4 +424,4 @@ def tfhe_gate_MUX_(
     lwe_add_to(thr, temp_result1, u2)
 
     # Key switching
-    keyswitch(thr, result, bk.bkFFT.ks, temp_result1)
+    lwe_keyswitch(thr, result, bk.bkFFT.ks, temp_result1)

@@ -2,110 +2,122 @@ import pytest
 import numpy
 
 from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32
+from tfhe.numeric_functions import Torus32, Float
 
 from tfhe.lwe import LweSampleArrayShapeInfo
 from tfhe.lwe_gpu import (
-    Keyswitch,
-    MakeKeyswitchKey,
+    LweKeyswitch,
+    MakeLweKeyswitchKey,
     LweEncrypt,
     LweDecrypt,
     LweLinear,
+    LweNoiselessTrivial,
     )
 from tfhe.lwe_cpu import (
-    KeyswitchReference,
-    MakeKeyswitchKeyReference,
+    LweKeyswitchReference,
+    MakeLweKeyswitchKeyReference,
     LweEncryptReference,
     LweDecryptReference,
     LweLinearReference,
+    LweNoiselessTrivialReference,
     )
-from tfhe.numeric_functions import Torus32
+from tfhe.numeric_functions import Torus32, Int32, Float
 import tfhe.random_numbers as rn
 
+from utils import get_test_array
 
-def test_Keyswitch(thread):
 
-    numpy.random.seed(123)
+def test_lwe_keyswitch(thread):
 
-    batch_shape = (1,)
+    batch_shape = (4, 5)
 
     params = TFHEParameters()
-    tgsw_params = params.tgsw_params
-    outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
-    inner_n = params.in_out_params.size
-    t = params.ks_decomp_length
-    basebit = params.ks_log2_base
-    base = 1 << basebit
+    input_size = params.tgsw_params.tlwe_params.extracted_lweparams.size
+    output_size = params.in_out_params.size
+    decomp_length = params.ks_decomp_length
+    log2_base = params.ks_log2_base
+    base = 2**log2_base
 
-    a = numpy.empty(batch_shape + (inner_n,), Torus32)
-    b = numpy.empty(batch_shape, Torus32)
-    cv = numpy.empty(batch_shape, numpy.float64)
-    ks_a = numpy.random.randint(-1000, 1000, size=(outer_n, t, base, inner_n), dtype=Torus32)
-    ks_b = numpy.random.randint(-1000, 1000, size=(outer_n, t, base), dtype=Torus32)
-    ks_cv = numpy.random.normal(size=(outer_n, t, base))
-    ai = numpy.random.randint(-2**31, 2**31, batch_shape + (outer_n,), dtype=Torus32)
-    bi = numpy.random.randint(-1000, 1000, size=batch_shape, dtype=Torus32)
+    result_a = numpy.empty(batch_shape + (output_size,), Torus32)
+    result_b = numpy.empty(batch_shape, Torus32)
+    result_cv = numpy.empty(batch_shape, Float)
+    ks_a = get_test_array((input_size, decomp_length, base, output_size), Torus32, (-1000, 1000))
+    ks_b = get_test_array((input_size, decomp_length, base), Torus32, (-1000, 1000))
+    ks_cv = get_test_array((input_size, decomp_length, base), Float, (-1, 1))
 
-    a_dev = thread.empty_like(a)
-    b_dev = thread.empty_like(b)
-    cv_dev = thread.empty_like(cv)
+    # The base=0 slice of the keyswitch key is a "padding" - it's filled with zeroes.
+    # The keyswitch function may rely on that.
+    ks_a[:,:,0,:] = 0
+    ks_b[:,:,0] = 0
+    ks_cv[:,:,0] = 0
+
+    source_a = get_test_array(batch_shape + (input_size,), Torus32)
+    source_b = get_test_array(batch_shape, Torus32, (-1000, 1000))
+
+    result_a_dev = thread.empty_like(result_a)
+    result_b_dev = thread.empty_like(result_b)
+    result_cv_dev = thread.empty_like(result_cv)
     ks_a_dev = thread.to_device(ks_a)
     ks_b_dev = thread.to_device(ks_b)
     ks_cv_dev = thread.to_device(ks_cv)
-    ai_dev = thread.to_device(ai)
-    bi_dev = thread.to_device(bi)
+    source_a_dev = thread.to_device(source_a)
+    source_b_dev = thread.to_device(source_b)
 
-    shape_info = LweSampleArrayShapeInfo(a_dev, b_dev, cv_dev)
-    test = Keyswitch(shape_info, outer_n, inner_n, t, basebit).compile(thread)
-    ref = KeyswitchReference(shape_info, outer_n, inner_n, t, basebit)
+    shape_info = LweSampleArrayShapeInfo(result_a_dev, result_b_dev, result_cv_dev)
+    test = LweKeyswitch(
+        shape_info, input_size, output_size, decomp_length, log2_base).compile(thread)
+    ref = LweKeyswitchReference(
+        shape_info, input_size, output_size, decomp_length, log2_base)
 
-    test(a_dev, b_dev, cv_dev, ks_a_dev, ks_b_dev, ks_cv_dev, ai_dev, bi_dev)
-    a_test = a_dev.get()
-    b_test = b_dev.get()
-    cv_test = cv_dev.get()
+    test(
+        result_a_dev, result_b_dev, result_cv_dev,
+        ks_a_dev, ks_b_dev, ks_cv_dev,
+        source_a_dev, source_b_dev)
+    result_a_test = result_a_dev.get()
+    result_b_test = result_b_dev.get()
+    result_cv_test = result_cv_dev.get()
 
-    ref(a, b, cv, ks_a, ks_b, ks_cv, ai, bi)
+    ref(result_a, result_b, result_cv, ks_a, ks_b, ks_cv, source_a, source_b)
 
-    assert (a == a_test).all()
-    assert (b == b_test).all()
-    assert numpy.allclose(cv, cv_test)
+    assert (result_a == result_a_test).all()
+    assert (result_b == result_b_test).all()
+    assert numpy.allclose(result_cv, result_cv_test)
 
 
-def test_make_keyswitch_key(thread):
-
-    numpy.random.seed(123)
+def test_make_lwe_keyswitch_key(thread):
 
     params = TFHEParameters()
+    input_size = params.tgsw_params.tlwe_params.extracted_lweparams.size
+    output_size = params.in_out_params.size
+    decomp_length = params.ks_decomp_length
+    log2_base = params.ks_log2_base
+    base = 2**log2_base
+    noise = params.in_out_params.min_noise
 
-    extracted_n = params.tgsw_params.tlwe_params.extracted_lweparams.size
-    t = params.ks_decomp_length
-    basebit = params.ks_log2_base
-    base = 1 << basebit
-    inner_n = params.in_out_params.size
-    noise = params.tgsw_params.tlwe_params.min_noise
+    ks_a = numpy.empty((input_size, decomp_length, base, output_size), dtype=Torus32)
+    ks_b = numpy.empty((input_size, decomp_length, base), dtype=Torus32)
+    ks_cv = numpy.empty((input_size, decomp_length, base), dtype=Float)
 
-    ks_a = numpy.empty((extracted_n, t, base, inner_n), dtype=Torus32)
-    ks_b = numpy.empty((extracted_n, t, base), dtype=Torus32)
-    ks_cv = numpy.empty((extracted_n, t, base), dtype=numpy.float64)
+    in_key = get_test_array(input_size, Int32, (0, 2))
+    out_key = get_test_array(output_size, Int32, (0, 2))
+    noises_a = get_test_array((input_size, decomp_length, base - 1, output_size), Torus32)
+    noises_b = get_test_array((input_size, decomp_length, base - 1), Float, (-noise, noise))
 
-    in_key = numpy.random.randint(0, 2, size=extracted_n, dtype=numpy.int32)
-    out_key = numpy.random.randint(0, 2, size=inner_n, dtype=numpy.int32)
-    a_noises = numpy.random.randint(-2**31, 2**31, size=(extracted_n, t, base - 1, inner_n), dtype=Torus32)
-    b_noises = numpy.random.normal(scale=params.in_out_params.min_noise, size=(extracted_n, t, base - 1))
-
-    test = MakeKeyswitchKey(extracted_n, inner_n, t, basebit, noise).compile(thread)
-    ref = MakeKeyswitchKeyReference(extracted_n, inner_n, t, basebit, noise)
+    test = MakeLweKeyswitchKey(
+        input_size, output_size, decomp_length, log2_base, noise).compile(thread)
+    ref = MakeLweKeyswitchKeyReference(
+        input_size, output_size, decomp_length, log2_base, noise)
 
     ks_a_dev = thread.empty_like(ks_a)
     ks_b_dev = thread.empty_like(ks_b)
     ks_cv_dev = thread.empty_like(ks_cv)
     in_key_dev = thread.to_device(in_key)
     out_key_dev = thread.to_device(out_key)
-    a_noises_dev = thread.to_device(a_noises)
-    b_noises_dev = thread.to_device(b_noises)
+    noises_a_dev = thread.to_device(noises_a)
+    noises_b_dev = thread.to_device(noises_b)
 
-    test(ks_a_dev, ks_b_dev, ks_cv_dev, in_key_dev, out_key_dev, a_noises_dev, b_noises_dev)
-    ref(ks_a, ks_b, ks_cv, in_key, out_key, a_noises, b_noises)
+    test(ks_a_dev, ks_b_dev, ks_cv_dev, in_key_dev, out_key_dev, noises_a_dev, noises_b_dev)
+    ref(ks_a, ks_b, ks_cv, in_key, out_key, noises_a, noises_b)
 
     ks_a_test = ks_a_dev.get()
     ks_b_test = ks_b_dev.get()
@@ -116,25 +128,23 @@ def test_make_keyswitch_key(thread):
     assert numpy.allclose(ks_cv_test, ks_cv)
 
 
-def test_LweSymEncrypt(thread):
-
-    rng = numpy.random.RandomState(123)
+def test_lwe_encrypt(thread):
 
     params = TFHEParameters()
-    n = params.in_out_params.size
-    noise = params.tgsw_params.tlwe_params.min_noise
+    lwe_size = params.in_out_params.size
+    noise = params.in_out_params.min_noise
 
     shape = (16, 20)
-    result_a = numpy.empty(shape + (n,), numpy.int32)
-    result_b = numpy.empty(shape, numpy.int32)
-    result_cv = numpy.empty(shape, numpy.float64)
-    key = rn._rand_uniform_int32(rng, (n,))
-    messages = numpy.random.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
-    noises_a = rn._rand_uniform_torus32(rng, messages.shape + (n,))
-    noises_b = rn._rand_gaussian_torus32(rng, 0, noise, messages.shape)
+    result_a = numpy.empty(shape + (lwe_size,), Torus32)
+    result_b = numpy.empty(shape, Torus32)
+    result_cv = numpy.empty(shape, Float)
+    key = get_test_array(lwe_size, Int32, (0, 2))
+    messages = get_test_array(shape, Torus32)
+    noises_a = get_test_array(shape + (lwe_size,), Torus32)
+    noises_b = get_test_array(shape, Torus32)
 
-    test = LweEncrypt(shape, n, noise).compile(thread)
-    ref = LweEncryptReference(shape, n, noise)
+    test = LweEncrypt(shape, lwe_size, noise).compile(thread)
+    ref = LweEncryptReference(shape, lwe_size, noise)
 
     result_a_dev = thread.empty_like(result_a)
     result_b_dev = thread.empty_like(result_b)
@@ -158,29 +168,27 @@ def test_LweSymEncrypt(thread):
     assert numpy.allclose(result_cv_test, result_cv)
 
 
-def test_LweDecrypt(thread):
-
-    rng = numpy.random.RandomState(123)
+def test_lwe_decrypt(thread):
 
     params = TFHEParameters()
-    n = params.in_out_params.size
+    lwe_size = params.in_out_params.size
 
     shape = (16, 20)
-    result = numpy.empty(shape, numpy.int32)
-    a = rng.randint(-2**31, 2**31, size=shape + (n,), dtype=numpy.int32)
-    b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
-    key = rn._rand_uniform_int32(rng, (n,))
+    result = numpy.empty(shape, Torus32)
+    lwe_a = get_test_array(shape + (lwe_size,), Torus32)
+    lwe_b = get_test_array(shape, Torus32)
+    key = get_test_array(lwe_size, Int32, (0, 2))
 
-    test = LweDecrypt(shape, n).compile(thread)
-    ref = LweDecryptReference(shape, n)
+    test = LweDecrypt(shape, lwe_size).compile(thread)
+    ref = LweDecryptReference(shape, lwe_size)
 
     result_dev = thread.empty_like(result)
-    a_dev = thread.to_device(a)
-    b_dev = thread.to_device(b)
+    lwe_a_dev = thread.to_device(lwe_a)
+    lwe_b_dev = thread.to_device(lwe_b)
     key_dev = thread.to_device(key)
 
-    test(result_dev, a_dev, b_dev, key_dev)
-    ref(result, a, b, key)
+    test(result_dev, lwe_a_dev, lwe_b_dev, key_dev)
+    ref(result, lwe_a, lwe_b, key)
 
     result_test = result_dev.get()
 
@@ -189,36 +197,66 @@ def test_LweDecrypt(thread):
 
 @pytest.mark.parametrize('positive_coeff', [False, True], ids=['p<0', 'p>0'])
 @pytest.mark.parametrize('add_result', [False, True], ids=['replace_result', 'update_result'])
-def test_LweLinear(thread, positive_coeff, add_result):
-
-    rng = numpy.random.RandomState(123)
+def test_lwe_linear(thread, positive_coeff, add_result):
 
     params = TFHEParameters()
-    lwe_params = params.in_out_params
-    n = lwe_params.size
+    lwe_size = params.in_out_params.size
 
     shape = (10, 20)
 
-    res_a = rng.randint(-2**31, 2**31, size=shape + (n,), dtype=numpy.int32)
-    res_b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
-    res_cv = rng.normal(size=shape).astype(numpy.float64)
+    res_a = get_test_array(shape + (lwe_size,), Torus32)
+    res_b = get_test_array(shape, Torus32)
+    res_cv = get_test_array(shape, Float, (-1, 1))
 
-    src_a = rng.randint(-2**31, 2**31, size=shape + (n,), dtype=numpy.int32)
-    src_b = rng.randint(-2**31, 2**31, size=shape, dtype=numpy.int32)
-    src_cv = rng.normal(size=shape).astype(numpy.float64)
+    src_a = get_test_array(shape + (lwe_size,), Torus32)
+    src_b = get_test_array(shape, Torus32)
+    src_cv = get_test_array(shape, Float, (-1, 1))
 
-    p = -1 if positive_coeff else 1
+    coeff = -1 if positive_coeff else 1
 
     shape_info = LweSampleArrayShapeInfo(src_a, src_b, src_cv)
 
     test = LweLinear(shape_info, shape_info, add_result=add_result).compile(thread)
     ref = LweLinearReference(shape_info, shape_info, add_result=add_result)
 
-    res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev = [
-        thread.to_device(arr) for arr in [res_a, res_b, res_cv, src_a, src_b, src_cv]]
+    res_a_dev = thread.to_device(res_a)
+    res_b_dev = thread.to_device(res_b)
+    res_cv_dev = thread.to_device(res_cv)
+    src_a_dev = thread.to_device(src_a)
+    src_b_dev = thread.to_device(src_b)
+    src_cv_dev = thread.to_device(src_cv)
 
-    test(res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev, p)
-    ref(res_a, res_b, res_cv, src_a, src_b, src_cv, p)
+    test(res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev, coeff)
+    ref(res_a, res_b, res_cv, src_a, src_b, src_cv, coeff)
+
+    assert (res_a_dev.get() == res_a).all()
+    assert (res_b_dev.get() == res_b).all()
+    assert numpy.allclose(res_cv_dev.get(), res_cv)
+
+
+def test_lwe_noiseless_trivial(thread):
+
+    params = TFHEParameters()
+    lwe_size = params.in_out_params.size
+
+    shape = (10, 20)
+
+    res_a = numpy.empty(shape + (lwe_size,), Torus32)
+    res_b = numpy.empty(shape, Torus32)
+    res_cv = numpy.empty(shape, Float)
+    mu = Torus32(-5)
+
+    shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
+
+    test = LweNoiselessTrivial(shape_info).compile(thread)
+    ref = LweNoiselessTrivialReference(shape_info)
+
+    res_a_dev = thread.empty_like(res_a)
+    res_b_dev = thread.empty_like(res_b)
+    res_cv_dev = thread.empty_like(res_cv)
+
+    test(res_a_dev, res_b_dev, res_cv_dev, mu)
+    ref(res_a, res_b, res_cv, mu)
 
     assert (res_a_dev.get() == res_a).all()
     assert (res_b_dev.get() == res_b).all()

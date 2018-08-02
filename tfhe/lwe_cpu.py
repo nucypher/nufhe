@@ -3,107 +3,117 @@ import numpy
 from .numeric_functions import Torus32, dtot32
 
 
-def LweKeySwitchTranslate_fromArray_reference(
-        shape_info, outer_n, inner_n, t: int, basebit: int):
-
-    def _kernel(a, b, current_variances, ks_a, ks_b, ks_current_variances, ai, bi):
-
-        base = 1 << basebit # base=2 in [CGGI16]
-        prec_offset = 1 << (32 - (1 + basebit * t)) # precision
-        mask = base - 1
-
-        js = numpy.arange(1, t+1).reshape(1, 1, t)
-        ai = ai.reshape(ai.shape + (1,))
-        aijs = (((ai + prec_offset) >> (32 - js * basebit)) & mask)
-
-        # Starting from a noiseless trivial LWE:
-        # a = 0, b = bi, current_variances = 0
-        a.fill(0)
-        b[:] = bi
-        current_variances.fill(0)
-
-        for i in range(shape_info.shape[0]):
-            for l in range(outer_n):
-                for j in range(t):
-                    x = aijs[i,l,j]
-                    if x != 0:
-                        a[i,:] -= ks_a[l,j,x,:]
-                        b[i] -= ks_b[l,j,x]
-                        current_variances[i] += ks_current_variances[l,j,x]
-
-    return _kernel
+def vec_mul_mat(a, b):
+    return (a * b).sum(-1, dtype=Torus32)
 
 
-def vec_mul_mat(b, a):
-    return (a * b).sum(-1, dtype=numpy.int32)
+def lwe_encrypt_with_external_noise(
+        ks_a, ks_b, ks_cv, messages, noises_a, noises_b, noise: float, key):
 
-
-def lweSymEncryptWithExternalNoise(
-        ks_a, ks_b, ks_cv, messages, a_noises, b_noises, alpha: float, key):
-
-    # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
+    # term h=0 as trivial encryption of 0
     ks_a[:,:,0,:] = 0
     ks_b[:,:,0] = 0
     ks_cv[:,:,0] = 0
 
-    ks_b[:,:,1:] = messages + dtot32(b_noises)
-    ks_a[:,:,1:,:] = a_noises
-    ks_b[:,:,1:] += vec_mul_mat(key, a_noises)
-    ks_cv[:,:,1:] = alpha**2
+    ks_a[:,:,1:,:] = noises_a
+    ks_b[:,:,1:] = messages + dtot32(noises_b) + vec_mul_mat(noises_a, key)
+    ks_cv[:,:,1:] = noise**2
 
 
-def LweKeySwitchKeyComputation_ref(extracted_n: int, inner_n: int, t: int, basebit: int, alpha):
+def MakeLweKeyswitchKeyReference(
+        input_size: int, output_size: int, decomp_length: int, log2_base: int, noise: float):
 
-    base = 1 << basebit
+    base = 2**log2_base
 
-    def _kernel(ks_a, ks_b, ks_cv, in_key, out_key, a_noises, b_noises):
+    def _kernel(ks_a, ks_b, ks_cv, in_key, out_key, noises_a, noises_b):
 
         # recenter the noises
-        b_noises -= b_noises.mean()
+        noises_b -= noises_b.mean()
 
-        # generate the ks
+        hs = numpy.arange(1, base).astype(Torus32)
+        js = numpy.arange(decomp_length).astype(Torus32)
 
-        # mess::Torus32 = (in_key.key[i] * Int32(h - 1)) * Int32(1 << (32 - j * basebit))
-        hs = numpy.arange(2, base+1)
-        js = numpy.arange(1, t+1)
+        r_key = in_key[:, None, None]
+        r_hs = hs[None, None, :]
+        r_js = js[None, :, None]
 
-        r_key = in_key.reshape(extracted_n, 1, 1)
-        r_hs = hs.reshape(1, 1, base - 1)
-        r_js = js.reshape(1, t, 1)
+        messages = r_key * r_hs * (2**(32 - (r_js + 1) * log2_base))
 
-        messages = r_key * (r_hs - 1) * (1 << (32 - r_js * basebit))
-        messages = messages.astype(Torus32)
-
-        lweSymEncryptWithExternalNoise(ks_a, ks_b, ks_cv, messages, a_noises, b_noises, alpha, out_key)
+        lwe_encrypt_with_external_noise(
+            ks_a, ks_b, ks_cv, messages, noises_a, noises_b, noise, out_key)
 
     return _kernel
 
 
-def LweSymEncrypt_ref(shape, n, alpha: float):
+def LweKeyswitchReference(
+        shape_info, input_size: int, output_size: int, decomp_length: int, log2_base: int):
+
+    def _kernel(result_a, result_b, result_cv, ks_a, ks_b, ks_cv, source_a, source_b):
+
+        base = 2**log2_base
+        prec_offset = 2**(32 - (1 + log2_base * decomp_length)) # precision
+        mask = base - 1
+
+        js = numpy.arange(1, decomp_length + 1).reshape(
+            (1,) * len(source_a.shape) + (decomp_length,))
+        source_a = source_a.reshape(source_a.shape + (1,))
+        aijs = (((source_a + prec_offset) >> (32 - js * log2_base)) & mask)
+
+        # Starting from a noiseless trivial LWE:
+        # a = 0, b = bi, current_variances = 0
+        result_a.fill(0)
+        numpy.copyto(result_b, source_b)
+        result_cv.fill(0)
+
+        for l in range(input_size):
+            for j in range(decomp_length):
+                x = aijs.take(l, axis=-2).take(j, axis=-1)
+                lwe_sub_to(result_a, result_b, result_cv, ks_a[l,j,x], ks_b[l,j,x], ks_cv[l,j,x])
+
+    return _kernel
+
+
+def lwe_sub_to(result_a, result_b, result_cv, source_a, source_b, source_cv):
+    result_a -= source_a
+    result_b -= source_b
+    result_cv += source_cv
+
+
+def LweEncryptReference(shape, lwe_size: int, noise: float):
 
     def _kernel(result_a, result_b, result_cv, messages, key, noises_a, noises_b):
         numpy.copyto(result_b, noises_b + messages)
         numpy.copyto(result_a, noises_a)
-        result_b += vec_mul_mat(key, result_a)
-        result_cv.fill(alpha**2)
+        result_b += vec_mul_mat(result_a, key)
+        result_cv.fill(noise**2)
 
     return _kernel
 
 
-def LwePhase_ref(shape, n):
+def LweDecryptReference(shape, lwe_size: int):
 
-    def _kernel(result, a, b, key):
-        numpy.copyto(result, b - vec_mul_mat(key, a))
+    def _kernel(result, lwe_a, lwe_b, key):
+        numpy.copyto(result, lwe_b - vec_mul_mat(lwe_a, key))
 
     return _kernel
 
 
-def LweLinear_ref(result_shape_info, source_shape_info, add_result=False):
+def LweLinearReference(result_shape_info, source_shape_info, add_result=False):
 
     def _kernel(result_a, result_b, result_cv, source_a, source_b, source_cv, p):
-        p = numpy.int32(p)
+        p = Torus32(p)
         numpy.copyto(result_a, (result_a if add_result else 0) + p * source_a)
         numpy.copyto(result_b, (result_b if add_result else 0) + p * source_b)
         numpy.copyto(result_cv, (result_cv if add_result else 0) + p**2 * source_cv)
+
+    return _kernel
+
+
+def LweNoiselessTrivialReference(result_shape_info):
+
+    def _kernel(result_a, result_b, result_cv, mu):
+        result_a.fill(0)
+        result_b.fill(mu)
+        result_cv.fill(0)
 
     return _kernel

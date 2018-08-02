@@ -31,7 +31,7 @@ def get_test_array(shape, tp, val_range=None):
     if numpy.issubdtype(dtype, numpy.integer):
         return numpy.random.randint(nmin, nmax, dtype=dtype, size=shape)
     elif numpy.issubdtype(dtype, numpy.floating):
-        return numpy.random.uniform(nmin, nmax, dtype=dtype, size=shape)
+        return numpy.random.uniform(nmin, nmax, size=shape).astype(dtype)
     elif numpy.issubdtype(dtype, numpy.complexfloating):
         return (
             numpy.random.uniform(nmin, nmax, size=shape)

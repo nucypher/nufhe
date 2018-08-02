@@ -10,8 +10,8 @@ from .numeric_functions import (
     Float,
     )
 from .lwe_gpu import (
-    Keyswitch,
-    MakeKeyswitchKey,
+    LweKeyswitch,
+    MakeLweKeyswitchKey,
     LweEncrypt,
     LweDecrypt,
     LweLinear,
@@ -119,15 +119,15 @@ class LweKeyswitchKey:
 
         lwe = LweSampleArray.empty(thr, out_key.params, (input_size, decomp_length, base))
 
-        b_noises = rand_gaussian_float(
+        noises_b = rand_gaussian_float(
             thr, rng, noise, (input_size, decomp_length, base - 1))
-        a_noises = rand_uniform_torus32(
+        noises_a = rand_uniform_torus32(
             thr, rng, (input_size, decomp_length, base - 1, output_size))
 
         comp = get_computation(
-            thr, MakeKeyswitchKey,
+            thr, MakeLweKeyswitchKey,
             input_size, output_size, decomp_length, log2_base, noise)
-        comp(lwe.a, lwe.b, lwe.current_variances, in_key.key, out_key.key, a_noises, b_noises)
+        comp(lwe.a, lwe.b, lwe.current_variances, in_key.key, out_key.key, noises_a, noises_b)
 
         self.lwe = lwe
         self.input_size = input_size # length of the input key: s'
@@ -136,14 +136,15 @@ class LweKeyswitchKey:
         self.log2_base = log2_base # log_2(decomposition base)
 
 
-def keyswitch(thr: Thread, result: LweSampleArray, ks: LweKeyswitchKey, sample: LweSampleArray):
+def lwe_keyswitch(thr: Thread, result: LweSampleArray, ks: LweKeyswitchKey, sample: LweSampleArray):
     """
     Translate the message of the result sample by -sum(a[i].s[i]) where s is the secret.
     """
     lwe = ks.lwe
     comp = get_computation(
-        thr, Keyswitch,
+        thr, LweKeyswitch,
         result.shape_info, ks.input_size, ks.output_size, ks.decomp_length, ks.log2_base)
+    # Note: sample.current_variances are ignored.
     comp(
         result.a, result.b, result.current_variances,
         lwe.a, lwe.b, lwe.current_variances, sample.a, sample.b)

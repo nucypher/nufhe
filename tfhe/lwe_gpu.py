@@ -19,94 +19,34 @@ from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
-from .numeric_functions import Torus32, Float, dtot32_gpu
+from .numeric_functions import Torus32, Int32, Float, dtot32_gpu
 
 
 TEMPLATE = helpers.template_for(__file__)
 
 
-class Keyswitch(Computation):
-
-    def __init__(self, result_shape_info, outer_n, inner_n, t: int, basebit: int):
-
-        base = 1 << basebit
-
-        a = result_shape_info.a
-        b = result_shape_info.b
-        cv = result_shape_info.current_variances
-
-        ks_a = Type(Torus32, (outer_n, t, base, inner_n))
-        ks_b = Type(Torus32, (outer_n, t, base))
-        ks_cv = Type(Float, (outer_n, t, base))
-
-        ai = Type(Torus32, result_shape_info.shape + (outer_n,))
-        bi = Type(Torus32, result_shape_info.shape)
-
-        self._t = t
-        self._outer_n = outer_n
-        self._inner_n = inner_n
-        self._basebit = basebit
-
-        Computation.__init__(self,
-            [Parameter('result_a', Annotation(a, 'io')),
-            Parameter('result_b', Annotation(b, 'io')),
-            Parameter('result_cv', Annotation(cv, 'io')),
-            Parameter('ks_a', Annotation(ks_a, 'i')),
-            Parameter('ks_b', Annotation(ks_b, 'i')),
-            Parameter('ks_cv', Annotation(ks_cv, 'i')),
-            Parameter('ai', Annotation(ai, 'i')),
-            Parameter('bi', Annotation(bi, 'i'))
-            ])
-
-    def _build_plan(
-            self, plan_factory, device_params,
-            result_a, result_b, result_cv,
-            ks_a, ks_b, ks_cv, ai, bi):
-
-        plan = plan_factory()
-
-        batch_shape = result_a.shape[:-1]
-        plan.kernel_call(
-            TEMPLATE.get_def("keyswitch"),
-            [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai, bi],
-            global_size=(helpers.product(batch_shape), result_a.shape[-1]),
-            render_kwds=dict(
-                slices=(len(batch_shape), 1),
-                lwe_n=self._inner_n,
-                tlwe_n=self._outer_n,
-                decomp_bits=self._basebit,
-                decomp_size=self._t,
-                )
-            )
-
-        return plan
-
-
 class MatrixMulVector(Computation):
 
-    def __init__(self, arr):
-        Computation.__init__(self,
-            [Parameter('output', Annotation(Type(arr.dtype, arr.shape[:-1]), 'o')),
-            Parameter('matrix', Annotation(arr, 'i')),
-            Parameter('vector', Annotation(Type(arr.dtype, arr.shape[-1]), 'i'))
-            ])
+    def __init__(self, matrix_t):
+        Computation.__init__(self, [
+            Parameter('output', Annotation(Type(matrix_t.dtype, matrix_t.shape[:-1]), 'o')),
+            Parameter('matrix', Annotation(matrix_t, 'i')),
+            Parameter('vector', Annotation(Type(matrix_t.dtype, matrix_t.shape[-1]), 'i'))])
 
     def _build_plan(self, plan_factory, device_params, output, matrix, vector):
         plan = plan_factory()
 
         summation = Reduce(matrix, predicate_sum(matrix.dtype), axes=(len(matrix.shape)-1,))
 
-        mul_vec = Transformation(
-        [
+        mul_vec = Transformation([
             Parameter('output', Annotation(matrix, 'o')),
             Parameter('matrix', Annotation(matrix, 'i')),
-            Parameter('vector', Annotation(vector, 'i')),
-        ],
-        """
-        ${output.store_same}(${mul}(${matrix.load_same}, ${vector.load_idx}(${idxs[-1]})));
-        """,
-        render_kwds=dict(mul=functions.mul(matrix.dtype, vector.dtype)),
-        connectors=['output', 'matrix'])
+            Parameter('vector', Annotation(vector, 'i'))],
+            """
+            ${output.store_same}(${mul}(${matrix.load_same}, ${vector.load_idx}(${idxs[-1]})));
+            """,
+            render_kwds=dict(mul=functions.mul(matrix.dtype, vector.dtype)),
+            connectors=['output', 'matrix'])
 
         summation.parameter.input.connect(
             mul_vec, mul_vec.output, matrix=mul_vec.matrix, vector=mul_vec.vector)
@@ -116,33 +56,35 @@ class MatrixMulVector(Computation):
         return plan
 
 
-class MakeKeyswitchKey(Computation):
+class MakeLweKeyswitchKey(Computation):
 
-    def __init__(self, extracted_n: int, inner_n: int, t: int, basebit: int, noise):
+    def __init__(
+            self, input_size: int, output_size: int,
+            decomp_length: int, log2_base: int, noise: float):
 
-        base = 1 << basebit
+        base = 2**log2_base
 
-        a = Type(numpy.int32, (extracted_n, t, base, inner_n))
-        b = Type(numpy.int32, (extracted_n, t, base))
-        cv = Type(numpy.float64, (extracted_n, t, base))
-        in_key = Type(numpy.int32, extracted_n)
-        out_key = Type(numpy.int32, inner_n)
+        a = Type(Torus32, (input_size, decomp_length, base, output_size))
+        b = Type(Torus32, (input_size, decomp_length, base))
+        cv = Type(Float, (input_size, decomp_length, base))
+        in_key = Type(Int32, input_size)
+        out_key = Type(Int32, output_size)
 
-        noises_a = Type(numpy.int32, (extracted_n, t, base - 1, inner_n))
-        noises_b = Type(numpy.float64, (extracted_n, t, base - 1))
+        noises_a = Type(Torus32, (input_size, decomp_length, base - 1, output_size))
+        noises_b = Type(Float, (input_size, decomp_length, base - 1))
 
-        self._basebit = basebit
+        self._output_size = output_size
+        self._log2_base = log2_base
         self._noise = noise
 
-        Computation.__init__(self,
-            [Parameter('ks_a', Annotation(a, 'o')),
+        Computation.__init__(self, [
+            Parameter('ks_a', Annotation(a, 'o')),
             Parameter('ks_b', Annotation(b, 'o')),
             Parameter('ks_cv', Annotation(cv, 'o')),
             Parameter('in_key', Annotation(in_key, 'i')),
             Parameter('out_key', Annotation(out_key, 'i')),
             Parameter('noises_a', Annotation(noises_a, 'i')),
-            Parameter('noises_b', Annotation(noises_b, 'i')),
-            ])
+            Parameter('noises_b', Annotation(noises_b, 'i'))])
 
     def _build_plan(
             self, plan_factory, device_params,
@@ -161,57 +103,111 @@ class MakeKeyswitchKey(Computation):
         mul_key = MatrixMulVector(noises_a)
         b_term = plan.temp_array_like(mul_key.parameter.output)
 
-        plan.computation_call(mean, noises_b_mean, noises_b)
-        plan.computation_call(mul_key, b_term, noises_a, out_key)
-
-        build_keyswitch = PureParallel(
-            [
-                Parameter('ks_a', Annotation(ks_a, 'o')),
-                Parameter('ks_b', Annotation(ks_b, 'o')),
-                Parameter('ks_cv', Annotation(ks_cv, 'o')),
-                Parameter('in_key', Annotation(in_key, 'i')),
-                Parameter('b_term', Annotation(b_term, 'i')),
-                Parameter('noises_a', Annotation(noises_a, 'i')),
-                Parameter('noises_b', Annotation(noises_b, 'i')),
-                Parameter('noises_b_mean', Annotation(noises_b_mean, 'i'))],
+        build_keyswitch = PureParallel([
+            Parameter('ks_a', Annotation(ks_a, 'o')),
+            Parameter('ks_b', Annotation(ks_b, 'o')),
+            Parameter('ks_cv', Annotation(ks_cv, 'o')),
+            Parameter('in_key', Annotation(in_key, 'i')),
+            Parameter('b_term', Annotation(b_term, 'i')),
+            Parameter('noises_a', Annotation(noises_a, 'i')),
+            Parameter('noises_b', Annotation(noises_b, 'i')),
+            Parameter('noises_b_mean', Annotation(noises_b_mean, 'i'))],
             Snippet(
-                TEMPLATE.get_def("build_keyswitch_key"),
+                TEMPLATE.get_def("make_lwe_keyswitch_key"),
                 render_kwds=dict(
-                    extracted_n=extracted_n, t=t, basebit=self._basebit, inner_n=inner_n,
+                    log2_base=self._log2_base, output_size=self._output_size,
                     dtot32=dtot32_gpu, noise=self._noise)),
             guiding_array="ks_b")
 
+        plan.computation_call(mean, noises_b_mean, noises_b)
+        plan.computation_call(mul_key, b_term, noises_a, out_key)
         plan.computation_call(
             build_keyswitch,
-            ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b, noises_b_mean
-            )
+            ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b, noises_b_mean)
+
+        return plan
+
+
+class LweKeyswitch(Computation):
+
+    def __init__(
+            self, result_shape_info,
+            input_size: int, output_size: int, decomp_length: int, log2_base: int):
+
+        base = 2**log2_base
+
+        a = result_shape_info.a
+        b = result_shape_info.b
+        cv = result_shape_info.current_variances
+
+        ks_a = Type(Torus32, (input_size, decomp_length, base, output_size))
+        ks_b = Type(Torus32, (input_size, decomp_length, base))
+        ks_cv = Type(Float, (input_size, decomp_length, base))
+
+        source_a = Type(Torus32, result_shape_info.shape + (input_size,))
+        source_b = Type(Torus32, result_shape_info.shape)
+
+        self._decomp_length = decomp_length
+        self._input_size = input_size
+        self._output_size = output_size
+        self._log2_base = log2_base
+
+        Computation.__init__(self, [
+            Parameter('result_a', Annotation(a, 'io')),
+            Parameter('result_b', Annotation(b, 'io')),
+            Parameter('result_cv', Annotation(cv, 'io')),
+            Parameter('ks_a', Annotation(ks_a, 'i')),
+            Parameter('ks_b', Annotation(ks_b, 'i')),
+            Parameter('ks_cv', Annotation(ks_cv, 'i')),
+            Parameter('source_a', Annotation(source_a, 'i')),
+            Parameter('source_b', Annotation(source_b, 'i'))])
+
+    def _build_plan(
+            self, plan_factory, device_params,
+            result_a, result_b, result_cv,
+            ks_a, ks_b, ks_cv, source_a, source_b):
+
+        plan = plan_factory()
+
+        batch_shape = result_a.shape[:-1]
+
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_keyswitch"),
+            [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, source_a, source_b],
+            global_size=(helpers.product(batch_shape), self._output_size),
+            render_kwds=dict(
+                slices=(len(batch_shape), 1),
+                output_size=self._output_size,
+                input_size=self._input_size,
+                log2_base=self._log2_base,
+                decomp_length=self._decomp_length,
+                ))
 
         return plan
 
 
 class LweEncrypt(Computation):
 
-    def __init__(self, shape, n, noise):
+    def __init__(self, shape, lwe_size: int, noise: float):
 
-        a = Type(numpy.int32, shape + (n,))
-        b = Type(numpy.int32, shape)
-        cv = Type(numpy.float64, shape)
-        messages = Type(numpy.int32, shape)
-        key = Type(numpy.int32, (n,))
-        noises_a = Type(Torus32, shape + (n,))
+        result_a = Type(Torus32, shape + (lwe_size,))
+        result_b = Type(Torus32, shape)
+        result_cv = Type(Float, shape)
+        messages = Type(Torus32, shape)
+        key = Type(Int32, (lwe_size,))
+        noises_a = Type(Torus32, shape + (lwe_size,))
         noises_b = Type(Torus32, shape)
 
         self._noise = noise
 
-        Computation.__init__(self,
-            [Parameter('result_a', Annotation(a, 'o')),
-            Parameter('result_b', Annotation(b, 'o')),
-            Parameter('result_cv', Annotation(cv, 'o')),
+        Computation.__init__(self, [
+            Parameter('result_a', Annotation(result_a, 'o')),
+            Parameter('result_b', Annotation(result_b, 'o')),
+            Parameter('result_cv', Annotation(result_cv, 'o')),
             Parameter('messages', Annotation(messages, 'i')),
             Parameter('key', Annotation(key, 'i')),
             Parameter('noises_a', Annotation(noises_a, 'i')),
-            Parameter('noises_b', Annotation(noises_b, 'i')),
-            ])
+            Parameter('noises_b', Annotation(noises_b, 'i'))])
 
     def _build_plan(
             self, plan_factory, device_params,
@@ -221,14 +217,12 @@ class LweEncrypt(Computation):
 
         mul_key = MatrixMulVector(noises_a)
 
-        fill_b_cv = Transformation(
-            [
-                Parameter('result_b', Annotation(result_b, 'o')),
-                Parameter('result_cv', Annotation(result_cv, 'o')),
-                Parameter('messages', Annotation(messages, 'i')),
-                Parameter('noises_a_times_key', Annotation(noises_b, 'i')),
-                Parameter('noises_b', Annotation(noises_b, 'i')),
-            ],
+        fill_b_cv = Transformation([
+            Parameter('result_b', Annotation(result_b, 'o')),
+            Parameter('result_cv', Annotation(result_cv, 'o')),
+            Parameter('messages', Annotation(messages, 'i')),
+            Parameter('noises_a_times_key', Annotation(noises_b, 'i')),
+            Parameter('noises_b', Annotation(noises_b, 'i'))],
             """
             ${result_b.store_same}(
                 ${noises_b.load_same}
@@ -257,32 +251,28 @@ class LweDecrypt(Computation):
     Compute the phase of the sample using the secret key: phi = b - a.s
     """
 
-    def __init__(self, shape, n):
+    def __init__(self, shape, lwe_size):
 
-        a = Type(numpy.int32, shape + (n,))
-        b = Type(numpy.int32, shape)
-        key = Type(numpy.int32, (n,))
+        a = Type(Torus32, shape + (lwe_size,))
+        b = Type(Torus32, shape)
+        key = Type(Int32, (lwe_size,))
 
-        Computation.__init__(self,
-            [Parameter('result', Annotation(b, 'o')),
-            Parameter('a', Annotation(a, 'i')),
-            Parameter('b', Annotation(b, 'i')),
-            Parameter('key', Annotation(key, 'i')),
-            ])
+        Computation.__init__(self, [
+            Parameter('result', Annotation(b, 'o')),
+            Parameter('lwe_a', Annotation(a, 'i')),
+            Parameter('lwe_b', Annotation(b, 'i')),
+            Parameter('key', Annotation(key, 'i'))])
 
-    def _build_plan(
-            self, plan_factory, device_params, result, a, b, key):
+    def _build_plan(self, plan_factory, device_params, result, lwe_a, lwe_b, key):
 
         plan = plan_factory()
 
-        mul_key = MatrixMulVector(a)
+        mul_key = MatrixMulVector(lwe_a)
 
-        fill_res = Transformation(
-            [
-                Parameter('result', Annotation(result, 'o')),
-                Parameter('b', Annotation(b, 'i')),
-                Parameter('a_times_key', Annotation(b, 'i')),
-            ],
+        fill_res = Transformation([
+            Parameter('result', Annotation(result, 'o')),
+            Parameter('b', Annotation(lwe_b, 'i')),
+            Parameter('a_times_key', Annotation(lwe_b, 'i'))],
             """
             ${result.store_same}(${b.load_same} - ${a_times_key.load_same});
             """,
@@ -292,7 +282,7 @@ class LweDecrypt(Computation):
             fill_res, fill_res.a_times_key,
             result=fill_res.result, b=fill_res.b)
 
-        plan.computation_call(mul_key, result, b, a, key)
+        plan.computation_call(mul_key, result, lwe_b, lwe_a, key)
 
         return plan
 
@@ -303,27 +293,26 @@ class LweLinear(Computation):
 
         self._add_result = add_result
 
-        Computation.__init__(self,
-            [
+        Computation.__init__(self, [
             Parameter('result_a', Annotation(result_shape_info.a, 'o')),
             Parameter('result_b', Annotation(result_shape_info.b, 'o')),
             Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
             Parameter('source_a', Annotation(source_shape_info.a, 'i')),
             Parameter('source_b', Annotation(source_shape_info.b, 'i')),
             Parameter('source_cv', Annotation(source_shape_info.current_variances, 'i')),
-            Parameter('p', Annotation(Type(Torus32))),
-            ])
+            Parameter('coeff', Annotation(Type(Torus32)))])
 
     def _build_plan(
             self, plan_factory, device_params,
-            result_a, result_b, result_cv, source_a, source_b, source_cv, p):
+            result_a, result_b, result_cv, source_a, source_b, source_cv, coeff):
 
         plan = plan_factory()
-        batch_shape = result_b.shape
+        batch_shape = result_a.shape[:-1]
+        lwe_size = result_a.shape[-1]
         plan.kernel_call(
             TEMPLATE.get_def("lwe_linear"),
-            [result_a, result_b, result_cv, source_a, source_b, source_cv, p],
-            global_size=batch_shape + (result_a.shape[-1],),
+            [result_a, result_b, result_cv, source_a, source_b, source_cv, coeff],
+            global_size=batch_shape + (lwe_size,),
             render_kwds=dict(
                 add_result=self._add_result,
                 ))
@@ -333,59 +322,22 @@ class LweLinear(Computation):
 
 class LweNoiselessTrivial(Computation):
 
-    def __init__(self, result_shape_info):
-        Computation.__init__(self,
-            [
-            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
-            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
-            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
-            Parameter('mu', Annotation(Type(Torus32))),
-            ])
+    def __init__(self, shape_info):
+        Computation.__init__(self, [
+            Parameter('result_a', Annotation(shape_info.a, 'o')),
+            Parameter('result_b', Annotation(shape_info.b, 'o')),
+            Parameter('result_cv', Annotation(shape_info.current_variances, 'o')),
+            Parameter('mu', Annotation(Type(Torus32)))])
 
-    def _build_plan(
-            self, plan_factory, device_params,
-            result_a, result_b, result_cv, mu):
+    def _build_plan(self, plan_factory, device_params, result_a, result_b, result_cv, mu):
 
         plan = plan_factory()
 
-        batch_shape = result_b.shape
+        batch_shape = result_a.shape[:-1]
+        lwe_size = result_a.shape[-1]
         plan.kernel_call(
             TEMPLATE.get_def("lwe_noiseless_trivial"),
             [result_a, result_b, result_cv, mu],
-            global_size=batch_shape + (result_a.shape[-1],))
-
-        return plan
-
-
-class LweCopyOrNegate(Computation):
-
-    def __init__(self, result_shape_info, source_shape_info, params, op):
-
-        assert op in ('+', '-')
-        self._op = op
-
-        Computation.__init__(self,
-            [
-            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
-            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
-            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
-            Parameter('source_a', Annotation(source_shape_info.a, 'i')),
-            Parameter('source_b', Annotation(source_shape_info.b, 'i')),
-            Parameter('source_cv', Annotation(source_shape_info.current_variances, 'i')),
-            ])
-
-    def _build_plan(
-            self, plan_factory, device_params,
-            result_a, result_b, result_cv, source_a, source_b, source_cv):
-
-        plan = plan_factory()
-        batch_shape = result_b.shape
-        plan.kernel_call(
-            TEMPLATE.get_def("lwe_copy_or_negate"),
-            [result_a, result_b, result_cv, source_a, source_b, source_cv],
-            global_size=batch_shape + (result_a.shape[-1],),
-            render_kwds=dict(
-                op=self._op
-                ))
+            global_size=batch_shape + (lwe_size,))
 
         return plan

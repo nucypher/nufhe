@@ -1,85 +1,84 @@
-<%def name="build_keyswitch_key(
+<%def name="make_lwe_keyswitch_key(
         idxs, ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b, noises_b_mean)">
 
-    int extracted_n_idx = ${idxs[0]};
-    int t_idx = ${idxs[1]};
+    int input_idx = ${idxs[0]};
+    int decomp_idx = ${idxs[1]};
     int base_idx = ${idxs[2]};
 
     if (base_idx == 0)
     {
-        for (int i = 0; i < ${inner_n}; i++)
+        for (int i = 0; i < ${output_size}; i++)
         {
-            ${ks_a.store_idx}(extracted_n_idx, t_idx, 0, i, 0);
+            ${ks_a.store_idx}(input_idx, decomp_idx, 0, i, 0);
         }
-        ${ks_b.store_idx}(extracted_n_idx, t_idx, 0, 0);
-        ${ks_cv.store_idx}(extracted_n_idx, t_idx, 0, 0);
+        ${ks_b.store_idx}(input_idx, decomp_idx, 0, 0);
+        ${ks_cv.store_idx}(input_idx, decomp_idx, 0, 0);
     }
     else
     {
-        int h = base_idx + 1;
-        int j = t_idx + 1;
-        int key = ${in_key.load_idx}(extracted_n_idx);
-
-        int message = key * (h - 1) * (1 << (32 - j * ${basebit}));
+        int key = ${in_key.load_idx}(input_idx);
+        int message = key * base_idx * (1 << (32 - (decomp_idx + 1) * ${log2_base}));
 
         ${noises_b.ctype} noise_b =
-            ${noises_b.load_idx}(extracted_n_idx, t_idx, base_idx - 1)
+            ${noises_b.load_idx}(input_idx, decomp_idx, base_idx - 1)
             - ${noises_b_mean.load_idx}();
 
-        ${ks_cv.store_idx}(extracted_n_idx, t_idx, base_idx, ${noise**2});
+        ${ks_cv.store_idx}(input_idx, decomp_idx, base_idx, ${noise**2});
 
-        for (int i = 0; i < ${inner_n}; i++)
+        for (int i = 0; i < ${output_size}; i++)
         {
             ${ks_a.store_idx}(
-                extracted_n_idx, t_idx, base_idx, i,
-                ${noises_a.load_idx}(extracted_n_idx, t_idx, base_idx - 1, i));
+                input_idx, decomp_idx, base_idx, i,
+                ${noises_a.load_idx}(input_idx, decomp_idx, base_idx - 1, i));
         }
 
         ${ks_b.store_idx}(
-            extracted_n_idx, t_idx, base_idx,
-            message + ${dtot32}(noise_b) + ${b_term.load_idx}(extracted_n_idx, t_idx, base_idx - 1)
-            );
+            input_idx, decomp_idx, base_idx,
+            message
+            + ${dtot32}(noise_b)
+            + ${b_term.load_idx}(input_idx, decomp_idx, base_idx - 1));
     }
 </%def>
 
 
-<%def name="keyswitch(
-    kernel_declaration, result_a, result_b, result_cv, ks_a, ks_b, ks_cv, ai, bi)">
+<%def name="lwe_keyswitch(
+    kernel_declaration, result_a, result_b, result_cv, ks_a, ks_b, ks_cv, source_a, source_b)">
 
 ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    const int decomp_mask = ${(1 << decomp_bits) - 1};
-    const int decomp_offset = ${1 << (31 - decomp_size * decomp_bits)};
+    const int decomp_mask = ${2**log2_base - 1};
+    const int decomp_offset = ${2**(31 - decomp_length * log2_base)};
+
     unsigned int tid = virtual_local_id(1);
     unsigned int bdim = virtual_local_size(1);
     unsigned int batch_id = virtual_global_id(0);
 
-    int tmp;
-    int res_a = 0;
-    int res_b = 0;
-    double res_cv = 0;
-    int val = 0;
-
-    for (int i = tid; i < ${lwe_n}; i += bdim)
+    for (int i = tid; i < ${output_size}; i += bdim)
     {
         // Starting from a noiseless trivial LWE:
-        // a = 0, b = bi, current_variances = 0
-        res_a = 0;
+        // a = 0, b = source_b, current_variances = 0
+        int res_a = 0;
+        int res_b;
+        double res_cv;
+
         if (i == 0)
         {
-            res_b = ${bi.load_combined_idx(slices[:-1])}(batch_id);
+            res_b = ${source_b.load_combined_idx(slices[:-1])}(batch_id);
             res_cv = 0;
         }
 
-        for (int j = 0; j < ${tlwe_n}; j ++)
+        for (int j = 0; j < ${input_size}; j ++)
         {
-            tmp = ${ai.load_combined_idx(slices)}(batch_id, j) + decomp_offset;
+            int tmp = ${source_a.load_combined_idx(slices)}(batch_id, j) + decomp_offset;
 
-            for (int k = 0; k < ${decomp_size}; k++)
+            for (int k = 0; k < ${decomp_length}; k++)
             {
-                val = (tmp >> (32 - (k + 1) * ${decomp_bits})) & decomp_mask;
+                int val = (tmp >> (32 - (k + 1) * ${log2_base})) & decomp_mask;
+
+                ## TODO: if val == 0, the corresponding keyswitch key slice is 0.
+                ## Check if removing the condition increases the performance or not
                 if (val != 0)
                     res_a -= ${ks_a.load_idx}(j, k, val, i);
 

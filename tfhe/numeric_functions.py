@@ -4,6 +4,7 @@ from reikna.cluda import Module
 
 
 Torus32 = numpy.int32
+Int32 = numpy.int32
 Float = numpy.float64
 
 
