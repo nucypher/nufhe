@@ -15,10 +15,6 @@ from .blind_rotate import BlindRotate_gpu
 from .gpu_polynomials import tp_mul_by_xai_gpu
 from .performance import PerformanceParameters
 
-import time
-
-to_gpu_time = 0
-
 
 def lwe_bootstrapping_key(
         thr, rng, ks_decomp_length: int, ks_log2_base: int, key_in: LweKey, rgsw_key: TGswKey,
@@ -100,14 +96,8 @@ def tfhe_blindRotate_FFT(
 
     thr = accum.a.coefsT.thread
 
-    global to_gpu_time
-
     # TYPING: bara::Array{Int32}
-    t = time.time()
-    thr.synchronize()
     temp = TLweSampleArray(thr, bk_params.tlwe_params, accum.shape)
-    thr.synchronize()
-    to_gpu_time += time.time() - t
 
     temp2 = temp
     temp3 = accum
@@ -146,16 +136,11 @@ def tfhe_blindRotateAndExtract_FFT(
     # TYPING: barb::Array{Int32},
     # TYPING: bara::Array{Int32}
 
-    global to_gpu_time
-
     bk_params = bk.bk_params
 
     if not no_keyswitch:
-        t = time.time()
         extracted_result = LweSampleArray.empty(
             thr, bk.accum_params.extracted_lweparams, result.shape_info.shape)
-        thr.synchronize()
-        to_gpu_time += time.time() - t
     else:
         extracted_result = result
 
@@ -164,14 +149,10 @@ def tfhe_blindRotateAndExtract_FFT(
     N = accum_params.polynomial_degree
 
     # Test polynomial
-    t = time.time()
-    thr.synchronize()
     testvectbis = TorusPolynomialArray(thr, N, extracted_result.shape_info.shape)
 
     # Accumulator
     acc = TLweSampleArray(thr, accum_params, extracted_result.shape_info.shape)
-    thr.synchronize()
-    to_gpu_time += time.time() - t
 
     # testvector = X^{2N-barb}*v
     tp_mul_by_xai_gpu(testvectbis, barb, v, invert_ais=True)
@@ -208,14 +189,7 @@ def bootstrap(
     accum_params = bk.accum_params
     N = accum_params.polynomial_degree
 
-    global to_gpu_time
-
-    thr = result.a.thread
-    t = time.time()
-    thr.synchronize()
     testvect = TorusPolynomialArray(thr, N, result.shape_info.shape)
-    thr.synchronize()
-    to_gpu_time += time.time() - t
 
     # Modulus switching
     barb = thr.array(x.b.shape, Torus32)

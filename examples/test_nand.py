@@ -1,7 +1,6 @@
 import numpy
 import time
 
-import tfhe
 from tfhe import *
 
 from reikna.cluda import cuda_api
@@ -49,7 +48,6 @@ def process(cloud_key, ciphertext1, ciphertext2):
     t = time.time() - t
     print(t)
     print(t / size * 1000, "ms per bit")
-    print("minus to_gpu time, ", (t - tfhe.lwe_bootstrapping.to_gpu_time) / size * 1000, "ms per bit")
 
     #import cProfile
     #cProfile.runctx("tfhe_gate_NAND_(cloud_key, result, ciphertext1, ciphertext2)",

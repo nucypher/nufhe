@@ -54,10 +54,7 @@ def tfhe_gate_NAND_(
 
     in_out_params = bk.params.in_out_params
 
-    t = time.time()
     temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
-    thr.synchronize()
-    lwe_bootstrapping.to_gpu_time += time.time() - t
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
