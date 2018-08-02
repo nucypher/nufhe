@@ -5,16 +5,10 @@ import tfhe
 from tfhe import *
 
 from reikna.cluda import cuda_api
-from reikna.cluda.tempalloc import ZeroOffsetManager
 api = cuda_api()
-thr = api.Thread.create(async=True, temp_alloc=dict(pack_on_alloc=False))
+thr = api.Thread.create()
 
-
-
-
-
-size = 512
-
+size = 32
 
 def encrypt():
 
@@ -41,7 +35,7 @@ def encrypt():
 
 def process(cloud_key, ciphertext1, ciphertext2):
     params = tfhe_parameters(cloud_key)
-    result = empty_ciphertext(thr, params, ciphertext1.shape)
+    result = empty_ciphertext(thr, params, ciphertext1.shape_info.shape)
 
     tfhe_gate_NAND_(thr, cloud_key, result, ciphertext1, ciphertext2)
     thr.synchronize()
