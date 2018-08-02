@@ -51,7 +51,7 @@ class LweKey:
         mask_size = tlwe_key.params.mask_size
         assert params.size == poly_degree * mask_size
 
-        key = tlwe_key.key.coefs.ravel()
+        key = tlwe_key.key.coeffs.ravel()
 
         return cls(params, key)
 

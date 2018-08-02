@@ -138,10 +138,10 @@ def tGswFFTExternMulToTLwe_gpu(
         result: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int, bk_params: TGswParams,
         perf_params: PerformanceParameters):
 
-    thr = result.a.coefsT.thread
+    thr = result.a.coeffs.thread
     comp = get_computation(
-        thr, TGswFFTExternMulToTLwe, result.a.coefsT, bki.samples.a.coefsC, bk_params, perf_params)
-    comp(result.a.coefsT, bki.samples.a.coefsC, bk_idx)
+        thr, TGswFFTExternMulToTLwe, result.a.coeffs, bki.samples.a.coeffs, bk_params, perf_params)
+    comp(result.a.coeffs, bki.samples.a.coeffs, bk_idx)
 
 
 class TGswAddMuIntH(Computation):
@@ -179,9 +179,9 @@ class TGswAddMuIntH(Computation):
 
 
 def tGswAddMuIntH_gpu(thr, result: 'TGswSampleArray', messages, params: 'TGswParams'):
-    n = result.samples.a.coefsT.shape[0] # TODO: get from the parameters
+    n = result.samples.a.coeffs.shape[0] # TODO: get from the parameters
     comp = get_computation(thr, TGswAddMuIntH, n, params)
-    comp(result.samples.a.coefsT, messages)
+    comp(result.samples.a.coeffs, messages)
 
 
 # Result = tGsw(0)

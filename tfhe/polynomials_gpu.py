@@ -4,65 +4,6 @@ from reikna.core import Computation, Transformation, Parameter, Annotation
 from reikna.algorithms import PureParallel
 from reikna.cluda import dtypes
 
-from .computation_cache import get_computation
-from .numeric_functions import Torus32
-from .polynomial_transform import get_transform
-
-
-class FakeThread:
-
-    def array(self, shape, dtype):
-        return numpy.empty(shape, dtype)
-
-
-# This structure represents an integer polynomial modulo X^N+1
-class IntPolynomialArray:
-
-    def __init__(self, thr, N, shape):
-        if thr is None:
-            thr = FakeThread()
-
-        self.coefs = thr.array(shape + (N,), numpy.int32)
-        self._polynomial_size = N
-        self.shape = shape
-
-    @classmethod
-    def from_array(cls, arr):
-        obj = cls(arr.thread, arr.shape[-1], arr.shape[:-1])
-        obj.coefs = arr
-        return obj
-
-
-# This structure represents an torus polynomial modulo X^N+1
-class TorusPolynomialArray:
-
-    def __init__(self, thr, N, shape):
-        if thr is None:
-            thr = FakeThread()
-
-        self.coefsT = thr.array(shape + (N,), Torus32)
-        self._polynomial_size = N
-        self.shape = shape
-
-
-# This structure is used for FFT operations, and is a representation
-# over C of a polynomial in R[X]/X^N+1
-class LagrangeHalfCPolynomialArray:
-
-    def __init__(self, thr, transform_type, N, shape):
-
-        assert N % 2 == 0
-
-        transform = get_transform(transform_type)
-
-        if thr is None:
-            thr = FakeThread()
-
-        self.coefsC = thr.array(
-            shape + (transform.transformed_length(N),), transform.transformed_dtype())
-        self._polynomial_size = N
-        self.shape = shape
-
 
 def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
     # arr: ... x N
@@ -142,7 +83,7 @@ def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=Fa
         connectors=['output'])
 
 
-class TPMulByXai(Computation):
+class ShiftTorusPolynomial(Computation):
 
     def __init__(self, ais, arr, ai_view=False, minus_one=False, invert_ais=False):
         # `invert_ais` means that `2N - ais` will be used instead of `ais`
@@ -160,19 +101,3 @@ class TPMulByXai(Computation):
         plan = plan_factory()
         plan.computation_call(self._pp, output, ais, ai_idx, input_)
         return plan
-
-
-# result= X^{a}*source
-def tp_mul_by_xai_gpu(out: TorusPolynomialArray, ais, in_: TorusPolynomialArray, invert_ais=False):
-    thr = out.coefsT.thread
-    comp = get_computation(
-        thr, TPMulByXai, ais, in_.coefsT, minus_one=False, invert_ais=invert_ais)
-    comp(out.coefsT, ais, 0, in_.coefsT)
-
-
-# result = (X^ai-1) * source
-def tp_mul_by_xai_minus_one_gpu(out: TorusPolynomialArray, ais, ai_idx, in_: TorusPolynomialArray):
-    thr = out.coefsT.thread
-    comp = get_computation(
-        thr, TPMulByXai, ais, in_.coefsT, ai_view=True, minus_one=True, invert_ais=False)
-    comp(out.coefsT, ais, ai_idx, in_.coefsT)

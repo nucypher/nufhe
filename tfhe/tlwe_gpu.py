@@ -7,7 +7,7 @@ import reikna.helpers as helpers
 from .tlwe import TLweSampleArray, TLweParams
 from .lwe import LweSampleArray, LweParams
 from .computation_cache import get_computation
-from .gpu_polynomials import TorusPolynomialArray, tp_mul_by_xai_minus_one_gpu
+from .polynomials import TorusPolynomialArray, shift_tp_minus_one_power_from_array
 from .numeric_functions import Torus32, Float
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
 from .polynomial_transform import get_transform
@@ -60,9 +60,9 @@ class TLweNoiselessTrivial(Computation):
 
 # result = (0,mu)
 def tLweNoiselessTrivial_gpu(result: TLweSampleArray, mu: TorusPolynomialArray, params: TLweParams):
-    thr = result.a.coefsT.thread
-    comp = get_computation(thr, TLweNoiselessTrivial, result.a.coefsT)
-    comp(result.a.coefsT, result.current_variances, mu.coefsT)
+    thr = result.a.coeffs.thread
+    comp = get_computation(thr, TLweNoiselessTrivial, result.a.coeffs)
+    comp(result.a.coeffs, result.current_variances, mu.coeffs)
 
 
 # TODO: can be made faster by using local memory
@@ -119,26 +119,27 @@ class TLweExtractLweSample(Computation):
 def tLweExtractLweSample_gpu(
         result: LweSampleArray, x: TLweSampleArray, params: LweParams, rparams: TLweParams):
     thr = result.a.thread
-    comp = get_computation(thr, TLweExtractLweSample, x.a.coefsT)
-    comp(result.a, result.b, x.a.coefsT)
+    comp = get_computation(thr, TLweExtractLweSample, x.a.coeffs)
+    comp(result.a, result.b, x.a.coeffs)
 
 
 # mult externe de X^ai-1 par bki
-def tLweMulByXaiMinusOne_gpu(result:TLweSampleArray, ai, ai_idx, bk: TLweSampleArray, params: TLweParams):
+def tLweMulByXaiMinusOne_gpu(
+        thr, result:TLweSampleArray, ai, ai_idx, bk: TLweSampleArray, params: TLweParams):
     # TYPING: ai::Array{Int32}
-    tp_mul_by_xai_minus_one_gpu(result.a, ai, ai_idx, bk.a)
+    shift_tp_minus_one_power_from_array(thr, result.a, ai, ai_idx, bk.a)
 
 
 # result = result + sample
 def tLweAddTo_gpu(result: TLweSampleArray, accum: TLweSampleArray, params: TLweParams):
-    result.a.coefsT += accum.a.coefsT
+    result.a.coeffs += accum.a.coeffs
     result.current_variances += accum.current_variances
 
 
 # result = sample
 def tLweCopy_gpu(result: TLweSampleArray, sample: TLweSampleArray, params: TLweParams):
-    thr = result.a.coefsT.thread
-    thr.copy(sample.a.coefsT, dest=result.a.coefsT)
+    thr = result.a.coeffs.thread
+    thr.copy(sample.a.coeffs, dest=result.a.coeffs)
     thr.copy(sample.current_variances, dest=result.current_variances)
 
 
@@ -243,7 +244,7 @@ def tLweSymEncryptZero_gpu(
     comp = get_computation(
         thr, TLweSymEncryptZero,
         result.shape, noise, key.params, perf_params)
-    comp(result.a.coefsT, result.current_variances, key.key.coefs, noises1, noises2)
+    comp(result.a.coeffs, result.current_variances, key.key.coeffs, noises1, noises2)
 
 
 # Computes the inverse FFT of the coefficients of the TLWE sample
@@ -255,7 +256,7 @@ def tLweToFFTConvert_gpu(
 
     transform = get_transform(params.transform_type)
     comp = get_computation(
-        thr, transform.ForwardTransform, source.a.coefsT.shape[:-1], source.a.coefsT.shape[-1],
+        thr, transform.ForwardTransform, source.a.coeffs.shape[:-1], source.a.coeffs.shape[-1],
         perf_params)
-    comp(result.a.coefsC, source.a.coefsT)
+    comp(result.a.coeffs, source.a.coeffs)
     thr.copy_array(source.current_variances, dest=result.current_variances)

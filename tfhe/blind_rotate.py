@@ -142,19 +142,19 @@ def BlindRotate_gpu(
         lwe_out: LweSampleArray, accum: TLweSampleArray,
         bk: 'LweBootstrappingKeyFFT', bara, perf_params: PerformanceParameters, no_keyswitch=False):
 
-    thr = accum.a.coefsT.thread
+    thr = accum.a.coeffs.thread
 
     if no_keyswitch:
         comp = get_computation(thr, BlindRotate,
-            lwe_out.a, lwe_out.b, accum.a.coefsT,
-            bk.bkFFT.samples.a.coefsC, bara, bk.bk_params, bk.in_out_params, perf_params)
-        comp(lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC, bara)
+            lwe_out.a, lwe_out.b, accum.a.coeffs,
+            bk.bkFFT.samples.a.coeffs, bara, bk.bk_params, bk.in_out_params, perf_params)
+        comp(lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bkFFT.samples.a.coeffs, bara)
     else:
         comp = get_computation(thr, BlindRotateAndKeySwitch,
-            lwe_out.shape_info, lwe_out.a, lwe_out.b, accum.a.coefsT,
-            bk.bkFFT.samples.a.coefsC, bk.ks.lwe.a, bk.ks.lwe.b, bara,
+            lwe_out.shape_info, lwe_out.a, lwe_out.b, accum.a.coeffs,
+            bk.bkFFT.samples.a.coeffs, bk.ks.lwe.a, bk.ks.lwe.b, bara,
             bk.bk_params, bk.in_out_params, bk.ks, perf_params)
         comp(
-            lwe_out.a, lwe_out.b, accum.a.coefsT, bk.bkFFT.samples.a.coefsC,
+            lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bkFFT.samples.a.coeffs,
             bk.ks.lwe.a, bk.ks.lwe.b, bara)
 
