@@ -1,57 +1,42 @@
 import numpy
 
-
-def int_prod(arr):
-    return numpy.prod(arr, dtype=numpy.int32)
+from reikna.helpers import product
 
 
 # minus_one=True: result = (X^ai-1) * source
 # minus_one=False: result = X^{a} * source
-def ShiftTorusPolynomial_ref(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
+def ShiftTorusPolynomialReference(
+        polynomial_degree, shape, powers_shape,
+        powers_view=False, minus_one=False, invert_powers=False):
 
-    if ai_view:
-        assert len(ais.shape) == len(arr.shape) - 1
-        assert ais.shape[:-1] == arr.shape[:-2]
-    else:
-        assert len(ais.shape) == len(arr.shape) - 1
-        assert ais.shape == arr.shape[:-1]
+    batch_shape = powers_shape[:-1] if powers_view else powers_shape
+    assert batch_shape == shape[:len(batch_shape)]
+    poly_batch_shape = shape[len(batch_shape):]
 
-    N = arr.shape[-1]
+    def _kernel(result, source, powers, powers_idx):
 
-    def _kernel(output, ais, ai_idx, input_):
-
-        if ai_view:
-            ai_batch_len = int_prod(ais.shape[:-int(ai_view)])
-            arr_batch_len = int_prod(arr.shape[len(ais.shape)-1:-1])
-
-            ais = ais.reshape(ai_batch_len, ais.shape[-1])
-            ais = ais[:,ai_idx]
-
-            out_c = output.reshape(ai_batch_len, arr_batch_len, N)
-            in_c = input_.reshape(ai_batch_len, arr_batch_len, N)
-
+        if powers_view:
+            powers = powers.reshape(product(batch_shape), powers_shape[-1])[:, powers_idx]
         else:
-            ais = ais.flatten()
-            ai_batch_len = ais.size
+            powers = powers.flatten()
 
-            out_c = output.reshape(ai_batch_len, 1, N)
-            in_c = input_.reshape(ai_batch_len, 1, N)
+        result = result.reshape(product(batch_shape), product(poly_batch_shape), polynomial_degree)
+        source = source.reshape(product(batch_shape), product(poly_batch_shape), polynomial_degree)
 
+        if invert_powers:
+            powers = 2 * polynomial_degree - powers
 
-        if invert_ais:
-            ais = 2 * N - ais
-
-        for i in range(ai_batch_len):
-            ai = ais[i]
-            if ai < N:
-                out_c[i,:,:ai] = -in_c[i,:,(N-ai):N]
-                out_c[i,:,ai:N] = in_c[i,:,:(N-ai)]
+        for i in range(result.shape[0]):
+            power = powers[i]
+            if power < polynomial_degree:
+                result[i,:,:power] = -source[i,:,(polynomial_degree - power):polynomial_degree]
+                result[i,:,power:polynomial_degree] = source[i,:,:(polynomial_degree - power)]
             else:
-                aa = ai - N
-                out_c[i,:,:aa] = in_c[i,:,(N-aa):N]
-                out_c[i,:,aa:N] = -in_c[i,:,:(N-aa)]
+                power = power - polynomial_degree
+                result[i,:,:power] = source[i,:,(polynomial_degree - power):polynomial_degree]
+                result[i,:,power:polynomial_degree] = -source[i,:,:(polynomial_degree - power)]
 
         if minus_one:
-            out_c -= in_c
+            result -= source
 
     return _kernel

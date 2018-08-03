@@ -13,6 +13,7 @@ class IntPolynomialArray:
         assert coeffs.dtype == Int32
         self.coeffs = coeffs
         self.shape = coeffs.shape[:-1]
+        self.polynomial_degree = coeffs.shape[-1]
 
 
 # This structure represents an torus polynomial modulo X^N+1
@@ -22,6 +23,7 @@ class TorusPolynomialArray:
         assert coeffs.dtype == Torus32
         self.coeffs = coeffs
         self.shape = coeffs.shape[:-1]
+        self.polynomial_degree = coeffs.shape[-1]
 
     @classmethod
     def empty(cls, thr, polynomial_degree: int, shape):
@@ -37,6 +39,7 @@ class TransformedPolynomialArray:
         self.transform_type = transform_type
         self.coeffs = coeffs
         self.shape = coeffs.shape[:-1]
+        self.polynomial_degree = coeffs.shape[-1]
 
     @classmethod
     def empty(cls, thr, transform_type, polynomial_degree: int, shape):
@@ -52,14 +55,14 @@ def shift_tp_inverted_power(
         thr, result: TorusPolynomialArray, powers, source: TorusPolynomialArray):
     comp = get_computation(
         thr, ShiftTorusPolynomial,
-        powers, source.coeffs, ai_view=False, minus_one=False, invert_ais=True)
-    comp(result.coeffs, powers, 0, source.coeffs)
+        result.polynomial_degree, result.shape, powers.shape, invert_powers=True)
+    comp(result.coeffs, source.coeffs, powers, 0)
 
 
-# result = (X^ai-1) * source
+# result = (X^pwr - 1) * source
 def shift_tp_minus_one_power_from_array(
         thr, result: TorusPolynomialArray, powers, power_idx: int, source: TorusPolynomialArray):
     comp = get_computation(
         thr, ShiftTorusPolynomial,
-        powers, source.coeffs, ai_view=True, minus_one=True, invert_ais=False)
-    comp(result.coeffs, powers, power_idx, source.coeffs)
+        result.polynomial_degree, result.shape, powers.shape, powers_view=True, minus_one=True)
+    comp(result.coeffs, source.coeffs, powers, power_idx)

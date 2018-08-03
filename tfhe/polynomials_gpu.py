@@ -1,103 +1,68 @@
 import numpy
 
-from reikna.core import Computation, Transformation, Parameter, Annotation
+from reikna import helpers
+from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel
 from reikna.cluda import dtypes
 
+from .numeric_functions import Torus32, Int32
 
-def transform_mul_by_xai(ais, arr, ai_view=False, minus_one=False, invert_ais=False):
-    # arr: ... x N
-    # ais: ..., int
 
-    if ai_view:
-        assert len(ais.shape) == len(arr.shape) - 1
-        assert ais.shape[:-1] == arr.shape[:-2]
-    else:
-        assert len(ais.shape) == len(arr.shape) - 1
-        assert ais.shape == arr.shape[:-1]
-
-    N = arr.shape[-1]
-
-    return Transformation(
-        [
-            Parameter('output', Annotation(arr, 'o')),
-            Parameter('ais', Annotation(ais, 'i')),
-            Parameter('ai_idx', Annotation(numpy.int32)), # FIXME: unused if ai_view==False
-            Parameter('input', Annotation(arr, 'i')),
-        ],
-        """
-        %if ai_view:
-        ${ai_ctype} ai = ${ais.load_idx}(${", ".join(idxs[:batch_len])}, ${ai_idx});
-        %else:
-        ${ai_ctype} ai = ${ais.load_idx}(${", ".join(idxs[:batch_len])});
-        %endif
-
-        %if invert_ais:
-        ai = ${2 * N} - ai;
-        %endif
-
-        ${output.ctype} res;
-
-        if (ai < ${N})
-        {
-            if (${idxs[-1]} < ai)
-            {
-                res = -${input.load_idx}(
-                        ${", ".join(idxs[:-1])}, ${idxs[-1]} + ${N} - ai
-                        );
-            }
-            else
-            {
-                res = ${input.load_idx}(
-                        ${", ".join(idxs[:-1])}, ${idxs[-1]} - ai
-                        );
-            }
-        }
-        else
-        {
-            ${ai_ctype} aa = ai - ${N};
-            if (${idxs[-1]} < aa)
-            {
-                res = ${input.load_idx}(
-                        ${", ".join(idxs[:-1])}, ${idxs[-1]} + ${N} - aa
-                        );
-            }
-            else
-            {
-                res = -${input.load_idx}(
-                      ${", ".join(idxs[:-1])}, ${idxs[-1]} - aa
-                      );
-            }
-        }
-
-        %if minus_one:
-        res -= ${input.load_same};
-        %endif
-
-        ${output.store_same}(res);
-        """,
-        render_kwds=dict(
-            batch_len=len(arr.shape) - 1 - int(ai_view),
-            N=N, ai_ctype=dtypes.ctype(ais.dtype),
-            ai_view=ai_view, minus_one=minus_one, invert_ais=invert_ais),
-        connectors=['output'])
+TEMPLATE = helpers.template_for(__file__)
 
 
 class ShiftTorusPolynomial(Computation):
+    """
+    Calculate batched
 
-    def __init__(self, ais, arr, ai_view=False, minus_one=False, invert_ais=False):
-        # `invert_ais` means that `2N - ais` will be used instead of `ais`
-        tr = transform_mul_by_xai(
-            ais, arr, ai_view=ai_view, minus_one=minus_one, invert_ais=invert_ais)
-        self._pp = PureParallel.from_trf(tr, guiding_array=tr.output)
+        `result = (X^((2*N - p) if invert_powers else p) - minus_one) * source`
+
+    where `N` is the polynomial degree.
+
+    If `powers_view` is `True`, a view of `powers` is taken
+    using fixed `powers_idx` as the innermost index.
+    """
+
+    def __init__(
+            self, polynomial_degree, shape, powers_shape,
+            powers_view=False, minus_one=False, invert_powers=False):
+
+        self._batch_shape = powers_shape[:-1] if powers_view else powers_shape
+        assert self._batch_shape == shape[:len(self._batch_shape)]
+
+        self._powers_view = powers_view
+        self._minus_one = minus_one
+        self._invert_powers = invert_powers
+
+        polynomials = Type(Torus32, shape + (polynomial_degree,))
+        powers = Type(Int32, powers_shape)
 
         Computation.__init__(self, [
-            Parameter('output', Annotation(self._pp.parameter.output, 'o')),
-            Parameter('ais', Annotation(self._pp.parameter.ais, 'i')),
-            Parameter('ai_idx', Annotation(numpy.int32)), # FIXME: unused if ai_view==False
-            Parameter('input', Annotation(self._pp.parameter.input, 'i'))])
+            Parameter('result', Annotation(polynomials, 'o')),
+            Parameter('source', Annotation(polynomials, 'i')),
+            Parameter('powers', Annotation(powers, 'i')),
+            Parameter('powers_idx', Annotation(Type(Int32))) # unused if powers_view==False
+            ])
 
-    def _build_plan(self, plan_factory, device_params, output, ais, ai_idx, input_):
+    def _build_plan(self, plan_factory, device_params, result, source, powers, powers_idx):
+
+        poly_batch_shape = result.shape[len(self._batch_shape):-1]
+        polynomial_degree = result.shape[-1]
+
         plan = plan_factory()
-        plan.computation_call(self._pp, output, ais, ai_idx, input_)
+        plan.kernel_call(
+            TEMPLATE.get_def("shift_torus_polynomial"),
+            [result, source, powers, powers_idx],
+            global_size=(
+                helpers.product(self._batch_shape),
+                helpers.product(poly_batch_shape),
+                polynomial_degree),
+            render_kwds=dict(
+                batch_len=len(self._batch_shape),
+                poly_batch_len=len(poly_batch_shape),
+                polynomial_degree=polynomial_degree,
+                powers_view=self._powers_view,
+                minus_one=self._minus_one,
+                invert_powers=self._invert_powers))
+
         return plan

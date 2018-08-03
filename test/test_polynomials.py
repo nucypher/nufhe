@@ -1,76 +1,41 @@
 import time
 
+import pytest
 import numpy
 
-from tfhe.numeric_functions import Torus32
+from tfhe.numeric_functions import Torus32, Int32
 from tfhe.polynomials_gpu import ShiftTorusPolynomial
-from tfhe.polynomials_cpu import ShiftTorusPolynomial_ref
+from tfhe.polynomials_cpu import ShiftTorusPolynomialReference
+
+from utils import get_test_array
 
 
-def test_mul_by_xai(thread):
+@pytest.mark.parametrize('option', ['minus_one', 'invert_powers', 'powers_view'])
+def test_shift_torus_polynomial(thread, option):
 
-    N = 16
+    polynomial_degree = 16
+    shape = (20, 30)
 
-    data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=(300, 10))
-    res_ref = numpy.empty_like(data)
+    powers_shape = (20, 10) if option == 'powers_view' else (20,)
+    powers_idx = 5 # not used unless `option == 'powers_view'`
 
-    data_dev = thread.to_device(data)
-    ais_dev = thread.to_device(ais)
-    res_dev = thread.empty_like(res_ref)
+    source = get_test_array(shape + (polynomial_degree,), Torus32)
+    powers = get_test_array(powers_shape, Int32, (0, 2 * polynomial_degree))
 
-    comp = ShiftTorusPolynomial(ais, data, minus_one=False).compile(thread)
-    ref = ShiftTorusPolynomial_ref(ais, data, minus_one=False)
+    result = numpy.empty_like(source)
 
-    comp(res_dev, ais_dev, 0, data_dev)
-    res_test = res_dev.get()
+    source_dev = thread.to_device(source)
+    powers_dev = thread.to_device(powers)
+    result_dev = thread.empty_like(result)
 
-    ref(res_ref, ais, 0, data)
+    options = {option: True}
 
-    assert numpy.allclose(res_test, res_ref)
+    comp = ShiftTorusPolynomial(polynomial_degree, shape, powers_shape, **options).compile(thread)
+    ref = ShiftTorusPolynomialReference(polynomial_degree, shape, powers_shape, **options)
 
+    comp(result_dev, source_dev, powers_dev, powers_idx)
+    result_test = result_dev.get()
 
-def test_mul_by_xai_invert_ais(thread):
+    ref(result, source, powers, powers_idx)
 
-    N = 16
-
-    data = numpy.random.randint(0, 10000, size=(300, 10, N))
-    ais = numpy.random.randint(0, 2 * N, size=(300, 10))
-    res_ref = numpy.empty_like(data)
-
-    data_dev = thread.to_device(data)
-    ais_dev = thread.to_device(ais)
-    res_dev = thread.empty_like(res_ref)
-
-    comp = ShiftTorusPolynomial(ais, data, minus_one=False, invert_ais=True).compile(thread)
-    ref = ShiftTorusPolynomial_ref(ais, data, minus_one=False, invert_ais=True)
-
-    comp(res_dev, ais_dev, 0, data_dev)
-    res_test = res_dev.get()
-
-    ref(res_ref, ais, 0, data)
-
-    assert numpy.allclose(res_test, res_ref)
-
-
-def test_mul_by_xai_minus_one(thread):
-
-    N = 16
-
-    data = numpy.random.randint(0, 10000, size=(20, 10, 2, N))
-    ais = numpy.random.randint(0, 2 * N, size=(20, 10, 15))
-    res_ref = numpy.empty_like(data)
-
-    data_dev = thread.to_device(data)
-    ais_dev = thread.to_device(ais)
-    res_dev = thread.empty_like(res_ref)
-
-    comp = ShiftTorusPolynomial(ais, data, minus_one=True, ai_view=True).compile(thread)
-    ref = ShiftTorusPolynomial_ref(ais, data, minus_one=True, ai_view=True)
-
-    comp(res_dev, ais_dev, 3, data_dev)
-    res_test = res_dev.get()
-
-    ref(res_ref, ais, 3, data)
-
-    assert numpy.allclose(res_test, res_ref)
+    assert numpy.allclose(result_test, result)
