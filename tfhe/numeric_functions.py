@@ -2,24 +2,28 @@ import numpy
 
 from reikna.cluda import Module
 
-
-Torus32 = numpy.int32
-Int32 = numpy.int32
-Float = numpy.float64
-
-
-# Used to approximate the phase to the nearest message possible in the message space
-# The constant Msize will indicate on which message space we are working (how many messages possible)
-def modSwitchToTorus32(mu: int, Msize: int):
-    return Torus32((mu % Msize) * (2**32 // Msize))
+from .numeric_functions_gpu import Torus32ToPhase
+from .numeric_functions_gpu import Torus32, Int32, Float # for re-export
+from .computation_cache import get_computation
 
 
-# from double to Torus32
-def dtot32(d: float):
-    return ((d - numpy.trunc(d)) * 2**32).astype(numpy.int32)
+# Approximate the phase to the nearest message possible in the message space.
+# The constant `mspace_size` indicates on which message space we are working
+# (how many messages possible).
+def phase_to_t32(phase: int, mspace_size: int):
+    return Torus32((phase % mspace_size) * (2**32 // mspace_size))
 
 
-dtot32_gpu = Module.create(
+def t32_to_phase(thr, result, messages, mspace_size: int):
+    comp = get_computation(thr, Torus32ToPhase, messages.shape, mspace_size)
+    comp(result, messages)
+
+
+def double_to_t32(d: float):
+    return ((d - numpy.trunc(d)) * 2**32).astype(Torus32)
+
+
+double_to_t32_module = Module.create(
     """
     WITHIN_KERNEL int ${prefix}(double d)
     {

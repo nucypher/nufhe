@@ -130,6 +130,7 @@ class BlindRotateAndKeySwitch(Computation):
         t = self._ks.decomp_length
 
         ks = LweKeyswitch(self._result_shape_info, outer_n, inner_n, t, basebit)
+        # TODO: need to output current variances properly
         result_cv = plan.temp_array_like(ks.parameter.result_cv)
         ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
         plan.computation_call(ks, lwe_a, lwe_b, result_cv, ks_a, ks_b, ks_cv, extracted_a, extracted_b)

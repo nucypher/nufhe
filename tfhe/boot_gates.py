@@ -1,6 +1,6 @@
 import time
 
-from .numeric_functions import modSwitchToTorus32
+from .numeric_functions import phase_to_t32
 from .lwe import (
     LweSampleArray,
     lwe_keyswitch,
@@ -57,14 +57,14 @@ def tfhe_gate_NAND_(
     temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
 
     #compute: (0,1/8) - ca - cb
-    NandConst = modSwitchToTorus32(1, 8)
+    NandConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, NandConst)
     lwe_sub_to(thr, temp_result, ca)
     lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -87,14 +87,14 @@ def tfhe_gate_OR_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca + cb
-    OrConst = modSwitchToTorus32(1, 8)
+    OrConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrConst)
     lwe_add_to(thr, temp_result, ca)
     lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -117,14 +117,14 @@ def tfhe_gate_AND_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca + cb
-    AndConst = modSwitchToTorus32(-1, 8)
+    AndConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndConst)
     lwe_add_to(thr, temp_result, ca)
     lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -147,14 +147,14 @@ def tfhe_gate_XOR_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/4) + 2*(ca + cb)
-    XorConst = modSwitchToTorus32(1, 4)
+    XorConst = phase_to_t32(1, 4)
     lwe_noiseless_trivial(thr, temp_result, XorConst)
     lwe_add_mul_to(thr, temp_result, 2, ca)
     lwe_add_mul_to(thr, temp_result, 2, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -177,14 +177,14 @@ def tfhe_gate_XNOR_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/4) + 2*(-ca-cb)
-    XnorConst = modSwitchToTorus32(-1, 4)
+    XnorConst = phase_to_t32(-1, 4)
     lwe_noiseless_trivial(thr, temp_result, XnorConst)
     lwe_sub_mul_to(thr, temp_result, 2, ca)
     lwe_sub_mul_to(thr, temp_result, 2, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -219,7 +219,7 @@ def tfhe_gate_COPY_(
 """
 def tfhe_gate_CONSTANT_(thr, bk: TFHECloudKey, result: LweSampleArray, val):
     in_out_params = bk.params.in_out_params
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, result, MU if val else -MU)
 
 
@@ -242,14 +242,14 @@ def tfhe_gate_NOR_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca - cb
-    NorConst = modSwitchToTorus32(-1, 8)
+    NorConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, NorConst)
     lwe_sub_to(thr, temp_result, ca)
     lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -272,14 +272,14 @@ def tfhe_gate_ANDNY_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca + cb
-    AndNYConst = modSwitchToTorus32(-1, 8)
+    AndNYConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndNYConst)
     lwe_sub_to(thr, temp_result, ca)
     lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -302,14 +302,14 @@ def tfhe_gate_ANDYN_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca - cb
-    AndYNConst = modSwitchToTorus32(-1, 8)
+    AndYNConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndYNConst)
     lwe_add_to(thr, temp_result, ca)
     lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -332,14 +332,14 @@ def tfhe_gate_ORNY_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) - ca + cb
-    OrNYConst = modSwitchToTorus32(1, 8)
+    OrNYConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrNYConst)
     lwe_sub_to(thr, temp_result, ca)
     lwe_add_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -362,14 +362,14 @@ def tfhe_gate_ORYN_(
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca - cb
-    OrYNConst = modSwitchToTorus32(1, 8)
+    OrYNConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrYNConst)
     lwe_add_to(thr, temp_result, ca)
     lwe_sub_to(thr, temp_result, cb)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
 
 
@@ -390,7 +390,7 @@ def tfhe_gate_MUX_(
     rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
     assert rshape == result.shape_info.shape
 
-    MU = modSwitchToTorus32(1, 8)
+    MU = phase_to_t32(1, 8)
     in_out_params = bk.params.in_out_params
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
@@ -400,7 +400,7 @@ def tfhe_gate_MUX_(
     u2 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
 
     #compute "AND(a,b)": (0,-1/8) + a + b
-    AndConst = modSwitchToTorus32(-1, 8)
+    AndConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndConst)
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
@@ -415,7 +415,7 @@ def tfhe_gate_MUX_(
     bootstrap(thr, u2, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
-    MuxConst = modSwitchToTorus32(1, 8)
+    MuxConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result1, MuxConst)
     lwe_add_to(thr, temp_result1, u1)
     lwe_add_to(thr, temp_result1, u2)

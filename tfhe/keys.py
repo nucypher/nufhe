@@ -1,6 +1,6 @@
 import numpy
 
-from .numeric_functions import modSwitchToTorus32
+from .numeric_functions import phase_to_t32
 from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
@@ -76,7 +76,7 @@ def tfhe_key_pair(thr, rng, **params):
     return secret_key, cloud_key
 
 
-_1s8 = modSwitchToTorus32(1, 8)
+_1s8 = phase_to_t32(1, 8)
 
 @numpy.vectorize
 def _to_mu(bit):

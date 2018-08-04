@@ -1,5 +1,5 @@
-from .numeric_functions import Torus32
-from .polynomials import TorusPolynomialArray
+from .numeric_functions import Torus32, t32_to_phase
+from .polynomials import TorusPolynomialArray, shift_tp_inverted_power
 from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
 from .tgsw import TGswKey, TGswSampleFFTArray, TGswParams, TGswSampleArray, tGswToFFTConvert
 from .tgsw_gpu import tGswSymEncryptInt_gpu, tGswFFTExternMulToTLwe_gpu
@@ -10,9 +10,7 @@ from .tlwe_gpu import (
     tLweAddTo_gpu,
     tLweExtractLweSample_gpu,
     )
-from .numeric_functions_gpu import modSwitchFromTorus32_gpu
 from .blind_rotate import BlindRotate_gpu
-from .polynomials import shift_tp_inverted_power
 from .performance import PerformanceParameters
 
 
@@ -194,8 +192,8 @@ def bootstrap(
     barb = thr.array(x.b.shape, Torus32)
     bara = thr.array(x.a.shape, Torus32)
 
-    modSwitchFromTorus32_gpu(barb, x.b, 2 * N)
-    modSwitchFromTorus32_gpu(bara, x.a, 2 * N)
+    t32_to_phase(thr, barb, x.b, 2 * N)
+    t32_to_phase(thr, bara, x.a, 2 * N)
 
     # the initial testvec = [mu,mu,mu,...,mu]
     testvect.coeffs.fill(mu)

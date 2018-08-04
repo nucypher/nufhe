@@ -1,6 +1,6 @@
 import numpy
 
-from .numeric_functions import Torus32, dtot32
+from .numeric_functions import Torus32, double_to_t32
 
 
 def vec_mul_mat(a, b):
@@ -16,7 +16,7 @@ def lwe_encrypt_with_external_noise(
     ks_cv[:,:,0] = 0
 
     ks_a[:,:,1:,:] = noises_a
-    ks_b[:,:,1:] = messages + dtot32(noises_b) + vec_mul_mat(noises_a, key)
+    ks_b[:,:,1:] = messages + double_to_t32(noises_b) + vec_mul_mat(noises_a, key)
     ks_cv[:,:,1:] = noise**2
 
 

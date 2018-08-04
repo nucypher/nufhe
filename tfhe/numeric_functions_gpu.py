@@ -4,48 +4,57 @@ from reikna.algorithms import PureParallel
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.cluda import dtypes
 
-from .numeric_functions import Torus32
 from .computation_cache import get_computation
 
 
-class ModSwitchFromTorus32(Computation):
+# Declaring the types here instead of `numeric_functions.py` to avoid a cricular import.
 
-    def __init__(self, phase_arr):
-        out_arr = Type(numpy.int32, phase_arr.shape)
-        tr = Transformation(
-            [
-                Parameter('output', Annotation(out_arr, 'o')),
-                Parameter('phase', Annotation(phase_arr, 'i')),
-                Parameter('Msize', Annotation(Type(numpy.int32))),
-            ],
-            """
-            unsigned int interv = (${uint64})${dtypes.c_constant(2**32, numpy.uint64)} / ${Msize};
-            ${phase.ctype} phase = ${phase.load_same};
-            ${output.store_same}(((unsigned int)phase + interv / 2) / interv);
-            """,
-            render_kwds=dict(
-                Torus32=dtypes.ctype(Torus32),
-                uint64=dtypes.ctype(numpy.uint64)),
-            connectors=['output', 'phase'])
+# Element on a torus
+Torus32 = numpy.int32
 
-        self._pp = PureParallel.from_trf(tr, guiding_array='output')
+# Accompanying integer type (same size)
+Int32 = numpy.int32
+
+# The type for floating-point values (e.g., errors)
+Float = numpy.float64
+
+
+class Torus32ToPhase(Computation):
+
+    def __init__(self, shape, mspace_size):
+
+        self._mspace_size = mspace_size
+
+        messages = Type(Torus32, shape)
+        result = Type(Int32, shape)
 
         Computation.__init__(self, [
-            Parameter('output', Annotation(self._pp.parameter.output, 'o')),
-            Parameter('phase', Annotation(self._pp.parameter.phase, 'i')),
-            Parameter('Msize', Annotation(self._pp.parameter.Msize))])
+            Parameter('result', Annotation(result, 'o')),
+            Parameter('messages', Annotation(messages, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params, output, phase, Msize):
+    def _build_plan(self, plan_factory, device_params, result, phase):
         plan = plan_factory()
-        plan.computation_call(self._pp, output, phase, Msize)
+
+        tr = Transformation(
+            [
+                Parameter('result', Annotation(result, 'o')),
+                Parameter('phase', Annotation(phase, 'i')),
+            ],
+            """
+            <%
+                interv = 2**32 // mspace_size
+                half_interv = interv // 2
+            %>
+            ${phase.ctype} phase = ${phase.load_same};
+            ${result.store_same}(((unsigned int)phase + ${half_interv}) / ${interv});
+            """,
+            render_kwds=dict(
+                mspace_size=self._mspace_size,
+                uint64=dtypes.ctype(numpy.uint64)),
+            connectors=['result', 'phase'])
+
+        plan.computation_call(
+            PureParallel.from_trf(tr, guiding_array='result'),
+            result, phase)
+
         return plan
-
-
-# Used to approximate the phase to the nearest message possible in the message space
-# The constant Msize will indicate on which message space we are working (how many messages possible)
-#
-# "work on 63 bits instead of 64, because in our practical cases, it's more precise"
-def modSwitchFromTorus32_gpu(result, phase, Msize):
-    thr = phase.thread
-    comp = get_computation(thr, ModSwitchFromTorus32, phase)
-    comp(result, phase, Msize)

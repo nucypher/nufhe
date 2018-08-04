@@ -11,7 +11,7 @@ When it is necessary, the functions can be made to execute on GPU without changi
 
 import numpy
 
-from .numeric_functions import dtot32, Torus32
+from .numeric_functions import double_to_t32, Torus32
 
 
 def _rand_uniform_int32(rng, shape):
@@ -29,7 +29,7 @@ def _rand_gaussian_float(rng, sigma: float, shape):
 # Gaussian sample centered in message, with standard deviation sigma
 def _rand_gaussian_torus32(rng, message: Torus32, sigma: float, shape):
     # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    return message + dtot32(rng.normal(size=shape, scale=sigma))
+    return Torus32(message) + double_to_t32(rng.normal(size=shape, scale=sigma))
 
 
 def rand_uniform_int32(thr, rng, shape):

@@ -1,14 +1,20 @@
 import numpy
 
-from .numeric_functions import Torus32
+from .numeric_functions_gpu import Torus32, Int32
 
 
-def modSwitchFromTorus32_reference(res, phase, Msize: int):
+def Torus32ToPhaseReference(shape, mspace_size: int):
 
-    assert phase.dtype == Torus32
-    assert res.dtype == numpy.int32
-    assert phase.shape == res.shape
-
-    interv = numpy.uint32(2**32 // Msize)
+    interv = numpy.uint32(2**32 // mspace_size)
     half_interv = numpy.uint32(interv // 2)
-    numpy.copyto(res, ((phase.astype(numpy.uint32) + half_interv) // interv).astype(numpy.int32))
+
+    def _kernel(result, phase):
+
+        nonlocal interv
+
+        assert phase.dtype == Torus32
+        assert result.dtype == Int32
+
+        numpy.copyto(result, ((phase.astype(numpy.uint32) + half_interv) // interv).astype(Int32))
+
+    return _kernel

@@ -35,7 +35,7 @@
         ${ks_b.store_idx}(
             input_idx, decomp_idx, base_idx,
             message
-            + ${dtot32}(noise_b)
+            + ${double_to_t32}(noise_b)
             + ${b_term.load_idx}(input_idx, decomp_idx, base_idx - 1));
     }
 </%def>

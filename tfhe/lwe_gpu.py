@@ -19,7 +19,7 @@ from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
-from .numeric_functions import Torus32, Int32, Float, dtot32_gpu
+from .numeric_functions import Torus32, Int32, Float, double_to_t32_module
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -116,7 +116,7 @@ class MakeLweKeyswitchKey(Computation):
                 TEMPLATE.get_def("make_lwe_keyswitch_key"),
                 render_kwds=dict(
                     log2_base=self._log2_base, output_size=self._output_size,
-                    dtot32=dtot32_gpu, noise=self._noise)),
+                    double_to_t32=double_to_t32_module, noise=self._noise)),
             guiding_array="ks_b")
 
         plan.computation_call(mean, noises_b_mean, noises_b)
