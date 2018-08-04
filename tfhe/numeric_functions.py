@@ -10,14 +10,8 @@ Float = numpy.float64
 
 # Used to approximate the phase to the nearest message possible in the message space
 # The constant Msize will indicate on which message space we are working (how many messages possible)
-#
-# "work on 63 bits instead of 64, because in our practical cases, it's more precise"
 def modSwitchToTorus32(mu: int, Msize: int):
-
-    interv = ((1 << 63) // Msize) * 2 # width of each intervall
-    phase64 = mu * interv
-    # floor to the nearest multiples of interv
-    return Torus32(phase64 >> 32)
+    return Torus32((mu % Msize) * (2**32 // Msize))
 
 
 # from double to Torus32

@@ -9,9 +9,6 @@ def modSwitchFromTorus32_reference(res, phase, Msize: int):
     assert res.dtype == numpy.int32
     assert phase.shape == res.shape
 
-    # TODO: check if it can be simplified (wrt type conversions)
-    interv = (1 << 63) // Msize * 2 # width of each intervall
-    half_interval = interv // 2 # begin of the first intervall
-    phase64 = (phase.astype(numpy.uint32).astype(numpy.uint64) << 32) + half_interval
-    # floor to the nearest multiples of interv
-    numpy.copyto(res, (phase64 // interv).astype(numpy.int64).astype(numpy.int32))
+    interv = numpy.uint32(2**32 // Msize)
+    half_interv = numpy.uint32(interv // 2)
+    numpy.copyto(res, ((phase.astype(numpy.uint32) + half_interv) // interv).astype(numpy.int32))

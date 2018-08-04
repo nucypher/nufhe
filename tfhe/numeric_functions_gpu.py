@@ -19,11 +19,9 @@ class ModSwitchFromTorus32(Computation):
                 Parameter('Msize', Annotation(Type(numpy.int32))),
             ],
             """
-            ${Torus32} phase = ${phase.load_same};
-            ${uint64} interv = ((((${uint64})1) << 63) / ${Msize}) * 2;
-            ${uint64} half_interval = interv / 2;
-            ${uint64} phase64 = (((${uint64})phase) << 32) + half_interval;
-            ${output.store_same}(phase64 / interv);
+            unsigned int interv = (${uint64})${dtypes.c_constant(2**32, numpy.uint64)} / ${Msize};
+            ${phase.ctype} phase = ${phase.load_same};
+            ${output.store_same}(((unsigned int)phase + interv / 2) / interv);
             """,
             render_kwds=dict(
                 Torus32=dtypes.ctype(Torus32),
