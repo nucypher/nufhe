@@ -21,13 +21,16 @@ def single_kernel_bootstrap(request):
     return request.param
 
 
-def get_plaintexts(rng, num, size=32):
-    return [rng.randint(0, 2, size=size).astype(numpy.bool) for i in range(num)]
+def get_plaintexts(rng, num, shape=(32,)):
+    return [rng.randint(0, 2, size=shape).astype(numpy.bool) for i in range(num)]
 
 
 def check_gate(
         thread, key_pair, num_arguments, tfhe_func, reference_func,
-        size=32, performance_test=False, perf_params=None):
+        shape=32, performance_test=False, perf_params=None):
+
+    if not isinstance(shape, tuple):
+        shape = (shape,)
 
     secret_key, cloud_key = key_pair
 
@@ -36,13 +39,13 @@ def check_gate(
 
     rng = numpy.random.RandomState()
 
-    plaintexts = get_plaintexts(rng, num_arguments, size=size)
+    plaintexts = get_plaintexts(rng, num_arguments, shape=shape)
     ciphertexts = [tfhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
 
     reference = reference_func(*plaintexts)
 
     params = tfhe_parameters(cloud_key)
-    answer = empty_ciphertext(thread, params, (size,))
+    answer = empty_ciphertext(thread, params, shape)
 
     if performance_test:
 
@@ -210,22 +213,34 @@ def test_constant_gate(thread, key_pair):
         assert (answer_bits == val).all()
 
 
-def check_performance(thread, key_pair, perf_params, size):
+def check_performance(
+        thread, key_pair, perf_params, size, test_function=(tfhe_gate_NAND_, nand_ref, 2)):
+
     # Assuming that the time taken by the gate has the form
     #   t = size * speed + overhead
     # Then, for two results t(size1), t(size2):
     #   speed = (t(size1) - t(size2)) / (size1 - size2)
     #   overhead = (t(size1) * size2 - t(size2) * size1) / (size2 - size1)
 
-    size1 = size
-    size2 = size // 2
+    tfhe_func, ref_func, nargs = test_function
+
+    if isinstance(size, tuple):
+        shape1 = size
+        shape2 = (size[0] // 2,) + size[1:]
+        size1 = numpy.prod(shape1)
+        size2 = numpy.prod(shape2)
+    else:
+        shape1 = size
+        shape2 = size // 2
+        size1 = shape1
+        size2 = shape2
 
     times1 = check_gate(
-        thread, key_pair, 2, tfhe_gate_NAND_, nand_ref,
-        size=size1, performance_test=True, perf_params=perf_params)
+        thread, key_pair, nargs, tfhe_func, ref_func,
+        shape=shape1, performance_test=True, perf_params=perf_params)
     times2 = check_gate(
-        thread, key_pair, 2, tfhe_gate_NAND_, nand_ref,
-        size=size2, performance_test=True, perf_params=perf_params)
+        thread, key_pair, nargs, tfhe_func, ref_func,
+        shape=shape2, performance_test=True, perf_params=perf_params)
 
     mean1 = times1.mean()
     err1 = times1.std() / times1.size**0.5
@@ -267,14 +282,15 @@ def check_performance_str(results):
 def test_single_kernel_bs_performance(
         thread, transform_type, single_kernel_bootstrap, heavy_performance_load):
 
-    size = 4096 if heavy_performance_load else 64
+    shape = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
     perf_params = performance_parameters(
         tfhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
+    results = check_performance(
+        thread, (secret_key, cloud_key), perf_params, shape=shape, test_function=test_function)
     print()
     print(check_performance_str(results))
 
@@ -302,7 +318,7 @@ def test_constant_mem_performance(
         kwds.update(dict(use_constant_memory_single_iter=use_constant_memory))
     perf_params = performance_parameters(**kwds)
 
-    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -320,7 +336,7 @@ def test_transforms_per_block_performance(
         transforms_per_block=transforms_per_block)
     rng = numpy.random.RandomState()
     key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
-    results = check_performance(thread, key_pair, perf_params, size=size)
+    results = check_performance(thread, key_pair, perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -343,7 +359,7 @@ def test_ntt_base_method_performance(
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_base_method=ntt_base_method)
 
-    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -368,7 +384,7 @@ def test_ntt_mul_method_performance(
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_mul_method=ntt_mul_method)
 
-    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -393,7 +409,7 @@ def test_ntt_lsh_method_performance(
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_lsh_method=ntt_lsh_method)
 
-    results = check_performance(thread, (secret_key, cloud_key), perf_params, size=size)
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -408,7 +424,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     rng = numpy.random.RandomState(123)
     params = tfhe_parameters(cloud_key)
 
-    size = (5, 8,)
+    shape = (5, 8)
 
     # FIXME: negative steps are supported as well, but the current stable PyCUDA
     # has a bug where in that case it calculates strides incorrectly.
@@ -417,7 +433,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     slices2 = (slice(1, 3), slice(2, 8, 2))
     result_slices = (slice(2, 4), slice(0, 6, 2))
 
-    plaintexts = get_plaintexts(rng, num_arguments, size=size)
+    plaintexts = get_plaintexts(rng, num_arguments, shape=shape)
     pt1 = plaintexts[0][slices1]
     pt2 = plaintexts[1][slices2]
 
@@ -427,7 +443,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
 
     reference = reference_func(pt1, pt2)
 
-    answer = empty_ciphertext(thread, params, size)
+    answer = empty_ciphertext(thread, params, shape)
     answer_view = answer[result_slices]
 
     tfhe_func(thread, cloud_key, answer_view, ct1, ct2,
