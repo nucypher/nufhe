@@ -7,6 +7,7 @@ import numpy
 from reikna.cluda import cuda_id
 
 from tfhe import *
+from tfhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 
 
 @pytest.fixture(scope='module')
@@ -143,6 +144,13 @@ def oryn_ref(a, b):
 def mux_ref(a, b, c):
     return a * b + ~a * c
 
+def uint_min_ref(p1, p2):
+    ints1 = bitarray_to_uintarray(p1)
+    ints2 = bitarray_to_uintarray(p2)
+    ires = numpy.minimum(ints1, ints2)
+    res = uintarray_to_bitarray(ires)
+    return res
+
 
 def test_nand_gate(thread, key_pair):
     check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref)
@@ -211,6 +219,10 @@ def test_constant_gate(thread, key_pair):
         tfhe_gate_CONSTANT_(thread, cloud_key, answer, val)
         answer_bits = tfhe_decrypt(thread, secret_key, answer)
         assert (answer_bits == val).all()
+
+
+def test_uint_min(thread, key_pair):
+    check_gate(thread, key_pair, 2, uint_min, uint_min_ref, shape=(4, 16))
 
 
 def check_performance(
