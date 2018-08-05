@@ -226,7 +226,7 @@ def test_uint_min(thread, key_pair):
 
 
 def check_performance(
-        thread, key_pair, perf_params, size, test_function=(tfhe_gate_NAND_, nand_ref, 2)):
+        thread, key_pair, perf_params, shape, test_function=(tfhe_gate_NAND_, nand_ref, 2)):
 
     # Assuming that the time taken by the gate has the form
     #   t = size * speed + overhead
@@ -236,14 +236,14 @@ def check_performance(
 
     tfhe_func, ref_func, nargs = test_function
 
-    if isinstance(size, tuple):
-        shape1 = size
-        shape2 = (size[0] // 2,) + size[1:]
+    if isinstance(shape, tuple):
+        shape1 = shape
+        shape2 = (shape[0] // 2,) + shape[1:]
         size1 = numpy.prod(shape1)
         size2 = numpy.prod(shape2)
     else:
-        shape1 = size
-        shape2 = size // 2
+        shape1 = shape
+        shape2 = shape // 2
         size1 = shape1
         size2 = shape2
 
@@ -291,10 +291,21 @@ def check_performance_str(results):
 
 
 @pytest.mark.perf
+@pytest.mark.parametrize('test_function_name', ['NAND', 'MUX', 'uint_min'])
 def test_single_kernel_bs_performance(
-        thread, transform_type, single_kernel_bootstrap, heavy_performance_load):
+        thread, transform_type, single_kernel_bootstrap,
+        test_function_name, heavy_performance_load):
 
-    shape = 4096 if heavy_performance_load else 64
+    test_function = dict(
+        NAND=(tfhe_gate_NAND_, nand_ref, 2),
+        MUX=(tfhe_gate_MUX_, mux_ref, 3),
+        uint_min=(uint_min, uint_min_ref, 2),
+        )[test_function_name]
+
+    if test_function_name == 'uint_min':
+        shape = (128, 32) if heavy_performance_load else (4, 16)
+    else:
+        shape = 4096 if heavy_performance_load else 16
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
