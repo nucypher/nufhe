@@ -167,18 +167,21 @@ ${kernel_declaration}
     LOCAL_BARRIER;
     }
 
-    const unsigned int tlwe_n = 1024;
+    <%
+        # Since k == 1, they're the same
+        input_size = transform.polynomial_length
+    %>
 
-    for (int i = tid; i <= tlwe_n; i += bdim)
+    for (int i = tid; i <= ${input_size}; i += bdim)
     {
-        if (i == tlwe_n)
+        if (i == ${input_size})
         {
-            ${extracted_b.store_combined_idx(slices3)}(batch_id, shared_accum[1024]);
+            ${extracted_b.store_combined_idx(slices3)}(batch_id, shared_accum[${input_size}]);
         }
         else
         {
             ${extracted_a.store_combined_idx(slices2)}(
-                batch_id, i, i == 0 ? shared_accum[0] : -shared_accum[1024 - i]);
+                batch_id, i, i == 0 ? shared_accum[0] : -shared_accum[${input_size} - i]);
         }
     }
 }
