@@ -4,9 +4,8 @@ from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 import reikna.helpers as helpers
 
 from .numeric_functions import Torus32
-from .tlwe_gpu import tLweSymEncryptZero_gpu
 from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
-from .tlwe import TLweSampleArray
+from .tlwe import TLweSampleArray, tlwe_encrypt_zero
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
 from .performance import PerformanceParameters, performance_parameters_for_device
@@ -189,7 +188,7 @@ def tGswEncryptZero(
         thr, rng, result: TGswSampleArray, noise: float, key: 'TGswKey',
         perf_params: PerformanceParameters):
     rlkey = key.tlwe_key
-    tLweSymEncryptZero_gpu(thr, rng, result.samples, noise, rlkey, perf_params)
+    tlwe_encrypt_zero(thr, rng, result.samples, noise, rlkey, perf_params)
 
 
 # encrypts a constant message

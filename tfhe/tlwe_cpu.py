@@ -1,66 +1,72 @@
 import numpy
 
+from reikna.helpers import product
+
 from .numeric_functions import Torus32
 from .polynomial_transform import get_transform
 
 
+def TLweNoiselessTrivialReference(params: 'TLweParams', shape):
+
+    mask_size = params.mask_size
+    polynomial_degree = params.polynomial_degree
+    batch_len = product(shape)
+
+    def _kernel(a, current_variances, mu):
+        a_view = a.reshape(batch_len, mask_size + 1, polynomial_degree)
+        a_view[:,:mask_size,:] = 0
+        a_view[:,mask_size,:] = mu.reshape(batch_len, polynomial_degree)
+        current_variances.fill(0)
+
+    return _kernel
+
+
+def TLweExtractLweSamplesReference(params: 'TLweParams', shape):
+
+    mask_size = params.mask_size
+    polynomial_degree = params.polynomial_degree
+    batch_len = product(shape)
+
+    def _kernel(result_a, result_b, tlwe_a):
+
+        batch = product(tlwe_a.shape[:-2])
+
+        a_view = result_a.reshape(batch_len, mask_size, polynomial_degree)
+        b_view = result_b.reshape(batch_len)
+        tlwe_a_view = tlwe_a.reshape(batch_len, mask_size + 1, polynomial_degree)
+
+        a_view[:,:,0] = tlwe_a_view[:, :mask_size, 0]
+        a_view[:,:,1:] = -tlwe_a_view[:, :mask_size, :0:-1]
+
+        numpy.copyto(b_view, tlwe_a_view[:, mask_size, 0])
+
+    return _kernel
+
+
 # create an homogeneous tlwe sample
-def TLweSymEncryptZero_ref(shape, noise: float, params: 'TLweParams', perf_params):
-    N = params.polynomial_degree
-    k = params.mask_size
+def TLweEncryptZeroReference(params: 'TLweParams', shape, noise: float, perf_params):
+    polynomial_degree = params.polynomial_degree
+    mask_size = params.mask_size
 
     transform = get_transform(params.transform_type)
     tr_dtype = transform.transformed_dtype()
 
     def _kernel(result_a, result_cv, key, noises1, noises2):
+        batch_len = product(shape)
+        result_a_view = result_a.reshape(batch_len, mask_size + 1, polynomial_degree)
+        noises1_view = noises1.reshape(batch_len, mask_size, polynomial_degree)
+        noises2_view = noises2.reshape(batch_len, polynomial_degree)
+
         tmp1 = transform.forward_transform_ref(key)
-        tmp2 = transform.forward_transform_ref(noises1)
+        tmp2 = transform.forward_transform_ref(noises1_view)
         tmp3 = transform.transformed_space_mul_ref(tmp1, tmp2)
         tmpr = transform.inverse_transform_ref(tmp3)
 
-        result_a[:,:,:,:k,:] = noises1
-        result_a[:,:,:,k,:] = noises2
-        for i in range(k):
-            result_a[:,:,:,k,:] += tmpr[:,:,:,i,:]
+        result_a_view[:,:mask_size,:] = noises1_view
+        result_a_view[:,mask_size,:] = noises2_view
+        for i in range(mask_size):
+            result_a_view[:,mask_size,:] += tmpr[:,i,:]
 
         result_cv.fill(noise**2)
 
     return _kernel
-
-
-def int_prod(arr):
-    return numpy.prod(arr, dtype=numpy.int32)
-
-
-def tLweNoiselessTrivial_reference(result_a, result_current_variances, mu):
-    assert len(result_a.shape) == 3
-    assert result_current_variances.shape == result_a.shape[:-2]
-    assert mu.shape == (result_a.shape[0], result_a.shape[-1])
-    assert result_a.dtype == mu.dtype
-
-    k = result_a.shape[1] - 1
-    result_a[:,:k,:] = 0
-    result_a[:,k,:] = mu
-    result_current_variances.fill(0.)
-
-
-def tLweExtractLweSample_reference(result_a, result_b, tlwe_a):
-
-    N = tlwe_a.shape[-1]
-    k = tlwe_a.shape[-2] - 1
-    assert result_a.shape[-1] == k*N
-    assert result_a.shape[:-1] == tlwe_a.shape[:-2]
-    assert result_b.shape == tlwe_a.shape[:-2]
-    assert result_a.dtype == tlwe_a.dtype
-    assert result_b.dtype == tlwe_a.dtype
-
-    batch = int_prod(tlwe_a.shape[:-2])
-
-    a_view = result_a.reshape(batch, k, N)
-    b_view = result_b.reshape(batch)
-    tlwe_a_view = tlwe_a.reshape(batch, k + 1, N)
-
-    a_view[:,:,0] = tlwe_a_view[:, :k, 0]
-    a_view[:,:,1:] = -tlwe_a_view[:, :k, :0:-1]
-
-    numpy.copyto(b_view, tlwe_a_view[:, k, 0])

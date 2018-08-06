@@ -11,11 +11,11 @@ When it is necessary, the functions can be made to execute on GPU without changi
 
 import numpy
 
-from .numeric_functions import double_to_t32, Torus32
+from .numeric_functions import double_to_t32, Torus32, Int32
 
 
 def _rand_uniform_int32(rng, shape):
-    return rng.randint(0, 2, size=shape, dtype=numpy.int32)
+    return rng.randint(0, 2, size=shape, dtype=Int32)
 
 
 def _rand_uniform_torus32(rng, shape):
@@ -42,6 +42,7 @@ def rand_uniform_torus32(thr, rng, shape):
 
 def rand_gaussian_float(thr, rng, sigma, shape):
     return thr.to_device(_rand_gaussian_float(rng, sigma, shape))
+
 
 def rand_gaussian_torus32(thr, rng, message: Torus32, sigma: float, shape):
     return thr.to_device(_rand_gaussian_torus32(rng, message, sigma, shape))

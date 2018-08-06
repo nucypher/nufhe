@@ -1,8 +1,13 @@
 import numpy
 
 from .numeric_functions import Torus32
-from .tlwe import TLweParams, TLweKey, TLweSampleArray, TLweSampleFFTArray
-from .tlwe_gpu import tLweToFFTConvert_gpu
+from .tlwe import (
+    TLweParams,
+    TLweKey,
+    TLweSampleArray,
+    TransformedTLweSampleArray,
+    tlwe_transform_samples,
+    )
 from .performance import PerformanceParameters
 
 
@@ -28,7 +33,7 @@ class TGswKey:
     def __init__(self, thr, rng, params: TGswParams):
         self.params = params # the parameters
         self.tlwe_params = params.tlwe_params # the tlwe params of each rows
-        self.tlwe_key = TLweKey(thr, rng, params.tlwe_params)
+        self.tlwe_key = TLweKey(thr, params.tlwe_params, rng)
 
 
 class TGswSampleArray:
@@ -45,7 +50,7 @@ class TGswSampleFFTArray:
     def __init__(self, thr, params: TGswParams, shape):
         self.mask_size = params.tlwe_params.mask_size
         self.decomp_length = params.decomp_length
-        self.samples = TLweSampleFFTArray(
+        self.samples = TransformedTLweSampleArray(
             thr, params.tlwe_params, shape + (self.mask_size + 1, self.decomp_length))
 
 
@@ -54,4 +59,4 @@ class TGswSampleFFTArray:
 def tGswToFFTConvert(
         thr, result: TGswSampleFFTArray, source: TGswSampleArray, params: TGswParams,
         perf_params: PerformanceParameters):
-    tLweToFFTConvert_gpu(thr, result.samples, source.samples, params.tlwe_params, perf_params)
+    tlwe_transform_samples(thr, result.samples, source.samples, perf_params)

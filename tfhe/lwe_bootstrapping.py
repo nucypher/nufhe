@@ -3,12 +3,13 @@ from .polynomials import TorusPolynomialArray, shift_tp_inverted_power
 from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
 from .tgsw import TGswKey, TGswSampleFFTArray, TGswParams, TGswSampleArray, tGswToFFTConvert
 from .tgsw_gpu import tGswSymEncryptInt_gpu, tGswFFTExternMulToTLwe_gpu
-from .tlwe import TLweSampleArray
-from .tlwe_gpu import (
-    tLweNoiselessTrivial_gpu,
-    tLweMulByXaiMinusOne_gpu,
-    tLweAddTo_gpu,
-    tLweExtractLweSample_gpu,
+from .tlwe import (
+    TLweSampleArray,
+    tlwe_noiseless_trivial,
+    tlwe_shift_polynomials,
+    tlwe_add_to,
+    tlwe_extract_lwe_samples,
+    tlwe_copy,
     )
 from .blind_rotate import BlindRotate_gpu
 from .performance import PerformanceParameters
@@ -72,13 +73,13 @@ def tfhe_MuxRotate_FFT(
     # TYPING: barai::Array{Int32}
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
-    tLweMulByXaiMinusOne_gpu(thr, result, barai, bk_idx, accum, bk_params.tlwe_params)
+    tlwe_shift_polynomials(thr, result, accum, barai, bk_idx)
 
     # temp *= BKi
     tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params, perf_params)
 
     # ACC += temp
-    tLweAddTo_gpu(result, accum, bk_params.tlwe_params)
+    tlwe_add_to(thr, result, accum)
 
 
 """
@@ -109,8 +110,9 @@ def tfhe_blindRotate_FFT(
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
 
+    # TODO: add a test that checks this
     if not accum_in_temp3: # temp3 != accum
-        tLweCopy_gpu(accum, temp3, bk_params.tlwe_params)
+        tlwe_copy(thr, accum, temp3)
 
 
 """
@@ -144,16 +146,13 @@ def tfhe_blindRotateAndExtract_FFT(
     extract_params = accum_params.extracted_lweparams
     N = accum_params.polynomial_degree
 
-    # Test polynomial
+    # testvector = X^{2N-barb}*v
     testvectbis = TorusPolynomialArray.empty(thr, N, extracted_result.shape_info.shape)
+    shift_tp_inverted_power(thr, testvectbis, barb, v)
 
     # Accumulator
     acc = TLweSampleArray(thr, accum_params, extracted_result.shape_info.shape)
-
-    # testvector = X^{2N-barb}*v
-    shift_tp_inverted_power(thr, testvectbis, barb, v)
-
-    tLweNoiselessTrivial_gpu(acc, testvectbis, accum_params)
+    tlwe_noiseless_trivial(thr, acc, testvectbis)
 
     if perf_params.single_kernel_bootstrap:
         # includes blindrotate, extractlwesample and (optionally) keyswitch
@@ -165,7 +164,7 @@ def tfhe_blindRotateAndExtract_FFT(
             thr, acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params, perf_params)
 
         # Extraction
-        tLweExtractLweSample_gpu(extracted_result, acc, extract_params, accum_params)
+        tlwe_extract_lwe_samples(thr, extracted_result, acc)
 
         if not no_keyswitch:
             lwe_keyswitch(thr, result, bk.ks, extracted_result)
