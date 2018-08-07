@@ -32,7 +32,7 @@ class TFHEParameters:
 
         params_in = LweParams(lwe_size, ks_stdev, max_stdev)
         params_accum = TLweParams(tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev, transform_type)
-        params_bs = TGswParams(bs_decomp_length, bs_log2_base, params_accum)
+        params_bs = TGswParams(params_accum, bs_decomp_length, bs_log2_base)
 
         self.ks_decomp_length = ks_decomp_length
         self.ks_log2_base = ks_log2_base
@@ -63,7 +63,7 @@ def tfhe_key_pair(thr, rng, **params):
     params = TFHEParameters(**params)
 
     lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
-    tgsw_key = TGswKey(thr, rng, params.tgsw_params)
+    tgsw_key = TGswKey(thr, params.tgsw_params, rng)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
     # TODO: use PerformanceParameters from the user

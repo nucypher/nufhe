@@ -3,10 +3,7 @@ import numpy
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 import reikna.helpers as helpers
 
-from .numeric_functions import Torus32
-from .tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
-from .tlwe import TLweSampleArray, tlwe_encrypt_zero
-from .computation_cache import get_computation
+from .numeric_functions import Torus32, Int32
 from .polynomial_transform import get_transform
 from .performance import PerformanceParameters, performance_parameters_for_device
 
@@ -14,10 +11,16 @@ from .performance import PerformanceParameters, performance_parameters_for_devic
 TEMPLATE = helpers.template_for(__file__)
 
 
-def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
-    sample = Type(result.dtype, result.shape[:-2] + result.shape[-1:])
-    return Transformation(
-        [Parameter('output', Annotation(result, 'o')),
+def get_tgsw_polynomial_decomp_trf(params: 'TGswParams', shape):
+    tlwe_params = params.tlwe_params
+    decomp_length = params.decomp_length
+    mask_size = tlwe_params.mask_size
+    polynomial_degree = tlwe_params.polynomial_degree
+
+    result = Type(Int32, shape + (mask_size + 1, decomp_length, polynomial_degree))
+    sample = Type(Torus32, shape + (mask_size + 1, polynomial_degree))
+    return Transformation([
+        Parameter('result', Annotation(result, 'o')),
         Parameter('sample', Annotation(sample, 'i'))],
         """
         <%
@@ -25,138 +28,141 @@ def get_TGswTorus32PolynomialDecompH_trf(result, params: TGswParams):
             half_base = 2**(params.bs_log2_base - 1)
         %>
         ${sample.ctype} sample = ${sample.load_idx}(${", ".join(idxs[:-2])}, ${idxs[-1]});
-        int p = ${idxs[-2]} + 1;
-        int decal = 32 - p * ${params.bs_log2_base};
-        ${output.store_same}(
-            (((sample + (${params.offset})) >> decal) & ${mask}) - ${half_base}
+        int decomp_shift = 32 - (${idxs[-2]} + 1) * ${params.bs_log2_base};
+        ${result.store_same}(
+            (((sample + (${params.offset})) >> decomp_shift) & ${mask}) - ${half_base}
         );
         """,
-        connectors=['output'],
+        connectors=['results'],
         render_kwds=dict(params=params))
 
 
-def get_TLweFFTAddMulRTo_trf(
-        N, transform_type, tmpa_a, gsw, tr_ctype, perf_params: PerformanceParameters):
+# result = result + p*sample
+def get_tlwe_transformed_add_mul_to_trf(
+        params: 'TGswParams', shape, bk_len: int, perf_params: PerformanceParameters):
 
-    k = tmpa_a.shape[-2] - 1
-    l = gsw.shape[-3]
-    batch = tmpa_a.shape[:-2]
-    transform = get_transform(transform_type)
-    decaFFT = Type(tmpa_a.dtype, batch + (k + 1, l, transform.transformed_length(N)))
+    tlwe_params = params.tlwe_params
+    decomp_length = params.decomp_length
+    mask_size = tlwe_params.mask_size
+    polynomial_degree = tlwe_params.polynomial_degree
 
-    return Transformation(
-        [Parameter('tmpa_a', Annotation(tmpa_a, 'o')),
-        Parameter('decaFFT', Annotation(decaFFT, 'i')),
-        Parameter('gsw', Annotation(gsw, 'i')),
-        Parameter('bk_idx', Annotation(numpy.int32))],
+    transform = get_transform(params.tlwe_params.transform_type)
+    tdtype = transform.transformed_dtype()
+    tlength = transform.transformed_length(polynomial_degree)
+    tr_ctype = transform.transformed_internal_ctype()
+
+    result = Type(tdtype, shape + (mask_size + 1, tlength))
+    sample = Type(tdtype, shape + (mask_size + 1, decomp_length, tlength))
+    bootstrap_key = Type(tdtype, (bk_len, mask_size + 1, decomp_length, mask_size + 1, tlength))
+
+    return Transformation([
+        Parameter('result', Annotation(result, 'o')),
+        Parameter('sample', Annotation(sample, 'i')),
+        Parameter('bootstrap_key', Annotation(bootstrap_key, 'i')),
+        Parameter('bk_row_idx', Annotation(numpy.int32))],
         """
-        ${tr_ctype} tmpa_a = ${tr_ctype}pack(${dtypes.c_constant(0, tmpa_a.dtype)});
+        ${tr_ctype} result = ${tr_ctype}pack(${dtypes.c_constant(0, result.dtype)});
 
-        %for i in range(k + 1):
-        %for j in range(l):
+        %for mask_idx in range(mask_size + 1):
+        %for decomp_idx in range(decomp_length):
         {
             ${tr_ctype} a = ${tr_ctype}pack(
-                ${decaFFT.load_idx}(
-                    ${", ".join(idxs[:-2])}, ${i}, ${j}, ${idxs[-1]})
+                ${sample.load_idx}(
+                    ${", ".join(idxs[:-2])}, ${mask_idx}, ${decomp_idx}, ${idxs[-1]})
                 );
             ${tr_ctype} b = ${tr_ctype}pack(
-                ${gsw.load_idx}(
-                    ${bk_idx}, ${i}, ${j}, ${idxs[-2]}, ${idxs[-1]})
+                ${bootstrap_key.load_idx}(
+                    ${bk_row_idx}, ${mask_idx}, ${decomp_idx}, ${idxs[-2]}, ${idxs[-1]})
                 );
-            tmpa_a = ${add}(tmpa_a, ${mul}(a, b));
+            result = ${add}(result, ${mul}(a, b));
         }
         %endfor
         %endfor
 
-        ${tmpa_a.store_same}(${tr_ctype}unpack(tmpa_a));
+        ${result.store_same}(${tr_ctype}unpack(result));
         """,
-        connectors=['tmpa_a'],
+        connectors=['result'],
         render_kwds=dict(
-            k=k, l=l,
+            mask_size=mask_size,
+            decomp_length=decomp_length,
             add=transform.transformed_add(perf_params),
             mul=transform.transformed_mul(perf_params),
             tr_ctype=tr_ctype))
 
 
-class TGswFFTExternMulToTLwe(Computation):
+class TGswTransformedExternalMul(Computation):
 
-    def __init__(self, accum_a, gsw, params: TGswParams, perf_params: PerformanceParameters):
+    def __init__(self, params: 'TGswParams', shape, bk_len, perf_params: PerformanceParameters):
+
+        mask_size = params.tlwe_params.mask_size
+        polynomial_degree = params.tlwe_params.polynomial_degree
+        decomp_length = params.decomp_length
+
+        transform = get_transform(params.tlwe_params.transform_type)
+        tdtype = transform.transformed_dtype()
+        tlength = transform.transformed_length(polynomial_degree)
+
+        accum = Type(Torus32, shape + (mask_size + 1, polynomial_degree))
+        bootstrap_key = Type(tdtype, (bk_len, mask_size + 1, decomp_length, mask_size + 1, tlength))
+
         self._params = params
         self._perf_params = perf_params
-        Computation.__init__(self,
-            [Parameter('accum_a', Annotation(accum_a, 'io')),
-            Parameter('gsw', Annotation(gsw, 'i')),
-            Parameter('bk_idx', Annotation(numpy.int32))])
+        self._shape = shape
+        self._bk_len = bk_len
 
-    def _build_plan(self, plan_factory, device_params, accum_a, gsw, bk_idx):
+        Computation.__init__(self,
+            [Parameter('accum', Annotation(accum, 'io')),
+            Parameter('bootstrap_key', Annotation(bootstrap_key, 'i')),
+            Parameter('bk_row_idx', Annotation(numpy.int32))])
+
+    def _build_plan(self, plan_factory, device_params, accum, bootstrap_key, bk_row_idx):
         plan = plan_factory()
 
         perf_params = performance_parameters_for_device(self._perf_params, device_params)
         params = self._params
 
         tlwe_params = params.tlwe_params
-        k = tlwe_params.mask_size
-        l = params.decomp_length
-        N = tlwe_params.polynomial_degree
+        polynomial_degree = tlwe_params.polynomial_degree
 
-        batch_shape = accum_a.shape[:-2]
+        batch_shape = self._shape
 
         transform = get_transform(tlwe_params.transform_type)
 
-        tdtype = transform.transformed_dtype()
-        tlength = transform.transformed_length(N)
+        decomp = get_tgsw_polynomial_decomp_trf(params, batch_shape)
+        decomp_and_ftr = transform.ForwardTransform(
+            decomp.result.shape[:-1], polynomial_degree, perf_params)
+        decomp_and_ftr.parameter.input.connect(decomp, decomp.result, sample=decomp.sample)
 
-        deca_shape = batch_shape + (k + 1, l)
-        tmpa_shape = batch_shape + (k + 1,)
+        add_mul = get_tlwe_transformed_add_mul_to_trf(
+            params, batch_shape, self._bk_len, perf_params)
+        add_mul_and_itr = transform.InverseTransform(
+            add_mul.result.shape[:-1], polynomial_degree, perf_params)
+        add_mul_and_itr.parameter.input.connect(
+            add_mul, add_mul.result,
+            tr_sample=add_mul.sample, bootstrap_key=add_mul.bootstrap_key,
+            bk_row_idx=add_mul.bk_row_idx)
 
-        deca_type = Type(numpy.int32, deca_shape + (N,))
-        deca_fft_type = Type(tdtype, deca_shape + (tlength,))
-        tmpa_a_type = Type(tdtype, tmpa_shape + (tlength,))
+        tr_sample = plan.temp_array_like(decomp_and_ftr.parameter.output)
 
-        decomp = get_TGswTorus32PolynomialDecompH_trf(deca_type, params)
-        ip_ifft = transform.ForwardTransform(deca_shape, N, perf_params)
-        ip_ifft.parameter.input.connect(
-            decomp, decomp.output, sample=decomp.sample)
-
-        add = get_TLweFFTAddMulRTo_trf(
-            N, tlwe_params.transform_type, tmpa_a_type, gsw,
-            transform.transformed_internal_ctype(), perf_params)
-        tp_fft = transform.InverseTransform(tmpa_shape, N, perf_params)
-        tp_fft.parameter.input.connect(
-            add, add.tmpa_a, decaFFT=add.decaFFT, gsw=add.gsw, bk_idx=add.bk_idx)
-
-        decaFFT = plan.temp_array_like(deca_fft_type)
-
-        plan.computation_call(ip_ifft, decaFFT, accum_a)
-        plan.computation_call(tp_fft, accum_a, decaFFT, gsw, bk_idx)
+        plan.computation_call(decomp_and_ftr, tr_sample, accum)
+        plan.computation_call(add_mul_and_itr, accum, tr_sample, bootstrap_key, bk_row_idx)
 
         return plan
 
 
-def tGswFFTExternMulToTLwe_gpu(
-        result: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int, bk_params: TGswParams,
-        perf_params: PerformanceParameters):
+class TGswAddMessage(Computation):
 
-    thr = result.a.coeffs.thread
-    comp = get_computation(
-        thr, TGswFFTExternMulToTLwe, result.a.coeffs, bki.samples.a.coeffs, bk_params, perf_params)
-    comp(result.a.coeffs, bki.samples.a.coeffs, bk_idx)
-
-
-class TGswAddMuIntH(Computation):
-
-    def __init__(self, n, params: 'TGswParams'):
+    def __init__(self, params: 'TGswParams', shape):
 
         self._params = params
 
-        k = params.tlwe_params.mask_size
-        l = params.decomp_length
-        N = params.tlwe_params.polynomial_degree
+        decomp_length = params.decomp_length
+        mask_size = params.tlwe_params.mask_size
+        polynomial_degree = params.tlwe_params.polynomial_degree
 
-        result_a = Type(Torus32, (n, k + 1, l, k + 1, N))
-        messages = Type(Torus32, (n,))
-
-        self._n = n
+        result_a = Type(
+            Torus32, shape + (mask_size + 1, decomp_length, mask_size + 1, polynomial_degree))
+        messages = Type(Torus32, shape)
 
         Computation.__init__(self,
             [Parameter('result_a', Annotation(result_a, 'o')),
@@ -165,37 +171,15 @@ class TGswAddMuIntH(Computation):
     def _build_plan(self, plan_factory, device_params, result_a, messages):
         plan = plan_factory()
 
+        batch_len = helpers.product(messages.shape)
         plan.kernel_call(
-            TEMPLATE.get_def("TGswAddMuIntH"),
+            TEMPLATE.get_def("tgsw_add_message"),
             [result_a, messages],
-            global_size=(self._n,),
+            global_size=(batch_len,),
             render_kwds=dict(
-                h=self._params.base_powers,
-                l=self._params.decomp_length,
-                k=self._params.tlwe_params.mask_size))
+                slices=(len(messages.shape), 1, 1, 1, 1),
+                base_powers=self._params.base_powers,
+                decomp_length=self._params.decomp_length,
+                mask_size=self._params.tlwe_params.mask_size))
 
         return plan
-
-
-def tGswAddMuIntH_gpu(thr, result: 'TGswSampleArray', messages, params: 'TGswParams'):
-    n = result.samples.a.coeffs.shape[0] # TODO: get from the parameters
-    comp = get_computation(thr, TGswAddMuIntH, n, params)
-    comp(result.samples.a.coeffs, messages)
-
-
-# Result = tGsw(0)
-def tGswEncryptZero(
-        thr, rng, result: TGswSampleArray, noise: float, key: 'TGswKey',
-        perf_params: PerformanceParameters):
-    rlkey = key.tlwe_key
-    tlwe_encrypt_zero(thr, rng, result.samples, noise, rlkey, perf_params)
-
-
-# encrypts a constant message
-def tGswSymEncryptInt_gpu(
-        thr, rng, result: TGswSampleArray, messages, noise: float, key: 'TGswKey',
-        perf_params: PerformanceParameters):
-
-    # TYPING: messages::Array{Int32, 1}
-    tGswEncryptZero(thr, rng, result, noise, key, perf_params)
-    tGswAddMuIntH_gpu(thr, result, messages, key.params)

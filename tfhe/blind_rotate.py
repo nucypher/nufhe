@@ -5,7 +5,7 @@ import reikna.helpers as helpers
 from reikna.core import Type
 
 from .lwe import LweParams, LweSampleArray, LweKeyswitch
-from .tgsw import TGswParams, TGswSampleFFTArray
+from .tgsw import TGswParams, TransformedTGswSampleArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform

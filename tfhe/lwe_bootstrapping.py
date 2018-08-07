@@ -1,8 +1,15 @@
 from .numeric_functions import Torus32, t32_to_phase
 from .polynomials import TorusPolynomialArray, shift_tp_inverted_power
 from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
-from .tgsw import TGswKey, TGswSampleFFTArray, TGswParams, TGswSampleArray, tGswToFFTConvert
-from .tgsw_gpu import tGswSymEncryptInt_gpu, tGswFFTExternMulToTLwe_gpu
+from .tgsw import (
+    TGswKey,
+    TransformedTGswSampleArray,
+    TGswParams,
+    TGswSampleArray,
+    tgsw_transform_samples,
+    tgsw_encrypt_int,
+    tgsw_transformed_external_mul,
+    )
 from .tlwe import (
     TLweSampleArray,
     tlwe_noiseless_trivial,
@@ -33,7 +40,7 @@ def lwe_bootstrapping_key(
     kin = key_in.key
     noise = accum_params.min_noise
 
-    tGswSymEncryptInt_gpu(thr, rng, bk, kin, noise, rgsw_key, perf_params)
+    tgsw_encrypt_int(thr, rng, bk, kin, noise, rgsw_key, perf_params)
 
     return bk, ks
 
@@ -55,8 +62,8 @@ class LweBootstrappingKeyFFT:
         n = in_out_params.size
 
         # Bootstrapping Key FFT
-        bkFFT = TGswSampleFFTArray(thr, bk_params, (n,))
-        tGswToFFTConvert(thr, bkFFT, bk, bk_params, perf_params)
+        bkFFT = TransformedTGswSampleArray(thr, bk_params, (n,))
+        tgsw_transform_samples(thr, bkFFT, bk, perf_params)
 
         self.in_out_params = in_out_params # paramètre de l'input et de l'output. key: s
         self.bk_params = bk_params # params of the Gsw elems in bk. key: s"
@@ -67,7 +74,7 @@ class LweBootstrappingKeyFFT:
 
 
 def tfhe_MuxRotate_FFT(
-        thr, result: TLweSampleArray, accum: TLweSampleArray, bki: TGswSampleFFTArray, bk_idx: int,
+        thr, result: TLweSampleArray, accum: TLweSampleArray, bki: TransformedTGswSampleArray, bk_idx: int,
         barai, bk_params: TGswParams, perf_params: PerformanceParameters):
 
     # TYPING: barai::Array{Int32}
@@ -76,7 +83,7 @@ def tfhe_MuxRotate_FFT(
     tlwe_shift_polynomials(thr, result, accum, barai, bk_idx)
 
     # temp *= BKi
-    tGswFFTExternMulToTLwe_gpu(result, bki, bk_idx, bk_params, perf_params)
+    tgsw_transformed_external_mul(thr, result, bki, bk_idx, perf_params)
 
     # ACC += temp
     tlwe_add_to(thr, result, accum)
@@ -90,7 +97,7 @@ def tfhe_MuxRotate_FFT(
  * @param bk_params The parameters of bk
 """
 def tfhe_blindRotate_FFT(
-        thr, accum: TLweSampleArray, bkFFT: TGswSampleFFTArray, bara, n: int, bk_params: TGswParams,
+        thr, accum: TLweSampleArray, bkFFT: TransformedTGswSampleArray, bara, n: int, bk_params: TGswParams,
         perf_params: PerformanceParameters):
 
     # TYPING: bara::Array{Int32}

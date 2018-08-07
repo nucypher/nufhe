@@ -2,45 +2,47 @@ import numpy
 
 from reikna.algorithms import PureParallel
 
-from tfhe.tgsw import TGswParams, TGswSampleArray, TGswSampleFFTArray
+from tfhe.tgsw import TGswParams, TGswSampleArray, TransformedTGswSampleArray
 from tfhe.tlwe import TLweSampleArray
 from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32
+from tfhe.numeric_functions import Torus32, Int32
 from tfhe.polynomial_transform import get_transform
 from tfhe.tgsw_gpu import (
-    get_TGswTorus32PolynomialDecompH_trf,
-    get_TLweFFTAddMulRTo_trf,
-    TGswFFTExternMulToTLwe,
-    TGswAddMuIntH,
+    get_tgsw_polynomial_decomp_trf,
+    get_tlwe_transformed_add_mul_to_trf,
+    TGswTransformedExternalMul,
+    TGswAddMessage,
     )
 from tfhe.tgsw_cpu import (
-    TGswAddMuIntH_ref,
-    TGswTorus32PolynomialDecompH_reference,
-    TLweFFTAddMulRTo_reference,
-    TGswFFTExternMulToTLwe_reference,
+    tgsw_polynomial_decomp_trf_reference,
+    tlwe_transformed_add_mul_to_trf_reference,
+    TGswTransformedExternalMulReference,
+    TGswAddMessageReference,
     )
 from tfhe.performance import performance_parameters
 
+from utils import get_test_array
 
-def test_TGswTorus32PolynomialDecompH(thread):
 
-    batch = (2, 3)
+def test_tgsw_polynomial_decomp_trf(thread):
+
+    shape = (2, 3)
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
-    l = tgsw_params.decomp_length
-    k = tgsw_params.tlwe_params.mask_size
-    N = tgsw_params.tlwe_params.polynomial_degree
+    decomp_length = tgsw_params.decomp_length
+    mask_size = tgsw_params.tlwe_params.mask_size
+    polynomial_degree = tgsw_params.tlwe_params.polynomial_degree
 
-    sample = numpy.random.randint(0, 1000, size=batch + (k + 1, N), dtype=Torus32)
-    result = numpy.empty(batch + (k + 1, l, N), dtype=numpy.int32)
+    sample = get_test_array(shape + (mask_size + 1, polynomial_degree), Torus32, (0, 1000))
+    result = numpy.empty(shape + (mask_size + 1, decomp_length, polynomial_degree), dtype=Int32)
 
     sample_dev = thread.to_device(sample)
     result_dev = thread.empty_like(result)
 
-    trf = get_TGswTorus32PolynomialDecompH_trf(result, tgsw_params)
-    test = PureParallel.from_trf(trf, guiding_array='output').compile(thread)
+    trf = get_tgsw_polynomial_decomp_trf(tgsw_params, shape)
+    test = PureParallel.from_trf(trf, guiding_array='result').compile(thread)
 
-    ref = TGswTorus32PolynomialDecompH_reference(result, tgsw_params)
+    ref = tgsw_polynomial_decomp_trf_reference(tgsw_params, shape)
 
     test(result_dev, sample_dev)
     result_test = result_dev.get()
@@ -50,123 +52,113 @@ def test_TGswTorus32PolynomialDecompH(thread):
     assert (result == result_test).all()
 
 
-def test_TLweFFTAddMulRTo(thread):
+def test_tlwe_transformed_add_mul_to_trf(thread):
 
-    batch = (2,)
+    shape = (2, 3)
     params = TFHEParameters()
     perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
+    decomp_length = tgsw_params.decomp_length
+    mask_size = tgsw_params.tlwe_params.mask_size
+    polynomial_degree = tgsw_params.tlwe_params.polynomial_degree
+
     transform_type = tgsw_params.tlwe_params.transform_type
     transform = get_transform(transform_type)
+    tlength = transform.transformed_length(polynomial_degree)
+    tdtype = transform.transformed_dtype()
 
-    l = tgsw_params.decomp_length
-    k = tgsw_params.tlwe_params.mask_size
-    N = tgsw_params.tlwe_params.polynomial_degree
+    result_shape = shape + (mask_size + 1, tlength)
+    sample_shape = shape + (mask_size + 1, decomp_length, tlength)
+    bk_len = 10
+    bootstrap_key_shape = (bk_len, mask_size + 1, decomp_length, mask_size + 1, tlength)
+    bk_row_idx = 2
 
-    tr_N = transform.transformed_length(N)
-    tr_dtype = transform.transformed_dtype()
+    result = numpy.empty(result_shape, tdtype)
 
-    tmpa_a_shape = batch + (k + 1, tr_N)
-    decaFFT_shape = batch + (k + 1, l, tr_N)
-    gsw_shape = (10, k + 1, l, k + 1, tr_N)
-    bk_idx = 2
+    sample = get_test_array(sample_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
+    bootstrap_key = get_test_array(
+        bootstrap_key_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
 
-    tmpa_a = numpy.empty(tmpa_a_shape, tr_dtype)
+    result_dev = thread.empty_like(result)
+    sample_dev = thread.to_device(sample)
+    bootstrap_key_dev = thread.to_device(bootstrap_key)
 
-    if tr_dtype.kind == 'c':
-        decaFFT = (
-            numpy.random.normal(size=decaFFT_shape)
-            + 1j * numpy.random.normal(size=decaFFT_shape)).astype(tr_dtype)
-        gsw = (
-            numpy.random.normal(size=gsw_shape)
-            + 1j * numpy.random.normal(size=gsw_shape)).astype(tr_dtype)
-    else:
-        decaFFT = numpy.random.randint(0, 2**64-2**32+1, size=decaFFT_shape, dtype=tr_dtype)
-        gsw = numpy.random.randint(0, 2**64-2**32+1, size=gsw_shape, dtype=tr_dtype)
+    trf = get_tlwe_transformed_add_mul_to_trf(tgsw_params, shape, bk_len, perf_params)
+    test = PureParallel.from_trf(trf, guiding_array='result').compile(thread)
+    ref = tlwe_transformed_add_mul_to_trf_reference(tgsw_params, shape, bk_len, perf_params)
 
-    tmpa_a_dev = thread.empty_like(tmpa_a)
-    decaFFT_dev = thread.to_device(decaFFT)
-    gsw_dev = thread.to_device(gsw)
+    test(result_dev, sample_dev, bootstrap_key_dev, bk_row_idx)
+    result_test = result_dev.get()
 
-    trf = get_TLweFFTAddMulRTo_trf(
-        N, transform_type, tmpa_a, gsw, transform.transformed_internal_ctype(),
-        perf_params)
-    test = PureParallel.from_trf(trf, guiding_array='tmpa_a').compile(thread)
-    ref = TLweFFTAddMulRTo_reference(tmpa_a, gsw, tgsw_params.tlwe_params)
+    ref(result, sample, bootstrap_key, bk_row_idx)
 
-    test(tmpa_a_dev, decaFFT_dev, gsw_dev, bk_idx)
-    tmpa_a_test = tmpa_a_dev.get()
-
-    ref(tmpa_a, decaFFT, gsw, bk_idx)
-
-    assert numpy.allclose(tmpa_a, tmpa_a_test)
+    assert numpy.allclose(result, result_test)
 
 
-def test_TGswFFTExternMulToTLwe(thread):
+def test_tgsw_transformed_external_mul(thread):
 
-    batch = (16,)
+    shape = (2, 3)
     params = TFHEParameters()
     perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
+    decomp_length = tgsw_params.decomp_length
+    mask_size = tgsw_params.tlwe_params.mask_size
+    polynomial_degree = tgsw_params.tlwe_params.polynomial_degree
+
     transform_type = tgsw_params.tlwe_params.transform_type
     transform = get_transform(transform_type)
+    tlength = transform.transformed_length(polynomial_degree)
+    tdtype = transform.transformed_dtype()
 
-    l = tgsw_params.decomp_length
-    k = tgsw_params.tlwe_params.mask_size
-    N = tgsw_params.tlwe_params.polynomial_degree
+    accum_shape = shape + (mask_size + 1, polynomial_degree)
+    bk_len = 10
+    bootstrap_key_shape = (bk_len, mask_size + 1, decomp_length, mask_size + 1, tlength)
+    bk_row_idx = 2
 
-    accum_a_shape = batch + (k + 1, N)
-    gsw_shape = (10, k + 1, l, k + 1, transform.transformed_length(N))
-    bk_idx = 2
+    bootstrap_key = get_test_array(
+        bootstrap_key_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
+    accum = get_test_array(accum_shape, Torus32, (-1000, 1000))
 
-    tr_dtype = transform.transformed_dtype()
+    bootstrap_key_dev = thread.to_device(bootstrap_key)
+    accum_dev = thread.to_device(accum)
 
-    if tr_dtype.kind == 'c':
-        gsw = (numpy.random.normal(size=gsw_shape)
-            + 1j * numpy.random.normal(size=gsw_shape)).astype(tr_dtype) * 1000
-    else:
-        gsw = numpy.random.randint(0, 1000, size=gsw_shape, dtype=tr_dtype)
+    test = TGswTransformedExternalMul(tgsw_params, shape, bk_len, perf_params).compile(thread)
+    ref = TGswTransformedExternalMulReference(tgsw_params, shape, bk_len, perf_params)
 
-    accum_a = numpy.random.randint(-1000, 1000, size=accum_a_shape, dtype=Torus32)
+    test(accum_dev, bootstrap_key_dev, bk_row_idx)
+    accum_test = accum_dev.get()
 
-    gsw_dev = thread.to_device(gsw)
-    accum_a_dev = thread.to_device(accum_a)
+    ref(accum, bootstrap_key, bk_row_idx)
 
-    test = TGswFFTExternMulToTLwe(accum_a, gsw, tgsw_params, perf_params).compile(thread)
-    ref = TGswFFTExternMulToTLwe_reference(accum_a, gsw, tgsw_params, perf_params)
-
-    test(accum_a_dev, gsw_dev, bk_idx)
-    accum_a_test = accum_a_dev.get()
-
-    ref(accum_a, gsw, bk_idx)
-
-    assert numpy.allclose(accum_a, accum_a_test)
+    assert numpy.allclose(accum, accum_test)
 
 
-def test_TGswAddMuIntH(thread):
+def test_tgsw_add_message(thread):
 
     params = TFHEParameters()
     tgsw_params = params.tgsw_params
-    n = params.in_out_params.size
-    l = tgsw_params.decomp_length
-    k = tgsw_params.tlwe_params.mask_size
-    N = tgsw_params.tlwe_params.polynomial_degree
 
-    result_a = numpy.random.randint(-2**31, 2**31, size=(n, k+1, l, k+1, N), dtype=Torus32)
-    messages = numpy.random.randint(-2**31, 2**31, size=(n,), dtype=Torus32)
+    decomp_length = tgsw_params.decomp_length
+    mask_size = tgsw_params.tlwe_params.mask_size
+    polynomial_degree = tgsw_params.tlwe_params.polynomial_degree
+
+    shape = (3, 5)
+
+    result_a = get_test_array(
+        shape + (mask_size + 1, decomp_length, mask_size + 1, polynomial_degree), Torus32)
+    messages = get_test_array(shape, Torus32)
 
     result_a_dev = thread.to_device(result_a)
     messages_dev = thread.to_device(messages)
 
-    test = TGswAddMuIntH(n, tgsw_params).compile(thread)
-    ref = TGswAddMuIntH_ref(n, tgsw_params)
+    test = TGswAddMessage(tgsw_params, shape).compile(thread)
+    ref = TGswAddMessageReference(tgsw_params, shape)
 
     test(result_a_dev, messages_dev)
     ref(result_a, messages)
 
     result_a_test = result_a_dev.get()
-    messages_test = messages_dev.get()
 
     assert numpy.allclose(result_a_test, result_a)
