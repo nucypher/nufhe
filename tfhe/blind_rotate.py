@@ -10,7 +10,7 @@ from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
 from .performance import PerformanceParameters, performance_parameters_for_device
-from .numeric_functions import Torus32
+from .numeric_functions import Torus32, Float
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -19,8 +19,28 @@ TEMPLATE = helpers.template_for(__file__)
 class BlindRotate(Computation):
 
     def __init__(
-            self, out_a, out_b, accum_a, gsw, bara, params: TGswParams, in_out_params: LweParams,
+            self, params: TGswParams, in_out_params: LweParams, shape,
             perf_params: PerformanceParameters):
+
+        tlwe_params = params.tlwe_params
+        decomp_length = params.decomp_length
+        mask_size = tlwe_params.mask_size
+        polynomial_degree = tlwe_params.polynomial_degree
+        input_size = params.tlwe_params.extracted_lweparams.size
+        output_size = in_out_params.size
+
+        assert mask_size == 1 and decomp_length == 2
+
+        transform_type = params.tlwe_params.transform_type
+        transform = get_transform(transform_type)
+        tlength = transform.transformed_length(polynomial_degree)
+        tdtype = transform.transformed_dtype()
+
+        out_a = Type(Torus32, shape + (input_size,))
+        out_b = Type(Torus32, shape)
+        accum_a = Type(Torus32, shape + (mask_size + 1, polynomial_degree))
+        gsw = Type(tdtype, (output_size, mask_size + 1, decomp_length, mask_size + 1, tlength))
+        bara = Type(Torus32, shape + (output_size,))
 
         self._params = params
         self._in_out_params = in_out_params
@@ -37,18 +57,16 @@ class BlindRotate(Computation):
     def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, bara):
         plan = plan_factory()
 
-        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+        params = self._params
+        tlwe_params = params.tlwe_params
+        decomp_length = params.decomp_length
+        mask_size = tlwe_params.mask_size
 
+        perf_params = performance_parameters_for_device(self._perf_params, device_params)
         transform_type = self._params.tlwe_params.transform_type
         transform = get_transform(transform_type)
 
         transform_module = transform.transform_module(perf_params, multi_iter=True)
-
-        tlwe_params = self._params.tlwe_params
-        k = tlwe_params.mask_size
-        l = self._params.decomp_length
-
-        assert k == 1 and l == 2
 
         batch_shape = accum_a.shape[:-2]
 
@@ -59,20 +77,24 @@ class BlindRotate(Computation):
             cdata_forward = plan.persistent_array(transform_module.cdata_fw)
             cdata_inverse = plan.persistent_array(transform_module.cdata_inv)
 
+        local_size_factor = (mask_size + 1) * decomp_length
+
         plan.kernel_call(
             TEMPLATE.get_def("BlindRotate"),
             [lwe_a, lwe_b, accum_a, gsw, bara, cdata_forward, cdata_inverse],
-            global_size=(helpers.product(batch_shape), transform_module.threads_per_transform * 4),
-            local_size=(1, transform_module.threads_per_transform * 4),
+            global_size=(
+                helpers.product(batch_shape),
+                transform_module.threads_per_transform * local_size_factor),
+            local_size=(1, transform_module.threads_per_transform * local_size_factor),
             render_kwds=dict(
                 slices=(len(batch_shape), 1, 1),
                 slices2=(len(batch_shape), 1),
                 slices3=(len(batch_shape),),
                 transform=transform_module,
-                k=k,
-                l=l,
-                n=self._in_out_params.size,
-                params=self._params,
+                mask_size=mask_size,
+                decomp_length=decomp_length,
+                output_size=self._in_out_params.size,
+                bs_log2_base=self._params.bs_log2_base,
                 mul=transform.transformed_mul(perf_params),
                 add=transform.transformed_add(perf_params),
                 tr_ctype=transform.transformed_internal_ctype(),
@@ -85,17 +107,37 @@ class BlindRotate(Computation):
 class BlindRotateAndKeySwitch(Computation):
 
     def __init__(
-            self, result_shape_info, out_a, out_b, accum_a, gsw, ks_a, ks_b, bara,
-            params: TGswParams, in_out_params: LweParams, ks: 'LweKeyswitchKey',
-            perf_params: PerformanceParameters):
+            self, params: TGswParams, in_out_params: LweParams, result_shape_info,
+            ks_log2_base, ks_decomp_length, perf_params: PerformanceParameters):
+
+        tlwe_params = params.tlwe_params
+        bk_decomp_length = params.decomp_length
+        mask_size = tlwe_params.mask_size
+        polynomial_degree = tlwe_params.polynomial_degree
+        input_size = params.tlwe_params.extracted_lweparams.size
+        output_size = in_out_params.size
+        ks_base = 2**ks_log2_base
+        shape = result_shape_info.shape
+
+        transform_type = params.tlwe_params.transform_type
+        transform = get_transform(transform_type)
+        tlength = transform.transformed_length(polynomial_degree)
+        tdtype = transform.transformed_dtype()
 
         out_a = result_shape_info.a
         out_b = result_shape_info.b
-        self._result_shape_info = result_shape_info
+        accum_a = Type(Torus32, shape + (mask_size + 1, polynomial_degree))
+        gsw = Type(tdtype, (output_size, mask_size + 1, bk_decomp_length, mask_size + 1, tlength))
+        ks_a = Type(Torus32, (input_size, ks_decomp_length, ks_base, output_size))
+        ks_b = Type(Torus32, (input_size, ks_decomp_length, ks_base))
+        ks_cv = Type(Float, (input_size, ks_decomp_length, ks_base))
+        bara = Type(Torus32, shape + (output_size,))
 
+        self._result_shape_info = result_shape_info
         self._params = params
         self._in_out_params = in_out_params
-        self._ks = ks
+        self._ks_log2_base = ks_log2_base
+        self._ks_decomp_length = ks_decomp_length
         self._perf_params = perf_params
 
         Computation.__init__(self,
@@ -112,24 +154,20 @@ class BlindRotateAndKeySwitch(Computation):
         plan = plan_factory()
 
         batch_shape = accum_a.shape[:-2]
+        tlwe_params = self._params.tlwe_params
+        ks_decomp_length = self._ks_decomp_length
+        input_size = self._params.tlwe_params.extracted_lweparams.size
+        output_size = self._in_out_params.size
 
-        tgsw_params = self._params
-        eparams = tgsw_params.tlwe_params.extracted_lweparams
-        extracted_a = plan.temp_array(batch_shape + (eparams.size,), numpy.int32)
-        extracted_b = plan.temp_array(batch_shape, numpy.int32)
+        extracted_a = plan.temp_array(batch_shape + (input_size,), Torus32)
+        extracted_b = plan.temp_array(batch_shape, Torus32)
 
         blind_rotate = BlindRotate(
-            extracted_a, extracted_b, accum_a, gsw, bara, self._params, self._in_out_params,
-            self._perf_params)
+            self._params, self._in_out_params, batch_shape, self._perf_params)
         plan.computation_call(blind_rotate, extracted_a, extracted_b, accum_a, gsw, bara)
 
-        outer_n = tgsw_params.tlwe_params.extracted_lweparams.size
-        inner_n = self._in_out_params.size
-        outer_n = self._ks.input_size
-        basebit = self._ks.log2_base
-        t = self._ks.decomp_length
-
-        ks = LweKeyswitch(self._result_shape_info, outer_n, inner_n, t, basebit)
+        ks = LweKeyswitch(
+            self._result_shape_info, input_size, output_size, ks_decomp_length, self._ks_log2_base)
         # TODO: need to output current variances properly
         result_cv = plan.temp_array_like(ks.parameter.result_cv)
         ks_cv = plan.temp_array_like(ks.parameter.ks_cv)
@@ -138,24 +176,22 @@ class BlindRotateAndKeySwitch(Computation):
         return plan
 
 
-
 def BlindRotate_gpu(
         lwe_out: LweSampleArray, accum: TLweSampleArray,
         bk: 'LweBootstrappingKeyFFT', bara, perf_params: PerformanceParameters, no_keyswitch=False):
 
     thr = accum.a.coeffs.thread
 
+    shape = lwe_out.shape_info.shape
+
     if no_keyswitch:
-        comp = get_computation(thr, BlindRotate,
-            lwe_out.a, lwe_out.b, accum.a.coeffs,
-            bk.bkFFT.samples.a.coeffs, bara, bk.bk_params, bk.in_out_params, perf_params)
+        comp = get_computation(thr, BlindRotate, bk.bk_params, bk.in_out_params, shape, perf_params)
         comp(lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bkFFT.samples.a.coeffs, bara)
     else:
-        comp = get_computation(thr, BlindRotateAndKeySwitch,
-            lwe_out.shape_info, lwe_out.a, lwe_out.b, accum.a.coeffs,
-            bk.bkFFT.samples.a.coeffs, bk.ks.lwe.a, bk.ks.lwe.b, bara,
-            bk.bk_params, bk.in_out_params, bk.ks, perf_params)
+        comp = get_computation(
+            thr, BlindRotateAndKeySwitch,
+            bk.bk_params, bk.in_out_params, lwe_out.shape_info,
+            bk.ks.log2_base, bk.ks.decomp_length, perf_params)
         comp(
             lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bkFFT.samples.a.coeffs,
             bk.ks.lwe.a, bk.ks.lwe.b, bara)
-

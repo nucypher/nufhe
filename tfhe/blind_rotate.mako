@@ -1,5 +1,5 @@
 <%def name="BlindRotate(
-    kernel_declaration, extracted_a, extracted_b, accum_a, gsw, bara, cdata_forward, cdata_inverse, n)">
+    kernel_declaration, extracted_a, extracted_b, accum_a, gsw, bara, cdata_forward, cdata_inverse)">
 <%
     tpt = transform.threads_per_transform
     p_ept = transform.polynomial_length // transform.threads_per_transform
@@ -34,8 +34,8 @@ ${kernel_declaration}
     const unsigned int batch_id = virtual_group_id(0);
     const unsigned int tid = virtual_local_id(1);
     const unsigned int transform_id = tid / ${transform.threads_per_transform};
-    const unsigned int k_id = transform_id / ${l};
-    const unsigned int l_id = transform_id % ${l};
+    const unsigned int k_id = transform_id / ${decomp_length};
+    const unsigned int l_id = transform_id % ${decomp_length};
     const unsigned int thread_in_transform = tid % ${transform.threads_per_transform};
     const unsigned int bdim = virtual_local_size(1);
 
@@ -52,14 +52,14 @@ ${kernel_declaration}
 
     LOCAL_BARRIER;
 
-    for (unsigned int bk_idx = 0; bk_idx < ${n}; bk_idx++)
+    for (unsigned int bk_idx = 0; bk_idx < ${output_size}; bk_idx++)
     {
 
     ${bara.ctype} ai = ${bara.load_combined_idx(slices2)}(batch_id, bk_idx);
 
     if (tid < ${4 * transform.threads_per_transform})
     {
-        const unsigned int decomp_bits = ${params.bs_log2_base};
+        const unsigned int decomp_bits = ${bs_log2_base};
         const unsigned int decomp_mask = (1 << decomp_bits) - 1;
         const int decomp_half = 1 << (decomp_bits - 1);
         const unsigned int decomp_offset = (0x1u << 31) + (0x1u << (31 - decomp_bits));
@@ -82,7 +82,7 @@ ${kernel_declaration}
             unsigned int pos${q} = -((1 - cmp${q}) ^ (ai >> 10));
             %endfor
 
-            %for k_id in range(k + 1):
+            %for k_id in range(mask_size + 1):
 
                 %for q in range(conversion_multiplier):
                 temp${q} = shared_accum[(${k_id << 10}) | ((i${q} - ai) & 1023)];
@@ -92,7 +92,7 @@ ${kernel_declaration}
                 temp${q} += decomp_offset;
                 %endfor
 
-                %for l_id in range(l):
+                %for l_id in range(decomp_length):
                     sh[${(2*k_id + l_id) * sh_length_tr} + i] = ${transform.module}i32_to_elem(
                         %for q in range(conversion_multiplier):
                         ((temp${q} >> (32 - ${l_id + 1} * decomp_bits)) & decomp_mask) - decomp_half
@@ -133,8 +133,8 @@ ${kernel_declaration}
         for (unsigned int i = 0; i < ${transform.transform_length}; i += bdim)
         {
             t = ${tr_ctype}zero;
-            %for k_in_id in range(k + 1):
-            %for l_id in range(l):
+            %for k_in_id in range(mask_size + 1):
+            %for l_id in range(decomp_length):
             a = sh[${(k_in_id * 2 + l_id) * sh_length_tr} + i + tid];
             b = ${tr_ctype}pack(
                 ${gsw.load_idx}(
