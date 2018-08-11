@@ -1,8 +1,8 @@
 import numpy
 
-from reikna.core import Computation, Parameter, Annotation
+from reikna.core import Computation, Parameter, Annotation, Type
+from reikna.cluda import OutOfResourcesError
 import reikna.helpers as helpers
-from reikna.core import Type
 
 from .lwe import LweParams, LweSampleArray, LweKeyswitch
 from .tgsw import TGswParams, TransformedTGswSampleArray
@@ -55,7 +55,6 @@ class BlindRotate(Computation):
             Parameter('bara', Annotation(bara, 'i'))])
 
     def _build_plan(self, plan_factory, device_params, lwe_a, lwe_b, accum_a, gsw, bara):
-        plan = plan_factory()
 
         params = self._params
         tlwe_params = params.tlwe_params
@@ -70,39 +69,46 @@ class BlindRotate(Computation):
 
         batch_shape = accum_a.shape[:-2]
 
-        if transform_module.use_constant_memory:
-            cdata_forward = plan.constant_array(transform_module.cdata_fw)
-            cdata_inverse = plan.constant_array(transform_module.cdata_inv)
-        else:
-            cdata_forward = plan.persistent_array(transform_module.cdata_fw)
-            cdata_inverse = plan.persistent_array(transform_module.cdata_inv)
+        local_size = device_params.max_work_group_size
 
-        local_size_factor = (mask_size + 1) * decomp_length
+        while local_size > 0:
+            plan = plan_factory()
 
-        plan.kernel_call(
-            TEMPLATE.get_def("BlindRotate"),
-            [lwe_a, lwe_b, accum_a, gsw, bara, cdata_forward, cdata_inverse],
-            global_size=(
-                helpers.product(batch_shape),
-                transform_module.threads_per_transform * local_size_factor),
-            local_size=(1, transform_module.threads_per_transform * local_size_factor),
-            render_kwds=dict(
-                slices=(len(batch_shape), 1, 1),
-                slices2=(len(batch_shape), 1),
-                slices3=(len(batch_shape),),
-                transform=transform_module,
-                mask_size=mask_size,
-                decomp_length=decomp_length,
-                output_size=self._in_out_params.size,
-                input_size=tlwe_params.extracted_lweparams.size,
-                bs_log2_base=self._params.bs_log2_base,
-                mul=transform.transformed_mul(perf_params),
-                add=transform.transformed_add(perf_params),
-                tr_ctype=transform.transformed_internal_ctype(),
-                )
-            )
+            if transform_module.use_constant_memory:
+                cdata_forward = plan.constant_array(transform_module.cdata_fw)
+                cdata_inverse = plan.constant_array(transform_module.cdata_inv)
+            else:
+                cdata_forward = plan.persistent_array(transform_module.cdata_fw)
+                cdata_inverse = plan.persistent_array(transform_module.cdata_inv)
 
-        return plan
+            try:
+                plan.kernel_call(
+                    TEMPLATE.get_def("BlindRotate"),
+                    [lwe_a, lwe_b, accum_a, gsw, bara, cdata_forward, cdata_inverse],
+                    global_size=(
+                        helpers.product(batch_shape),
+                        local_size),
+                    local_size=(1, local_size),
+                    render_kwds=dict(
+                        slices=(len(batch_shape), 1, 1),
+                        slices2=(len(batch_shape), 1),
+                        slices3=(len(batch_shape),),
+                        transform=transform_module,
+                        mask_size=mask_size,
+                        decomp_length=decomp_length,
+                        output_size=self._in_out_params.size,
+                        input_size=tlwe_params.extracted_lweparams.size,
+                        bs_log2_base=self._params.bs_log2_base,
+                        mul=transform.transformed_mul(perf_params),
+                        add=transform.transformed_add(perf_params),
+                        tr_ctype=transform.transformed_internal_ctype(),
+                        )
+                    )
+            except OutOfResourcesError:
+                local_size -= device_params.warp_size
+                continue
+
+            return plan
 
 
 class BlindRotateAndKeySwitch(Computation):

@@ -64,7 +64,6 @@ ${kernel_declaration}
 
     ${bara.ctype} ai = ${bara.load_combined_idx(slices2)}(batch_id, bk_idx);
 
-    if (tid < ${decomp_length * (mask_size + 1) * transform.threads_per_transform})
     {
         const unsigned int decomp_bits = ${bs_log2_base};
         const unsigned int decomp_mask = (1 << decomp_bits) - 1;
@@ -135,19 +134,18 @@ ${kernel_declaration}
 
     ## Iterating in reverse order, because the output shared array overlaps the input one.
     %for mask_out_id in reversed(range(mask_size + 1)):
-    if (tid < ${decomp_length * (mask_size + 1) * transform.threads_per_transform})
     {
-    ${tr_ctype} t, a, b;
+        ${tr_ctype} t, a, b;
         #pragma unroll
-        for (unsigned int i = 0; i < ${transform.transform_length}; i += bdim)
+        for (unsigned int i = tid; i < ${transform.transform_length}; i += bdim)
         {
             t = ${tr_ctype}zero;
             %for mask_in_id in range(mask_size + 1):
             %for decomp_id in range(decomp_length):
-            a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + i + tid];
+            a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + i];
             b = ${tr_ctype}pack(
                 ${gsw.load_idx}(
-                    bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, i + tid)
+                    bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, i)
                 );
             t = ${add}(t, ${mul}(a, b));
             %endfor
@@ -157,7 +155,7 @@ ${kernel_declaration}
                 temp_id = (
                     0 if mask_out_id == 0 else decomp_length * (mask_size + 1) - 1 + mask_out_id)
             %>
-            sh[${temp_id * sh_length_tr} + i + tid] = t;
+            sh[${temp_id * sh_length_tr} + i] = t;
         }
     }
     LOCAL_BARRIER;
