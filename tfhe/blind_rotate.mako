@@ -24,29 +24,36 @@ ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    // Buffers 0-3 are used as temporary arrays and output arrays for forward transformations.
-    // Buffers 0 and 4 are used as output arrays for multiplication in transformed space.
-    LOCAL_MEM char sh_char[${sh_size * 5}];
-    LOCAL_MEM ${accum_a.ctype} shared_accum[${2 * transform.polynomial_length}];
+    // We are trying to minimize the number of local memory buffers used.
+    // We need `decomp_length * (mask_size + 1)` buffers to store the transformed data,
+    // then all of them are used to fill `(mask_size + 1)` output buffers.
+    // `mask_size` of them should be put outside of the input buffers,
+    // but the last one can overwrite one of the input buffers.
+    //
+    // So, for example, for `mask_size=1` and `decomp_length=2`, we need
+    // `(1 + 1) * 2 = 4` input buffers and one additional output buffer.
+    LOCAL_MEM char sh_char[${sh_size * ((mask_size + 1) * decomp_length + mask_size)}];
+    LOCAL_MEM ${accum_a.ctype} shared_accum[${(mask_size + 1) * transform.polynomial_length}];
 
     LOCAL_MEM_ARG ${tr_ctype}* sh = (LOCAL_MEM_ARG ${tr_ctype}*)sh_char;
 
     const unsigned int batch_id = virtual_group_id(0);
     const unsigned int tid = virtual_local_id(1);
     const unsigned int transform_id = tid / ${transform.threads_per_transform};
-    const unsigned int k_id = transform_id / ${decomp_length};
-    const unsigned int l_id = transform_id % ${decomp_length};
+    const unsigned int mask_id = transform_id % ${mask_size + 1};
+    const unsigned int decomp_id = transform_id / ${mask_size + 1};
     const unsigned int thread_in_transform = tid % ${transform.threads_per_transform};
     const unsigned int bdim = virtual_local_size(1);
 
     // Load accum
-    if (tid < ${2 * transform.threads_per_transform})
+    if (tid < ${(mask_size + 1) * transform.threads_per_transform})
     {
         #pragma unroll
         for (unsigned int i = 0; i < ${p_ept}; i++)
         {
-            shared_accum[l_id * ${transform.polynomial_length} + i * ${tpt} + thread_in_transform] =
-                ${accum_a.load_combined_idx(slices)}(batch_id, l_id, i * ${tpt} + thread_in_transform);
+            shared_accum[mask_id * ${transform.polynomial_length} + i * ${tpt} + thread_in_transform] =
+                ${accum_a.load_combined_idx(slices)}(
+                    batch_id, mask_id, i * ${tpt} + thread_in_transform);
         }
     }
 
@@ -57,7 +64,7 @@ ${kernel_declaration}
 
     ${bara.ctype} ai = ${bara.load_combined_idx(slices2)}(batch_id, bk_idx);
 
-    if (tid < ${4 * transform.threads_per_transform})
+    if (tid < ${decomp_length * (mask_size + 1) * transform.threads_per_transform})
     {
         const unsigned int decomp_bits = ${bs_log2_base};
         const unsigned int decomp_mask = (1 << decomp_bits) - 1;
@@ -82,24 +89,25 @@ ${kernel_declaration}
             unsigned int pos${q} = -((1 - cmp${q}) ^ (ai >> 10));
             %endfor
 
-            %for k_id in range(mask_size + 1):
+            %for mask_id in range(mask_size + 1):
 
                 %for q in range(conversion_multiplier):
-                temp${q} = shared_accum[(${k_id << 10}) | ((i${q} - ai) & 1023)];
+                temp${q} = shared_accum[(${mask_id << 10}) | ((i${q} - ai) & 1023)];
                 temp${q} = (temp${q} & pos${q}) + ((-temp${q}) & neg${q});
-                temp${q} -= shared_accum[(${k_id << 10}) | i${q}];
+                temp${q} -= shared_accum[(${mask_id << 10}) | i${q}];
                 // decomp temp
                 temp${q} += decomp_offset;
                 %endfor
 
-                %for l_id in range(decomp_length):
-                    sh[${(2*k_id + l_id) * sh_length_tr} + i] = ${transform.module}i32_to_elem(
-                        %for q in range(conversion_multiplier):
-                        ((temp${q} >> (32 - ${l_id + 1} * decomp_bits)) & decomp_mask) - decomp_half
-                        %if q < conversion_multiplier - 1:
-                        ,
-                        %endif
-                        %endfor
+                %for decomp_id in range(decomp_length):
+                    sh[${(decomp_id * (mask_size + 1) + mask_id) * sh_length_tr} + i] =
+                        ${transform.module}i32_to_elem(
+                            %for q in range(conversion_multiplier):
+                            ((temp${q} >> (32 - ${decomp_id + 1} * decomp_bits)) & decomp_mask) - decomp_half
+                            %if q < conversion_multiplier - 1:
+                            ,
+                            %endif
+                            %endfor
                         );
                 %endfor
             %endfor
@@ -108,12 +116,13 @@ ${kernel_declaration}
 
     LOCAL_BARRIER;
 
-    if (tid < ${4 * transform.threads_per_transform})
+    if (tid < ${decomp_length * (mask_size + 1) * transform.threads_per_transform})
     {
         // Forward transform
         ${transform.module}forward_i32_shared(
-            sh + (k_id * 2 + l_id) * ${sh_length_tr},
-            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + (k_id * 2 + l_id) * ${sh_length_tr}),
+            sh + (decomp_id * ${mask_size + 1} + mask_id) * ${sh_length_tr},
+            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(
+                sh + (decomp_id * ${mask_size + 1} + mask_id) * ${sh_length_tr}),
             (${transform.module}CDATA_QUALIFIER ${transform.cdata_fw_ctype}*)${cdata_forward},
             thread_in_transform);
     }
@@ -125,37 +134,45 @@ ${kernel_declaration}
     LOCAL_BARRIER;
 
     ## Iterating in reverse order, because the output shared array overlaps the input one.
-    %for k_out_id in (1, 0):
-    if (tid < ${4 * transform.threads_per_transform})
+    %for mask_out_id in reversed(range(mask_size + 1)):
+    if (tid < ${decomp_length * (mask_size + 1) * transform.threads_per_transform})
     {
     ${tr_ctype} t, a, b;
         #pragma unroll
         for (unsigned int i = 0; i < ${transform.transform_length}; i += bdim)
         {
             t = ${tr_ctype}zero;
-            %for k_in_id in range(mask_size + 1):
-            %for l_id in range(decomp_length):
-            a = sh[${(k_in_id * 2 + l_id) * sh_length_tr} + i + tid];
+            %for mask_in_id in range(mask_size + 1):
+            %for decomp_id in range(decomp_length):
+            a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + i + tid];
             b = ${tr_ctype}pack(
                 ${gsw.load_idx}(
-                    bk_idx, ${k_in_id}, ${l_id}, ${k_out_id}, i + tid)
+                    bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, i + tid)
                 );
             t = ${add}(t, ${mul}(a, b));
             %endfor
             %endfor
-            sh[${k_out_id * 4 * sh_length_tr} + i + tid] = t;
+
+            <%
+                temp_id = (
+                    0 if mask_out_id == 0 else decomp_length * (mask_size + 1) - 1 + mask_out_id)
+            %>
+            sh[${temp_id * sh_length_tr} + i + tid] = t;
         }
     }
     LOCAL_BARRIER;
     %endfor
 
-    if (tid < ${2 * transform.threads_per_transform})
-    {
     // Inverse transform
+    if (tid < ${(mask_size + 1) * transform.threads_per_transform})
+    {
+        // Following the temporary buffer usage scheme described at the beginning of the kernel.
+        int temp_id = mask_id == 0 ? 0 : ${(mask_size + 1) * decomp_length - 1} + mask_id;
+
         ${transform.module}inverse_i32_shared_add(
-            shared_accum + l_id * ${transform.polynomial_length},
-            sh + l_id * ${4 * sh_length_tr},
-            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + l_id * ${4 * sh_length_tr}),
+            shared_accum + mask_id * ${transform.polynomial_length},
+            sh + temp_id * ${sh_length_tr},
+            (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + temp_id * ${sh_length_tr}),
             (${transform.module}CDATA_QUALIFIER ${transform.cdata_inv_ctype}*)${cdata_inverse},
             thread_in_transform);
     }
@@ -167,11 +184,7 @@ ${kernel_declaration}
     LOCAL_BARRIER;
     }
 
-    <%
-        # Since k == 1, they're the same
-        input_size = transform.polynomial_length
-    %>
-
+    ## TODO: may be faster with shared memory
     for (int i = tid; i <= ${input_size}; i += bdim)
     {
         if (i == ${input_size})
