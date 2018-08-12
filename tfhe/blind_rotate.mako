@@ -43,7 +43,6 @@ ${kernel_declaration}
     const unsigned int mask_id = transform_id % ${mask_size + 1};
     const unsigned int decomp_id = transform_id / ${mask_size + 1};
     const unsigned int thread_in_transform = tid % ${transform.threads_per_transform};
-    const unsigned int bdim = virtual_local_size(1);
 
     // Load accum
     if (tid < ${(mask_size + 1) * transform.threads_per_transform})
@@ -79,7 +78,7 @@ ${kernel_declaration}
         %endfor
 
         #pragma unroll
-        for (int i = tid; i < ${transform.polynomial_length // conversion_multiplier}; i += bdim)
+        for (int i = tid; i < ${transform.polynomial_length // conversion_multiplier}; i += ${local_size})
         {
             %for q in range(conversion_multiplier):
             int i${q} = i + ${transform.transform_length * q};
@@ -136,17 +135,21 @@ ${kernel_declaration}
     %for mask_out_id in reversed(range(mask_size + 1)):
     {
         ${tr_ctype} t, a, b;
-        #pragma unroll
-        for (unsigned int i = tid; i < ${transform.transform_length}; i += bdim)
+        %for j in range(min_blocks(transform.transform_length, local_size)):
         {
+            int idx = ${j * local_size} + tid;
+
+            %if transform.transform_length % local_size != 0 and j == min_blocks(transform.transform_length, local_size) - 1:
+            if (idx < ${transform.transform_length})
+            {
+            %endif
+
             t = ${tr_ctype}zero;
             %for mask_in_id in range(mask_size + 1):
             %for decomp_id in range(decomp_length):
-            a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + i];
+            a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + idx];
             b = ${tr_ctype}pack(
-                ${gsw.load_idx}(
-                    bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, i)
-                );
+                    ${gsw.load_idx}(bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, idx));
             t = ${add}(t, ${mul}(a, b));
             %endfor
             %endfor
@@ -155,8 +158,13 @@ ${kernel_declaration}
                 temp_id = (
                     0 if mask_out_id == 0 else decomp_length * (mask_size + 1) - 1 + mask_out_id)
             %>
-            sh[${temp_id * sh_length_tr} + i] = t;
+            sh[${temp_id * sh_length_tr} + idx] = t;
+
+            %if transform.transform_length % local_size != 0 and j == min_blocks(transform.transform_length, local_size) - 1:
+            }
+            %endif
         }
+        %endfor
     }
     LOCAL_BARRIER;
     %endfor
@@ -183,7 +191,7 @@ ${kernel_declaration}
     }
 
     ## TODO: may be faster with shared memory
-    for (int i = tid; i <= ${input_size}; i += bdim)
+    for (int i = tid; i <= ${input_size}; i += ${local_size})
     {
         if (i == ${input_size})
         {

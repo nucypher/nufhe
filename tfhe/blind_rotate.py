@@ -91,6 +91,7 @@ class BlindRotate(Computation):
                         local_size),
                     local_size=(1, local_size),
                     render_kwds=dict(
+                        local_size=local_size,
                         slices=(len(batch_shape), 1, 1),
                         slices2=(len(batch_shape), 1),
                         slices3=(len(batch_shape),),
@@ -103,6 +104,7 @@ class BlindRotate(Computation):
                         mul=transform.transformed_mul(perf_params),
                         add=transform.transformed_add(perf_params),
                         tr_ctype=transform.transformed_internal_ctype(),
+                        min_blocks=helpers.min_blocks,
                         )
                     )
             except OutOfResourcesError:
