@@ -69,9 +69,10 @@ class BlindRotate(Computation):
 
         batch_shape = accum_a.shape[:-2]
 
+        min_local_size = decomp_length * (mask_size + 1) * transform_module.threads_per_transform
         local_size = device_params.max_work_group_size
+        while local_size >= min_local_size:
 
-        while local_size > 0:
             plan = plan_factory()
 
             if transform_module.use_constant_memory:
@@ -105,10 +106,12 @@ class BlindRotate(Computation):
                         )
                     )
             except OutOfResourcesError:
-                local_size -= device_params.warp_size
+                local_size -= transform_module.threads_per_transform
                 continue
 
             return plan
+
+        raise ValueError("Could not find suitable local size for the kernel")
 
 
 class BlindRotateAndKeySwitch(Computation):
