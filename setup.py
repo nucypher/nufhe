@@ -9,5 +9,5 @@ setup(
     author_email='bogdan@nucypher.com',
     license='MIT',
     packages=['nufhe'],
-    install_requires=['numpy', 'reikna>=0.7.0'],
+    install_requires=['numpy', 'reikna>=0.7.1'],
     zip_safe=True)
