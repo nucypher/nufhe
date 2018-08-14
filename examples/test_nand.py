@@ -1,7 +1,7 @@
 import numpy
 import time
 
-from tfhe import *
+from nufhe import *
 
 from reikna.cluda import cuda_api
 api = cuda_api()
@@ -15,7 +15,7 @@ def encrypt():
 
     print("Key generation:")
     t = time.time()
-    secret_key, cloud_key = tfhe_key_pair(thr, rng)
+    secret_key, cloud_key = nufhe_key_pair(thr, rng)
     print(time.time() - t)
 
     bits1 = rng.randint(0, 2, size=size).astype(numpy.bool)
@@ -23,8 +23,8 @@ def encrypt():
 
     print("Encryption:")
     t = time.time()
-    ciphertext1 = tfhe_encrypt(thr, rng, secret_key, bits1)
-    ciphertext2 = tfhe_encrypt(thr, rng, secret_key, bits2)
+    ciphertext1 = nufhe_encrypt(thr, rng, secret_key, bits1)
+    ciphertext2 = nufhe_encrypt(thr, rng, secret_key, bits2)
     print(time.time() - t)
 
     reference = numpy.logical_not(numpy.logical_and(bits1, bits2))
@@ -33,24 +33,24 @@ def encrypt():
 
 
 def process(cloud_key, ciphertext1, ciphertext2):
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
     result = empty_ciphertext(thr, params, ciphertext1.shape_info.shape)
 
-    tfhe_gate_NAND_(thr, cloud_key, result, ciphertext1, ciphertext2)
+    nufhe_gate_NAND_(thr, cloud_key, result, ciphertext1, ciphertext2)
     thr.synchronize()
 
     #print(thr.temp_alloc._statistics())
 
     print("Processing:")
     t = time.time()
-    tfhe_gate_NAND_(thr, cloud_key, result, ciphertext1, ciphertext2)
+    nufhe_gate_NAND_(thr, cloud_key, result, ciphertext1, ciphertext2)
     thr.synchronize()
     t = time.time() - t
     print(t)
     print(t / size * 1000, "ms per bit")
 
     #import cProfile
-    #cProfile.runctx("tfhe_gate_NAND_(cloud_key, result, ciphertext1, ciphertext2)",
+    #cProfile.runctx("nufhe_gate_NAND_(cloud_key, result, ciphertext1, ciphertext2)",
     #    locals=locals(), globals=globals(), sort='cumtime')
 
     return result
@@ -59,7 +59,7 @@ def process(cloud_key, ciphertext1, ciphertext2):
 def verify(secret_key, answer, reference):
     print("Decryption:")
     t = time.time()
-    answer_bits = tfhe_decrypt(thr, secret_key, answer)
+    answer_bits = nufhe_decrypt(thr, secret_key, answer)
     print(time.time() - t)
 
     if (answer_bits == reference).all():

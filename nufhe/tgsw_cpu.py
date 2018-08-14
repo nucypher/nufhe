@@ -2,8 +2,8 @@ import numpy
 
 from reikna import helpers
 
-from tfhe.numeric_functions import Torus32
-from tfhe.polynomial_transform import get_transform
+from .numeric_functions import Torus32
+from .polynomial_transform import get_transform
 
 
 def tgsw_polynomial_decomp_trf_reference(params: 'TGswParams', shape):

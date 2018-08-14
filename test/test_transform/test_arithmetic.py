@@ -7,8 +7,8 @@ import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
 from reikna.helpers import product
 
-import tfhe.transform as ntt
-import tfhe.transform.ntt_cpu as ntt_cpu
+import nufhe.transform as ntt
+import nufhe.transform.ntt_cpu as ntt_cpu
 
 from utils import *
 

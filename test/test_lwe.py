@@ -1,11 +1,11 @@
 import pytest
 import numpy
 
-from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32, Float
+from nufhe.keys import NuFHEParameters
+from nufhe.numeric_functions import Torus32, Float
 
-from tfhe.lwe import LweSampleArrayShapeInfo
-from tfhe.lwe_gpu import (
+from nufhe.lwe import LweSampleArrayShapeInfo
+from nufhe.lwe_gpu import (
     LweKeyswitch,
     MakeLweKeyswitchKey,
     LweEncrypt,
@@ -13,7 +13,7 @@ from tfhe.lwe_gpu import (
     LweLinear,
     LweNoiselessTrivial,
     )
-from tfhe.lwe_cpu import (
+from nufhe.lwe_cpu import (
     LweKeyswitchReference,
     MakeLweKeyswitchKeyReference,
     LweEncryptReference,
@@ -21,8 +21,8 @@ from tfhe.lwe_cpu import (
     LweLinearReference,
     LweNoiselessTrivialReference,
     )
-from tfhe.numeric_functions import Torus32, Int32, Float
-import tfhe.random_numbers as rn
+from nufhe.numeric_functions import Torus32, Int32, Float
+import nufhe.random_numbers as rn
 
 from utils import get_test_array
 
@@ -31,7 +31,7 @@ def test_lwe_keyswitch(thread):
 
     batch_shape = (4, 5)
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     input_size = params.tgsw_params.tlwe_params.extracted_lweparams.size
     output_size = params.in_out_params.size
     decomp_length = params.ks_decomp_length
@@ -86,7 +86,7 @@ def test_lwe_keyswitch(thread):
 
 def test_make_lwe_keyswitch_key(thread):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     input_size = params.tgsw_params.tlwe_params.extracted_lweparams.size
     output_size = params.in_out_params.size
     decomp_length = params.ks_decomp_length
@@ -130,7 +130,7 @@ def test_make_lwe_keyswitch_key(thread):
 
 def test_lwe_encrypt(thread):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     lwe_size = params.in_out_params.size
     noise = params.in_out_params.min_noise
 
@@ -170,7 +170,7 @@ def test_lwe_encrypt(thread):
 
 def test_lwe_decrypt(thread):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     lwe_size = params.in_out_params.size
 
     shape = (16, 20)
@@ -199,7 +199,7 @@ def test_lwe_decrypt(thread):
 @pytest.mark.parametrize('add_result', [False, True], ids=['replace_result', 'update_result'])
 def test_lwe_linear(thread, positive_coeff, add_result):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     lwe_size = params.in_out_params.size
 
     shape = (10, 20)
@@ -236,7 +236,7 @@ def test_lwe_linear(thread, positive_coeff, add_result):
 
 def test_lwe_noiseless_trivial(thread):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     lwe_size = params.in_out_params.size
 
     shape = (10, 20)

@@ -73,7 +73,7 @@ class LweBootstrappingKeyFFT:
         self.ks = ks # the keyswitch key (s'->s)
 
 
-def tfhe_MuxRotate_FFT(
+def nufhe_MuxRotate_FFT(
         thr, result: TLweSampleArray, accum: TLweSampleArray, bki: TransformedTGswSampleArray, bk_idx: int,
         barai, bk_params: TGswParams, perf_params: PerformanceParameters):
 
@@ -96,7 +96,7 @@ def tfhe_MuxRotate_FFT(
  * @param bara An array of n coefficients between 0 and 2N-1
  * @param bk_params The parameters of bk
 """
-def tfhe_blindRotate_FFT(
+def nufhe_blindRotate_FFT(
         thr, accum: TLweSampleArray, bkFFT: TransformedTGswSampleArray, bara, n: int, bk_params: TGswParams,
         perf_params: PerformanceParameters):
 
@@ -112,7 +112,7 @@ def tfhe_blindRotate_FFT(
         # TODO: here we only need to pass bkFFT[i] and bara[:,i],
         # but Reikna kernels have to be recompiled for every set of strides/offsets,
         # so for now we are just passing full arrays and an index.
-        tfhe_MuxRotate_FFT(thr, temp2, temp3, bkFFT, i, bara, bk_params, perf_params)
+        nufhe_MuxRotate_FFT(thr, temp2, temp3, bkFFT, i, bara, bk_params, perf_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
@@ -131,7 +131,7 @@ def tfhe_blindRotate_FFT(
  * @param bara An array of n coefficients between 0 and 2N-1
  * @param bk_params The parameters of bk
 """
-def tfhe_blindRotateAndExtract_FFT(
+def nufhe_blindRotateAndExtract_FFT(
         thr, result: LweSampleArray,
         v: TorusPolynomialArray, bk: LweBootstrappingKeyFFT,
         barb, bara,
@@ -167,7 +167,7 @@ def tfhe_blindRotateAndExtract_FFT(
 
     else:
         # Blind rotation
-        tfhe_blindRotate_FFT(
+        nufhe_blindRotate_FFT(
             thr, acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params, perf_params)
 
         # Extraction
@@ -205,6 +205,6 @@ def bootstrap(
     testvect.coeffs.fill(mu)
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(
+    nufhe_blindRotateAndExtract_FFT(
         thr, result, testvect, bk, barb, bara, perf_params,
         no_keyswitch=no_keyswitch)

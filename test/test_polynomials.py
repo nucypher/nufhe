@@ -3,9 +3,9 @@ import time
 import pytest
 import numpy
 
-from tfhe.numeric_functions import Torus32, Int32
-from tfhe.polynomials_gpu import ShiftTorusPolynomial
-from tfhe.polynomials_cpu import ShiftTorusPolynomialReference
+from nufhe.numeric_functions import Torus32, Int32
+from nufhe.polynomials_gpu import ShiftTorusPolynomial
+from nufhe.polynomials_cpu import ShiftTorusPolynomialReference
 
 from utils import get_test_array
 

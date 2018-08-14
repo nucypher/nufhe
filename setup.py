@@ -1,13 +1,13 @@
 from setuptools import setup
 
 setup(
-    name='tfhe',
+    name='nufhe',
     version='0.0.1',
-    description='TFHE port in Python',
-    url='http://github.com/nucypher/tfhe.py',
+    description='A GPU implementation of the fully homomorphic encryption on torus',
+    url='http://github.com/nucypher/nufhe',
     author='Bogdan Opanchuk',
     author_email='bogdan@nucypher.com',
     license='MIT',
-    packages=['tfhe'],
+    packages=['nufhe'],
     install_requires=['numpy', 'reikna>=0.7.0'],
     zip_safe=True)

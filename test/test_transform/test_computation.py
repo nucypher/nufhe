@@ -5,9 +5,9 @@ import pytest
 
 from reikna.cluda import ocl_id, cuda_id
 
-from tfhe.transform import fft512, ntt1024, Transform
-import tfhe.transform.fft as tr_fft
-import tfhe.transform.ntt as tr_ntt
+from nufhe.transform import fft512, ntt1024, Transform
+import nufhe.transform.fft as tr_fft
+import nufhe.transform.ntt as tr_ntt
 
 from utils import *
 

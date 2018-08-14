@@ -1,19 +1,19 @@
 import numpy
 
-from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32, Int32, Float
-from tfhe.tlwe import TLweParams
-from tfhe.tlwe_gpu import (
+from nufhe.keys import NuFHEParameters
+from nufhe.numeric_functions import Torus32, Int32, Float
+from nufhe.tlwe import TLweParams
+from nufhe.tlwe_gpu import (
     TLweNoiselessTrivial,
     TLweExtractLweSamples,
     TLweEncryptZero,
     )
-from tfhe.tlwe_cpu import (
+from nufhe.tlwe_cpu import (
     TLweNoiselessTrivialReference,
     TLweExtractLweSamplesReference,
     TLweEncryptZeroReference,
     )
-from tfhe.performance import performance_parameters
+from nufhe.performance import performance_parameters
 
 from utils import get_test_array
 
@@ -21,7 +21,7 @@ from utils import get_test_array
 def test_tlwe_noiseless_trivial(thread):
 
     shape = (2, 5)
-    params = TFHEParameters().tgsw_params.tlwe_params
+    params = NuFHEParameters().tgsw_params.tlwe_params
 
     mask_size = params.mask_size
     polynomial_degree = params.polynomial_degree
@@ -50,7 +50,7 @@ def test_tlwe_noiseless_trivial(thread):
 def test_tlwe_extract_lwe_samples(thread):
 
     shape = (2, 5)
-    params = TFHEParameters().tgsw_params.tlwe_params
+    params = NuFHEParameters().tgsw_params.tlwe_params
 
     mask_size = params.mask_size
     polynomial_degree = params.polynomial_degree
@@ -79,9 +79,9 @@ def test_tlwe_extract_lwe_samples(thread):
 
 def test_tlwe_encrypt_zero(thread):
 
-    tfhe_params = TFHEParameters()
+    nufhe_params = NuFHEParameters()
     perf_params = performance_parameters()
-    params = tfhe_params.tgsw_params.tlwe_params
+    params = nufhe_params.tgsw_params.tlwe_params
 
     mask_size = params.mask_size
     polynomial_degree = params.polynomial_degree

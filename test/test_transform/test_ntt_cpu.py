@@ -1,6 +1,6 @@
 import numpy
 
-from tfhe.transform.ntt_cpu import (
+from nufhe.transform.ntt_cpu import (
     GaloisNumber, gnum, ntt_naive, ntt, find_generator, gnum_to_i32)
 
 

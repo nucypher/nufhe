@@ -2,24 +2,24 @@ import numpy
 
 from reikna.algorithms import PureParallel
 
-from tfhe.tgsw import TGswParams, TGswSampleArray, TransformedTGswSampleArray
-from tfhe.tlwe import TLweSampleArray
-from tfhe.keys import TFHEParameters
-from tfhe.numeric_functions import Torus32, Int32
-from tfhe.polynomial_transform import get_transform
-from tfhe.tgsw_gpu import (
+from nufhe.tgsw import TGswParams, TGswSampleArray, TransformedTGswSampleArray
+from nufhe.tlwe import TLweSampleArray
+from nufhe.keys import NuFHEParameters
+from nufhe.numeric_functions import Torus32, Int32
+from nufhe.polynomial_transform import get_transform
+from nufhe.tgsw_gpu import (
     get_tgsw_polynomial_decomp_trf,
     get_tlwe_transformed_add_mul_to_trf,
     TGswTransformedExternalMul,
     TGswAddMessage,
     )
-from tfhe.tgsw_cpu import (
+from nufhe.tgsw_cpu import (
     tgsw_polynomial_decomp_trf_reference,
     tlwe_transformed_add_mul_to_trf_reference,
     TGswTransformedExternalMulReference,
     TGswAddMessageReference,
     )
-from tfhe.performance import performance_parameters
+from nufhe.performance import performance_parameters
 
 from utils import get_test_array
 
@@ -27,7 +27,7 @@ from utils import get_test_array
 def test_tgsw_polynomial_decomp_trf(thread):
 
     shape = (2, 3)
-    params = TFHEParameters()
+    params = NuFHEParameters()
     tgsw_params = params.tgsw_params
     decomp_length = tgsw_params.decomp_length
     mask_size = tgsw_params.tlwe_params.mask_size
@@ -55,7 +55,7 @@ def test_tgsw_polynomial_decomp_trf(thread):
 def test_tlwe_transformed_add_mul_to_trf(thread):
 
     shape = (2, 3)
-    params = TFHEParameters()
+    params = NuFHEParameters()
     perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
@@ -99,7 +99,7 @@ def test_tlwe_transformed_add_mul_to_trf(thread):
 def test_tgsw_transformed_external_mul(thread):
 
     shape = (2, 3)
-    params = TFHEParameters()
+    params = NuFHEParameters()
     perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
@@ -137,7 +137,7 @@ def test_tgsw_transformed_external_mul(thread):
 
 def test_tgsw_add_message(thread):
 
-    params = TFHEParameters()
+    params = NuFHEParameters()
     tgsw_params = params.tgsw_params
 
     decomp_length = tgsw_params.decomp_length

@@ -6,14 +6,14 @@ import numpy
 
 from reikna.cluda import cuda_id
 
-from tfhe import *
-from tfhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
+from nufhe import *
+from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 
 
 @pytest.fixture(scope='module')
 def key_pair(thread):
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng)
+    secret_key, cloud_key = nufhe_key_pair(thread, rng)
     return secret_key, cloud_key
 
 
@@ -27,7 +27,7 @@ def get_plaintexts(rng, num, shape=(32,)):
 
 
 def check_gate(
-        thread, key_pair, num_arguments, tfhe_func, reference_func,
+        thread, key_pair, num_arguments, nufhe_func, reference_func,
         shape=32, performance_test=False, perf_params=None):
 
     if not isinstance(shape, tuple):
@@ -36,38 +36,38 @@ def check_gate(
     secret_key, cloud_key = key_pair
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=secret_key.params)
+        perf_params = performance_parameters(nufhe_params=secret_key.params)
 
     rng = numpy.random.RandomState()
 
     plaintexts = get_plaintexts(rng, num_arguments, shape=shape)
-    ciphertexts = [tfhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
+    ciphertexts = [nufhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
 
     reference = reference_func(*plaintexts)
 
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
     answer = empty_ciphertext(thread, params, shape)
 
     if performance_test:
 
         # warm-up
-        tfhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
+        nufhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
         thread.synchronize()
 
         # test
         times = []
         for i in range(10):
             t_start = time.time()
-            tfhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
+            nufhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
             thread.synchronize()
             times.append(time.time() - t_start)
         times = numpy.array(times)
 
     else:
-        tfhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
+        nufhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
         times = None
 
-    answer_bits = tfhe_decrypt(thread, secret_key, answer)
+    answer_bits = nufhe_decrypt(thread, secret_key, answer)
 
     assert (answer_bits == reference).all()
 
@@ -76,33 +76,33 @@ def check_gate(
 
 def test_transform_type(thread, transform_type):
     rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
-    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref)
+    key_pair = nufhe_key_pair(thread, rng, transform_type=transform_type)
+    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref)
 
 
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
-    check_gate(thread, (secret_key, cloud_key), 2, tfhe_gate_NAND_, nand_ref)
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
+    check_gate(thread, (secret_key, cloud_key), 2, nufhe_gate_NAND_, nand_ref)
 
 
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs a bootstrap with keyswitch
     secret_key, cloud_key = key_pair
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref, perf_params=perf_params)
+    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref, perf_params=perf_params)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs separate calls to bootstrap and keyswitch
     secret_key, cloud_key = key_pair
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, 3, tfhe_gate_MUX_, mux_ref, perf_params=perf_params)
+    check_gate(thread, key_pair, 3, nufhe_gate_MUX_, mux_ref, perf_params=perf_params)
 
 
 def nand_ref(a, b):
@@ -153,55 +153,55 @@ def uint_min_ref(p1, p2):
 
 
 def test_nand_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_NAND_, nand_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref)
 
 
 def test_or_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_OR_, or_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_OR_, or_ref)
 
 
 def test_and_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_AND_, and_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_AND_, and_ref)
 
 
 def test_xor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_XOR_, xor_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_XOR_, xor_ref)
 
 
 def test_xnor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_XNOR_, xnor_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_XNOR_, xnor_ref)
 
 
 def test_not_gate(thread, key_pair):
-    check_gate(thread, key_pair, 1, tfhe_gate_NOT_, not_ref)
+    check_gate(thread, key_pair, 1, nufhe_gate_NOT_, not_ref)
 
 
 def test_copy_gate(thread, key_pair):
-    check_gate(thread, key_pair, 1, tfhe_gate_COPY_, copy_ref)
+    check_gate(thread, key_pair, 1, nufhe_gate_COPY_, copy_ref)
 
 
 def test_nor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_NOR_, nor_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_NOR_, nor_ref)
 
 
 def test_andny_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_ANDNY_, andny_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_ANDNY_, andny_ref)
 
 
 def test_andyn_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_ANDYN_, andyn_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_ANDYN_, andyn_ref)
 
 
 def test_orny_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_ORNY_, orny_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_ORNY_, orny_ref)
 
 
 def test_oryn_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, tfhe_gate_ORYN_, oryn_ref)
+    check_gate(thread, key_pair, 2, nufhe_gate_ORYN_, oryn_ref)
 
 
 def test_mux_gate(thread, key_pair):
-    check_gate(thread, key_pair, 3, tfhe_gate_MUX_, mux_ref)
+    check_gate(thread, key_pair, 3, nufhe_gate_MUX_, mux_ref)
 
 
 def test_constant_gate(thread, key_pair):
@@ -212,12 +212,12 @@ def test_constant_gate(thread, key_pair):
     secret_key, cloud_key = key_pair
     rng = numpy.random.RandomState()
 
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
     answer = empty_ciphertext(thread, params, (size,))
 
     for val in (False, True):
-        tfhe_gate_CONSTANT_(thread, cloud_key, answer, val)
-        answer_bits = tfhe_decrypt(thread, secret_key, answer)
+        nufhe_gate_CONSTANT_(thread, cloud_key, answer, val)
+        answer_bits = nufhe_decrypt(thread, secret_key, answer)
         assert (answer_bits == val).all()
 
 
@@ -226,7 +226,7 @@ def test_uint_min(thread, key_pair):
 
 
 def check_performance(
-        thread, key_pair, perf_params, shape, test_function=(tfhe_gate_NAND_, nand_ref, 2)):
+        thread, key_pair, perf_params, shape, test_function=(nufhe_gate_NAND_, nand_ref, 2)):
 
     # Assuming that the time taken by the gate has the form
     #   t = size * speed + overhead
@@ -234,7 +234,7 @@ def check_performance(
     #   speed = (t(size1) - t(size2)) / (size1 - size2)
     #   overhead = (t(size1) * size2 - t(size2) * size1) / (size2 - size1)
 
-    tfhe_func, ref_func, nargs = test_function
+    nufhe_func, ref_func, nargs = test_function
 
     if isinstance(shape, tuple):
         shape1 = shape
@@ -248,10 +248,10 @@ def check_performance(
         size2 = shape2
 
     times1 = check_gate(
-        thread, key_pair, nargs, tfhe_func, ref_func,
+        thread, key_pair, nargs, nufhe_func, ref_func,
         shape=shape1, performance_test=True, perf_params=perf_params)
     times2 = check_gate(
-        thread, key_pair, nargs, tfhe_func, ref_func,
+        thread, key_pair, nargs, nufhe_func, ref_func,
         shape=shape2, performance_test=True, perf_params=perf_params)
 
     mean1 = times1.mean()
@@ -297,8 +297,8 @@ def test_single_kernel_bs_performance(
         test_function_name, heavy_performance_load):
 
     test_function = dict(
-        NAND=(tfhe_gate_NAND_, nand_ref, 2),
-        MUX=(tfhe_gate_MUX_, mux_ref, 3),
+        NAND=(nufhe_gate_NAND_, nand_ref, 2),
+        MUX=(nufhe_gate_MUX_, mux_ref, 3),
         uint_min=(uint_min, uint_min_ref, 2),
         )[test_function_name]
 
@@ -308,9 +308,9 @@ def test_single_kernel_bs_performance(
         shape = 4096 if heavy_performance_load else 16
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type=transform_type)
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
     results = check_performance(
         thread, (secret_key, cloud_key), perf_params, shape=shape, test_function=test_function)
@@ -327,13 +327,13 @@ def test_constant_mem_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type=transform_type)
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type=transform_type)
 
     # We want to test the effect of using constant memory on the bootstrap calculation.
     # A single-kernel bootstrap uses the `use_constant_memory_multi_iter` option,
     # and a multi-kernel bootstrap uses the `use_constant_memory_single_iter` option.
     kwds = dict(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
     if single_kernel_bootstrap:
         kwds.update(dict(use_constant_memory_multi_iter=use_constant_memory))
@@ -358,7 +358,7 @@ def test_transforms_per_block_performance(
         single_kernel_bootstrap=False,
         transforms_per_block=transforms_per_block)
     rng = numpy.random.RandomState()
-    key_pair = tfhe_key_pair(thread, rng, transform_type=transform_type)
+    key_pair = nufhe_key_pair(thread, rng, transform_type=transform_type)
     results = check_performance(thread, key_pair, perf_params, shape=size)
     print()
     print(check_performance_str(results))
@@ -376,9 +376,9 @@ def test_ntt_base_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_base_method=ntt_base_method)
 
@@ -401,9 +401,9 @@ def test_ntt_mul_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_mul_method=ntt_mul_method)
 
@@ -426,9 +426,9 @@ def test_ntt_lsh_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = tfhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
-        tfhe_params=secret_key.params,
+        nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_lsh_method=ntt_lsh_method)
 
@@ -439,13 +439,13 @@ def test_ntt_lsh_method_performance(
 
 def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
 
-    tfhe_func = tfhe_gate_NAND_
+    nufhe_func = nufhe_gate_NAND_
     reference_func = nand_ref
     num_arguments = 2
 
     secret_key, cloud_key = key_pair
     rng = numpy.random.RandomState(123)
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
 
     shape = (5, 8)
 
@@ -460,7 +460,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     pt1 = plaintexts[0][slices1]
     pt2 = plaintexts[1][slices2]
 
-    ciphertexts = [tfhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
+    ciphertexts = [nufhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
     ct1 = ciphertexts[0][slices1]
     ct2 = ciphertexts[1][slices2]
 
@@ -469,11 +469,11 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     answer = empty_ciphertext(thread, params, shape)
     answer_view = answer[result_slices]
 
-    tfhe_func(thread, cloud_key, answer_view, ct1, ct2,
+    nufhe_func(thread, cloud_key, answer_view, ct1, ct2,
         perf_params=performance_parameters(
-            tfhe_params=params, single_kernel_bootstrap=single_kernel_bootstrap))
+            nufhe_params=params, single_kernel_bootstrap=single_kernel_bootstrap))
 
-    answer_bits = tfhe_decrypt(thread, secret_key, answer)
+    answer_bits = nufhe_decrypt(thread, secret_key, answer)
     answer_bits_view = answer_bits[result_slices]
 
     assert (answer_bits_view == reference).all()

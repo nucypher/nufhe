@@ -1,8 +1,8 @@
 import numpy
 import time
 
-import tfhe
-from tfhe import *
+import nufhe
+from nufhe import *
 
 from reikna.cluda import cuda_api
 api = cuda_api()
@@ -30,7 +30,7 @@ def encrypt():
 
     print("Key generation:")
     t = time.time()
-    secret_key, cloud_key = tfhe_key_pair(rng)
+    secret_key, cloud_key = nufhe_key_pair(rng)
     print(time.time() - t)
 
     size = 32
@@ -41,16 +41,16 @@ def encrypt():
 
     print("Encryption:")
     t = time.time()
-    ciphertext1 = tfhe_encrypt(rng, secret_key, bits1)
-    ciphertext2 = tfhe_encrypt(rng, secret_key, bits2)
-    ciphertext3 = tfhe_encrypt(rng, secret_key, bits3)
+    ciphertext1 = nufhe_encrypt(rng, secret_key, bits1)
+    ciphertext2 = nufhe_encrypt(rng, secret_key, bits2)
+    ciphertext3 = nufhe_encrypt(rng, secret_key, bits3)
     print(time.time() - t)
 
     return secret_key, cloud_key, ciphertext1, ciphertext2, ciphertext3
 
 
 def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
     result = empty_ciphertext(params, ciphertext1.shape)
 
     cloud_key.to_gpu(thr)
@@ -60,15 +60,15 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
     result.to_gpu(thr)
 
     #import cProfile
-    #cProfile.runctx("tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)",
+    #cProfile.runctx("nufhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)",
     #    locals=locals(), globals=globals(), sort='cumtime')
 
-    tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
+    nufhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
     thr.synchronize()
 
     print("Processing:")
     t = time.time()
-    tfhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
+    nufhe_gate_MUX_(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
     thr.synchronize()
     print(time.time() - t)
 
@@ -84,7 +84,7 @@ def process(cloud_key, ciphertext1, ciphertext2, ciphertext3):
 def verify(secret_key, answer):
     print("Decryption:")
     t = time.time()
-    answer_bits = tfhe_decrypt(secret_key, answer)
+    answer_bits = nufhe_decrypt(secret_key, answer)
     print(time.time() - t)
 
     int_answer = bitarray_to_int(answer_bits)

@@ -14,7 +14,7 @@ from .lwe import (
     lwe_negate,
     lwe_copy,
     )
-from .keys import TFHECloudKey
+from .keys import NuFHECloudKey
 from .lwe_bootstrapping import bootstrap
 from .performance import performance_parameters
 
@@ -42,12 +42,12 @@ def result_shape(shape1, shape2):
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_NAND_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_NAND_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -73,12 +73,12 @@ def tfhe_gate_NAND_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_OR_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_OR_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -103,12 +103,12 @@ def tfhe_gate_OR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_AND_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_AND_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -133,12 +133,12 @@ def tfhe_gate_AND_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_XOR_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_XOR_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -163,12 +163,12 @@ def tfhe_gate_XOR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_XNOR_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_XNOR_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -193,8 +193,8 @@ def tfhe_gate_XNOR_(
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_NOT_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+def nufhe_gate_NOT_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
     lwe_negate(thr, result, ca)
@@ -205,8 +205,8 @@ def tfhe_gate_NOT_(
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_COPY_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+def nufhe_gate_COPY_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
     lwe_copy(thr, result, ca)
@@ -217,7 +217,7 @@ def tfhe_gate_COPY_(
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_CONSTANT_(thr, bk: TFHECloudKey, result: LweSampleArray, val):
+def nufhe_gate_CONSTANT_(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
     in_out_params = bk.params.in_out_params
     MU = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, result, MU if val else -MU)
@@ -228,12 +228,12 @@ def tfhe_gate_CONSTANT_(thr, bk: TFHECloudKey, result: LweSampleArray, val):
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_NOR_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_NOR_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -258,12 +258,12 @@ def tfhe_gate_NOR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_ANDNY_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_ANDNY_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -288,12 +288,12 @@ def tfhe_gate_ANDNY_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_ANDYN_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_ANDYN_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -318,12 +318,12 @@ def tfhe_gate_ANDYN_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_ORNY_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_ORNY_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -348,12 +348,12 @@ def tfhe_gate_ORNY_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_ORYN_(
-        thr, bk: TFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+def nufhe_gate_ORYN_(
+        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -378,14 +378,14 @@ def tfhe_gate_ORYN_(
  * Takes in input 3 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def tfhe_gate_MUX_(
+def nufhe_gate_MUX_(
         thr,
-        bk: TFHECloudKey, result: LweSampleArray,
+        bk: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
     rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
     assert rshape == result.shape_info.shape

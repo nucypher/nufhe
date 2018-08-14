@@ -2,7 +2,7 @@ import pytest
 
 from reikna.cluda import cuda_api, ocl_api, get_api, supported_api_ids, find_devices
 
-from tfhe.computation_cache import clear_computation_cache
+from nufhe.computation_cache import clear_computation_cache
 
 
 def pytest_addoption(parser):

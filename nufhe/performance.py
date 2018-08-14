@@ -16,7 +16,7 @@ PerformanceParameters = namedtuple(
 
 
 def performance_parameters(
-        tfhe_params=None,
+        nufhe_params=None,
         ntt_base_method=None,
         ntt_mul_method=None,
         ntt_lsh_method=None,
@@ -29,9 +29,9 @@ def performance_parameters(
     assert ntt_mul_method in (None, 'cuda_asm', 'c_from_asm', 'c')
     assert ntt_lsh_method in (None, 'cuda_asm', 'c_from_asm', 'c')
 
-    if tfhe_params is not None:
-        mask_size = tfhe_params.tgsw_params.tlwe_params.mask_size
-        decomp_length = tfhe_params.tgsw_params.decomp_length
+    if nufhe_params is not None:
+        mask_size = nufhe_params.tgsw_params.tlwe_params.mask_size
+        decomp_length = nufhe_params.tgsw_params.decomp_length
         single_kernel_bootstrap_possible = mask_size == 1 and decomp_length == 2
     else:
         single_kernel_bootstrap_possible = False
@@ -39,16 +39,16 @@ def performance_parameters(
     if single_kernel_bootstrap is None:
         single_kernel_bootstrap = single_kernel_bootstrap_possible
     elif single_kernel_bootstrap:
-        if tfhe_params is None:
+        if nufhe_params is None:
             raise ValueError(
-                "The `tfhe_params` option must be specified to enable single-kernel bootstrap")
+                "The `nufhe_params` option must be specified to enable single-kernel bootstrap")
         elif not single_kernel_bootstrap_possible:
             raise ValueError(
                 "Single-kernel bootstrap is only supported for mask_size=1 and decomp_length=2")
 
     if transforms_per_block is None:
-        if tfhe_params is not None:
-            transform_type = tfhe_params.tgsw_params.tlwe_params.transform_type
+        if nufhe_params is not None:
+            transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
             transforms_per_block = 4 if transform_type == 'NTT' else 2
         else:
             transforms_per_block = 4

@@ -1,11 +1,11 @@
 import numpy
 
-from .keys import empty_ciphertext, tfhe_parameters
+from .keys import empty_ciphertext, nufhe_parameters
 from .performance import performance_parameters
 from .boot_gates import (
-    tfhe_gate_CONSTANT_,
-    tfhe_gate_XNOR_,
-    tfhe_gate_MUX_,
+    nufhe_gate_CONSTANT_,
+    nufhe_gate_XNOR_,
+    nufhe_gate_MUX_,
     )
 
 
@@ -47,9 +47,9 @@ def bitarray_to_uintarray(xs):
 def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(tfhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=bk.params)
 
-    params = tfhe_parameters(cloud_key)
+    params = nufhe_parameters(cloud_key)
 
     itemsize = answer.shape_info.shape[-1]
 
@@ -57,7 +57,7 @@ def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
     tmp2 = empty_ciphertext(thread, params, a.shape_info.shape[:-1] + (1,))
 
     # initialize the carry to 0
-    tfhe_gate_CONSTANT_(thread, cloud_key, tmp1, False)
+    nufhe_gate_CONSTANT_(thread, cloud_key, tmp1, False)
 
     # Compare i-th bits in turn starting from the end (assuming big-endian order).
     # Store the result in tmp2, and use tmp1 as an accumulator.
@@ -70,9 +70,9 @@ def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
         b_slice = b[:,i:i+1]
 
         # tmp2 = (a_bit == b_bit)
-        tfhe_gate_XNOR_(thread, cloud_key, tmp2, a_slice, b_slice, perf_params=perf_params)
+        nufhe_gate_XNOR_(thread, cloud_key, tmp2, a_slice, b_slice, perf_params=perf_params)
         # tmp1 = tmp2 ? tmp1 : a_bit
-        tfhe_gate_MUX_(thread, cloud_key, tmp1, tmp2, tmp1, a_slice, perf_params=perf_params)
+        nufhe_gate_MUX_(thread, cloud_key, tmp1, tmp2, tmp1, a_slice, perf_params=perf_params)
 
     # tmp1 is the result of the comparaison: 0 if a is smaller, 1 if b is smaller
-    tfhe_gate_MUX_(thread, cloud_key, answer, tmp1, b, a, perf_params=perf_params)
+    nufhe_gate_MUX_(thread, cloud_key, answer, tmp1, b, a, perf_params=perf_params)

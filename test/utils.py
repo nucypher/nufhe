@@ -1,7 +1,7 @@
 import numpy
 import pytest
 
-import tfhe.transform.ntt_cpu as ntt_cpu
+import nufhe.transform.ntt_cpu as ntt_cpu
 
 
 def tp_dtype(tp):

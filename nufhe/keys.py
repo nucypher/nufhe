@@ -8,7 +8,7 @@ from .lwe_bootstrapping import LweBootstrappingKeyFFT
 from .performance import performance_parameters
 
 
-class TFHEParameters:
+class NuFHEParameters:
 
     def __init__(self, transform_type='FFT', tlwe_mask_size=1):
         # Note: the default parameters correspond to about 128bit of security!
@@ -40,38 +40,38 @@ class TFHEParameters:
         self.tgsw_params = params_bs
 
 
-class TFHESecretKey:
+class NuFHESecretKey:
 
-    def __init__(self, params: TFHEParameters, lwe_key: LweKey, tgsw_key: TGswKey):
+    def __init__(self, params: NuFHEParameters, lwe_key: LweKey, tgsw_key: TGswKey):
         self.params = params
         self.lwe_key = lwe_key
         self.tgsw_key = tgsw_key
 
 
-class TFHECloudKey:
+class NuFHECloudKey:
 
-    def __init__(self, params: TFHEParameters, bkFFT: LweBootstrappingKeyFFT):
+    def __init__(self, params: NuFHEParameters, bkFFT: LweBootstrappingKeyFFT):
         self.params = params
         self.bkFFT = bkFFT
 
 
-def tfhe_parameters(key): # union(TFHESecretKey, TFHECloudKey)
+def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
     return key.params
 
 
-def tfhe_key_pair(thr, rng, **params):
-    params = TFHEParameters(**params)
+def nufhe_key_pair(thr, rng, **params):
+    params = NuFHEParameters(**params)
 
     lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
     tgsw_key = TGswKey(thr, params.tgsw_params, rng)
-    secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
+    secret_key = NuFHESecretKey(params, lwe_key, tgsw_key)
 
     # TODO: use PerformanceParameters from the user
-    perf_params = performance_parameters(tfhe_params=params)
+    perf_params = performance_parameters(nufhe_params=params)
 
     bkFFT = LweBootstrappingKeyFFT(
         thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key, perf_params)
-    cloud_key = TFHECloudKey(params, bkFFT)
+    cloud_key = NuFHECloudKey(params, bkFFT)
 
     return secret_key, cloud_key
 
@@ -87,7 +87,7 @@ def _from_mu(mu):
     return mu > 0
 
 
-def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
+def nufhe_encrypt(thr, rng, key: NuFHESecretKey, message):
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(_to_mu(message))
     noise = key.params.in_out_params.min_noise
@@ -95,10 +95,10 @@ def tfhe_encrypt(thr, rng, key: TFHESecretKey, message):
     return result
 
 
-def tfhe_decrypt(thr, key: TFHESecretKey, ciphertext: LweSampleArray):
+def nufhe_decrypt(thr, key: NuFHESecretKey, ciphertext: LweSampleArray):
     mus = lwe_decrypt(thr, ciphertext, key.lwe_key)
     return _from_mu(mus)
 
 
-def empty_ciphertext(thr, params: TFHEParameters, shape):
+def empty_ciphertext(thr, params: NuFHEParameters, shape):
     return LweSampleArray.empty(thr, params.in_out_params, shape)

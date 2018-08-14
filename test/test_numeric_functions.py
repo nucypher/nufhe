@@ -1,8 +1,8 @@
 import numpy
 
-from tfhe.numeric_functions import Torus32, Int32
-from tfhe.numeric_functions_gpu import Torus32ToPhase
-from tfhe.numeric_functions_cpu import Torus32ToPhaseReference
+from nufhe.numeric_functions import Torus32, Int32
+from nufhe.numeric_functions_gpu import Torus32ToPhase
+from nufhe.numeric_functions_cpu import Torus32ToPhaseReference
 
 from utils import get_test_array
 
