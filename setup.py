@@ -10,4 +10,5 @@ setup(
     license='MIT',
     packages=['nufhe'],
     install_requires=['numpy', 'reikna>=0.7.1'],
+    extras_require={'testing': ['pytest', 'pytest-cov']},
     zip_safe=True)
