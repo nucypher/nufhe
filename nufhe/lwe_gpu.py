@@ -1,15 +1,19 @@
-"""
- * translates the message of the result sample by -sum(a[i].s[i]) where s is the secret
- * embedded in ks.
- * @param result the LWE sample to translate by -sum(ai.si).
- * @param ks The (n x t x base) key switching key
- *        ks[i][j][k] encodes k.s[i]/base^(j+1)
- * @param params The common LWE parameters of ks and result
- * @param ai The input torus array
- * @param n The size of the input key
- * @param t The precision of the keyswitch (technically, 1/2.base^t)
- * @param basebit Log_2 of base
-"""
+# Copyright (C) 2018 NuCypher
+#
+# This file is part of nufhe.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy
 

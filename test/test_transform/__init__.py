@@ -14,18 +14,3 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-from setuptools import setup
-
-setup(
-    name='nufhe',
-    version='0.0.1',
-    description='A GPU implementation of the fully homomorphic encryption on torus',
-    url='http://github.com/nucypher/nufhe',
-    author='Bogdan Opanchuk',
-    author_email='bogdan@nucypher.com',
-    license='GPLv3',
-    packages=['nufhe'],
-    install_requires=['numpy', 'reikna>=0.7.1'],
-    extras_require={'testing': ['pytest', 'pytest-cov']},
-    zip_safe=True)
