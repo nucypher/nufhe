@@ -33,9 +33,9 @@ The next step is the creation of a private and a public key. The former is used 
     import nufhe
 
     rng = numpy.random.RandomState()
-    private_key, public_key = nufhe.nufhe_key_pair(thr, rng)
+    private_key, public_key = nufhe.make_key_pair(thr, rng)
 
-`nufhe_key_pair` takes some keyword parameters that affect the security of the algorithm; the default values correspond to about 110 bits of security.
+`make_key_pair` takes some keyword parameters that affect the security of the algorithm; the default values correspond to about 110 bits of security.
 
 
 ### Encryption
@@ -47,8 +47,8 @@ Using the private key we can encrypt some data. `nuFHE` gates operate on bit arr
     bits1 = rng.randint(0, 2, size=size).astype(numpy.bool)
     bits2 = rng.randint(0, 2, size=size).astype(numpy.bool)
 
-    ciphertext1 = nufhe.nufhe_encrypt(thr, rng, private_key, bits1)
-    ciphertext2 = nufhe.nufhe_encrypt(thr, rng, private_key, bits2)
+    ciphertext1 = nufhe.encrypt(thr, rng, private_key, bits1)
+    ciphertext2 = nufhe.encrypt(thr, rng, private_key, bits2)
 
 In this example we will test the NAND gate, so the reference result would be
 
@@ -60,12 +60,12 @@ In this example we will test the NAND gate, so the reference result would be
 On the server side, where only the public key is known, one can use it to apply a gate:
 
     result = nufhe.empty_ciphertext(thr, public_key.params, ciphertext1.shape)
-    nufhe.nufhe_gate_NAND_(thr, public_key, result, ciphertext1, ciphertext2)
+    nufhe.gate_nand(thr, public_key, result, ciphertext1, ciphertext2)
 
 
 ### Decryption
 
 After the processing, the person in possession of the private key can decrypt the result and verify that the gate was applied correctly:
 
-    result_bits = nufhe.nufhe_decrypt(thr, private_key, result)
+    result_bits = nufhe.decrypt(thr, private_key, result)
     assert (result_bits == reference).all()

@@ -76,7 +76,7 @@ def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
     return key.params
 
 
-def nufhe_key_pair(thr, rng, **params):
+def make_key_pair(thr, rng, **params):
     params = NuFHEParameters(**params)
 
     lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
@@ -104,7 +104,7 @@ def _from_mu(mu):
     return mu > 0
 
 
-def nufhe_encrypt(thr, rng, key: NuFHESecretKey, message):
+def encrypt(thr, rng, key: NuFHESecretKey, message):
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(_to_mu(message))
     noise = key.params.in_out_params.min_noise
@@ -112,7 +112,7 @@ def nufhe_encrypt(thr, rng, key: NuFHESecretKey, message):
     return result
 
 
-def nufhe_decrypt(thr, key: NuFHESecretKey, ciphertext: LweSampleArray):
+def decrypt(thr, key: NuFHESecretKey, ciphertext: LweSampleArray):
     mus = lwe_decrypt(thr, ciphertext, key.lwe_key)
     return _from_mu(mus)
 

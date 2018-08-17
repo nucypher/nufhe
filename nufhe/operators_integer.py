@@ -20,9 +20,9 @@ import numpy
 from .keys import empty_ciphertext, nufhe_parameters
 from .performance import performance_parameters
 from .boot_gates import (
-    nufhe_gate_CONSTANT_,
-    nufhe_gate_XNOR_,
-    nufhe_gate_MUX_,
+    gate_constant,
+    gate_xnor,
+    gate_mux,
     )
 
 
@@ -74,7 +74,7 @@ def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
     tmp2 = empty_ciphertext(thread, params, a.shape_info.shape[:-1] + (1,))
 
     # initialize the carry to 0
-    nufhe_gate_CONSTANT_(thread, cloud_key, tmp1, False)
+    gate_constant(thread, cloud_key, tmp1, False)
 
     # Compare i-th bits in turn starting from the end (assuming big-endian order).
     # Store the result in tmp2, and use tmp1 as an accumulator.
@@ -87,9 +87,9 @@ def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
         b_slice = b[:,i:i+1]
 
         # tmp2 = (a_bit == b_bit)
-        nufhe_gate_XNOR_(thread, cloud_key, tmp2, a_slice, b_slice, perf_params=perf_params)
+        gate_xnor(thread, cloud_key, tmp2, a_slice, b_slice, perf_params=perf_params)
         # tmp1 = tmp2 ? tmp1 : a_bit
-        nufhe_gate_MUX_(thread, cloud_key, tmp1, tmp2, tmp1, a_slice, perf_params=perf_params)
+        gate_mux(thread, cloud_key, tmp1, tmp2, tmp1, a_slice, perf_params=perf_params)
 
     # tmp1 is the result of the comparaison: 0 if a is smaller, 1 if b is smaller
-    nufhe_gate_MUX_(thread, cloud_key, answer, tmp1, b, a, perf_params=perf_params)
+    gate_mux(thread, cloud_key, answer, tmp1, b, a, perf_params=perf_params)

@@ -30,7 +30,7 @@ from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_t
 @pytest.fixture(scope='module')
 def key_pair(thread):
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng)
+    secret_key, cloud_key = make_key_pair(thread, rng)
     return secret_key, cloud_key
 
 
@@ -58,7 +58,7 @@ def check_gate(
     rng = numpy.random.RandomState()
 
     plaintexts = get_plaintexts(rng, num_arguments, shape=shape)
-    ciphertexts = [nufhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
+    ciphertexts = [encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
 
     reference = reference_func(*plaintexts)
 
@@ -84,7 +84,7 @@ def check_gate(
         nufhe_func(thread, cloud_key, answer, *ciphertexts, perf_params)
         times = None
 
-    answer_bits = nufhe_decrypt(thread, secret_key, answer)
+    answer_bits = decrypt(thread, secret_key, answer)
 
     assert (answer_bits == reference).all()
 
@@ -93,15 +93,15 @@ def check_gate(
 
 def test_transform_type(thread, transform_type):
     rng = numpy.random.RandomState()
-    key_pair = nufhe_key_pair(thread, rng, transform_type=transform_type)
-    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref)
+    key_pair = make_key_pair(thread, rng, transform_type=transform_type)
+    check_gate(thread, key_pair, 2, gate_nand, nand_ref)
 
 
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
-    check_gate(thread, (secret_key, cloud_key), 2, nufhe_gate_NAND_, nand_ref)
+    secret_key, cloud_key = make_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
+    check_gate(thread, (secret_key, cloud_key), 2, gate_nand, nand_ref)
 
 
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
@@ -110,7 +110,7 @@ def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref, perf_params=perf_params)
+    check_gate(thread, key_pair, 2, gate_nand, nand_ref, perf_params=perf_params)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
@@ -119,7 +119,7 @@ def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
-    check_gate(thread, key_pair, 3, nufhe_gate_MUX_, mux_ref, perf_params=perf_params)
+    check_gate(thread, key_pair, 3, gate_mux, mux_ref, perf_params=perf_params)
 
 
 def nand_ref(a, b):
@@ -170,55 +170,55 @@ def uint_min_ref(p1, p2):
 
 
 def test_nand_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_NAND_, nand_ref)
+    check_gate(thread, key_pair, 2, gate_nand, nand_ref)
 
 
 def test_or_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_OR_, or_ref)
+    check_gate(thread, key_pair, 2, gate_or, or_ref)
 
 
 def test_and_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_AND_, and_ref)
+    check_gate(thread, key_pair, 2, gate_and, and_ref)
 
 
 def test_xor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_XOR_, xor_ref)
+    check_gate(thread, key_pair, 2, gate_xor, xor_ref)
 
 
 def test_xnor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_XNOR_, xnor_ref)
+    check_gate(thread, key_pair, 2, gate_xnor, xnor_ref)
 
 
 def test_not_gate(thread, key_pair):
-    check_gate(thread, key_pair, 1, nufhe_gate_NOT_, not_ref)
+    check_gate(thread, key_pair, 1, gate_not, not_ref)
 
 
 def test_copy_gate(thread, key_pair):
-    check_gate(thread, key_pair, 1, nufhe_gate_COPY_, copy_ref)
+    check_gate(thread, key_pair, 1, gate_copy, copy_ref)
 
 
 def test_nor_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_NOR_, nor_ref)
+    check_gate(thread, key_pair, 2, gate_nor, nor_ref)
 
 
 def test_andny_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_ANDNY_, andny_ref)
+    check_gate(thread, key_pair, 2, gate_andny, andny_ref)
 
 
 def test_andyn_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_ANDYN_, andyn_ref)
+    check_gate(thread, key_pair, 2, gate_andyn, andyn_ref)
 
 
 def test_orny_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_ORNY_, orny_ref)
+    check_gate(thread, key_pair, 2, gate_orny, orny_ref)
 
 
 def test_oryn_gate(thread, key_pair):
-    check_gate(thread, key_pair, 2, nufhe_gate_ORYN_, oryn_ref)
+    check_gate(thread, key_pair, 2, gate_oryn, oryn_ref)
 
 
 def test_mux_gate(thread, key_pair):
-    check_gate(thread, key_pair, 3, nufhe_gate_MUX_, mux_ref)
+    check_gate(thread, key_pair, 3, gate_mux, mux_ref)
 
 
 def test_constant_gate(thread, key_pair):
@@ -233,8 +233,8 @@ def test_constant_gate(thread, key_pair):
     answer = empty_ciphertext(thread, params, (size,))
 
     for val in (False, True):
-        nufhe_gate_CONSTANT_(thread, cloud_key, answer, val)
-        answer_bits = nufhe_decrypt(thread, secret_key, answer)
+        gate_constant(thread, cloud_key, answer, val)
+        answer_bits = decrypt(thread, secret_key, answer)
         assert (answer_bits == val).all()
 
 
@@ -243,7 +243,7 @@ def test_uint_min(thread, key_pair):
 
 
 def check_performance(
-        thread, key_pair, perf_params, shape, test_function=(nufhe_gate_NAND_, nand_ref, 2)):
+        thread, key_pair, perf_params, shape, test_function=(gate_nand, nand_ref, 2)):
 
     # Assuming that the time taken by the gate has the form
     #   t = size * speed + overhead
@@ -314,8 +314,8 @@ def test_single_kernel_bs_performance(
         test_function_name, heavy_performance_load):
 
     test_function = dict(
-        NAND=(nufhe_gate_NAND_, nand_ref, 2),
-        MUX=(nufhe_gate_MUX_, mux_ref, 3),
+        NAND=(gate_nand, nand_ref, 2),
+        MUX=(gate_mux, mux_ref, 3),
         uint_min=(uint_min, uint_min_ref, 2),
         )[test_function_name]
 
@@ -325,7 +325,7 @@ def test_single_kernel_bs_performance(
         shape = 4096 if heavy_performance_load else 16
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type=transform_type)
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap)
@@ -344,7 +344,7 @@ def test_constant_mem_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type=transform_type)
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
 
     # We want to test the effect of using constant memory on the bootstrap calculation.
     # A single-kernel bootstrap uses the `use_constant_memory_multi_iter` option,
@@ -375,7 +375,7 @@ def test_transforms_per_block_performance(
         single_kernel_bootstrap=False,
         transforms_per_block=transforms_per_block)
     rng = numpy.random.RandomState()
-    key_pair = nufhe_key_pair(thread, rng, transform_type=transform_type)
+    key_pair = make_key_pair(thread, rng, transform_type=transform_type)
     results = check_performance(thread, key_pair, perf_params, shape=size)
     print()
     print(check_performance_str(results))
@@ -393,7 +393,7 @@ def test_ntt_base_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
@@ -418,7 +418,7 @@ def test_ntt_mul_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
@@ -443,7 +443,7 @@ def test_ntt_lsh_method_performance(
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
-    secret_key, cloud_key = nufhe_key_pair(thread, rng, transform_type='NTT')
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
     perf_params = performance_parameters(
         nufhe_params=secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
@@ -456,7 +456,7 @@ def test_ntt_lsh_method_performance(
 
 def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
 
-    nufhe_func = nufhe_gate_NAND_
+    nufhe_func = gate_nand
     reference_func = nand_ref
     num_arguments = 2
 
@@ -477,7 +477,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     pt1 = plaintexts[0][slices1]
     pt2 = plaintexts[1][slices2]
 
-    ciphertexts = [nufhe_encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
+    ciphertexts = [encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
     ct1 = ciphertexts[0][slices1]
     ct2 = ciphertexts[1][slices2]
 
@@ -490,7 +490,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
         perf_params=performance_parameters(
             nufhe_params=params, single_kernel_bootstrap=single_kernel_bootstrap))
 
-    answer_bits = nufhe_decrypt(thread, secret_key, answer)
+    answer_bits = decrypt(thread, secret_key, answer)
     answer_bits_view = answer_bits[result_slices]
 
     assert (answer_bits_view == reference).all()

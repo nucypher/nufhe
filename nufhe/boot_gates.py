@@ -59,7 +59,7 @@ def result_shape(shape1, shape2):
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_NAND_(
+def gate_nand(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -90,7 +90,7 @@ def nufhe_gate_NAND_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_OR_(
+def gate_or(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -120,7 +120,7 @@ def nufhe_gate_OR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_AND_(
+def gate_and(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -150,7 +150,7 @@ def nufhe_gate_AND_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_XOR_(
+def gate_xor(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -180,7 +180,7 @@ def nufhe_gate_XOR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_XNOR_(
+def gate_xnor(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -210,7 +210,7 @@ def nufhe_gate_XNOR_(
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_NOT_(
+def gate_not(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
@@ -222,7 +222,7 @@ def nufhe_gate_NOT_(
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_COPY_(
+def gate_copy(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
     in_out_params = bk.params.in_out_params
@@ -234,7 +234,7 @@ def nufhe_gate_COPY_(
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_CONSTANT_(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
+def gate_constant(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
     in_out_params = bk.params.in_out_params
     MU = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, result, MU if val else -MU)
@@ -245,7 +245,7 @@ def nufhe_gate_CONSTANT_(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_NOR_(
+def gate_nor(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -275,7 +275,7 @@ def nufhe_gate_NOR_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_ANDNY_(
+def gate_andny(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -305,7 +305,7 @@ def nufhe_gate_ANDNY_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_ANDYN_(
+def gate_andyn(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -335,7 +335,7 @@ def nufhe_gate_ANDYN_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_ORNY_(
+def gate_orny(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -365,7 +365,7 @@ def nufhe_gate_ORNY_(
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_ORYN_(
+def gate_oryn(
         thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
@@ -395,7 +395,7 @@ def nufhe_gate_ORYN_(
  * Takes in input 3 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
-def nufhe_gate_MUX_(
+def gate_mux(
         thr,
         bk: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
