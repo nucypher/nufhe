@@ -20,7 +20,7 @@ from setuptools import setup
 setup(
     name='nufhe',
     version='0.0.1',
-    description='A GPU implementation of the fully homomorphic encryption on torus',
+    description='A GPU implementation of fully homomorphic encryption on torus',
     url='http://github.com/nucypher/nufhe',
     author='Bogdan Opanchuk',
     author_email='bogdan@nucypher.com',
