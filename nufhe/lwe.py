@@ -116,6 +116,10 @@ class LweSampleArray:
         current_variances = thr.array(shape, Float)
         return cls(params, a, b, current_variances)
 
+    @property
+    def shape(self):
+        return self.shape_info.shape
+
     def __getitem__(self, index):
         a_view = self.a[index]
         b_view = self.b[index]
