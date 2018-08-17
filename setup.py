@@ -25,7 +25,14 @@ setup(
     author='Bogdan Opanchuk',
     author_email='bogdan@nucypher.com',
     license='GPLv3',
-    packages=['nufhe'],
+    packages=[
+        'nufhe',
+        'nufhe/transform',
+        ],
+    package_data={
+        'nufhe': ['*.mako'],
+        'nufhe/transform': ['*.mako'],
+        },
     install_requires=['numpy', 'reikna>=0.7.1'],
     extras_require={'testing': ['pytest', 'pytest-cov']},
     zip_safe=True)
