@@ -140,6 +140,7 @@ def test_tgsw_transformed_external_mul(thread):
 
     bootstrap_key_dev = thread.to_device(bootstrap_key)
     accum_dev = thread.to_device(accum)
+    thread.synchronize()
 
     test = TGswTransformedExternalMul(tgsw_params, shape, bk_len, perf_params).compile(thread)
     ref = TGswTransformedExternalMulReference(tgsw_params, shape, bk_len, perf_params)
@@ -169,6 +170,7 @@ def test_tgsw_add_message(thread):
 
     result_a_dev = thread.to_device(result_a)
     messages_dev = thread.to_device(messages)
+    thread.synchronize()
 
     test = TGswAddMessage(tgsw_params, shape).compile(thread)
     ref = TGswAddMessageReference(tgsw_params, shape)

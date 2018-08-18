@@ -242,6 +242,7 @@ def test_lwe_linear(thread, positive_coeff, add_result):
     src_a_dev = thread.to_device(src_a)
     src_b_dev = thread.to_device(src_b)
     src_cv_dev = thread.to_device(src_cv)
+    thread.synchronize()
 
     test(res_a_dev, res_b_dev, res_cv_dev, src_a_dev, src_b_dev, src_cv_dev, coeff)
     ref(res_a, res_b, res_cv, src_a, src_b, src_cv, coeff)
