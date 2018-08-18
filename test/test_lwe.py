@@ -229,7 +229,7 @@ def test_lwe_linear(thread, positive_coeff, add_result):
     src_b = get_test_array(shape, Torus32)
     src_cv = get_test_array(shape, Float, (-1, 1))
 
-    coeff = -1 if positive_coeff else 1
+    coeff = 1 if positive_coeff else -1
 
     shape_info = LweSampleArrayShapeInfo(src_a, src_b, src_cv)
 
