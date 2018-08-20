@@ -76,7 +76,7 @@ def gate_nand(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -106,7 +106,7 @@ def gate_or(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -136,7 +136,7 @@ def gate_and(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -166,7 +166,7 @@ def gate_xor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -196,7 +196,7 @@ def gate_xnor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -261,7 +261,7 @@ def gate_nor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -291,7 +291,7 @@ def gate_andny(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -321,7 +321,7 @@ def gate_andyn(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -351,7 +351,7 @@ def gate_orny(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -381,7 +381,7 @@ def gate_oryn(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bkFFT, MU, temp_result, perf_params)
+    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
 
 
 """
@@ -416,14 +416,14 @@ def gate_mux(
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u1, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
+    bootstrap(thr, u1, bk.bootstrap_key, MU, temp_result, perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     lwe_noiseless_trivial(thr, temp_result, AndConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, c)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u2, bk.bkFFT, MU, temp_result, perf_params, no_keyswitch=True)
+    bootstrap(thr, u2, bk.bootstrap_key, MU, temp_result, perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
     MuxConst = phase_to_t32(1, 8)
@@ -432,4 +432,4 @@ def gate_mux(
     lwe_add_to(thr, temp_result1, u2)
 
     # Key switching
-    lwe_keyswitch(thr, result, bk.bkFFT.ks, temp_result1)
+    lwe_keyswitch(thr, result, bk.bootstrap_key.keyswitch_key, temp_result1)

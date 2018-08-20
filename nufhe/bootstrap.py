@@ -39,30 +39,33 @@ from .blind_rotate import BlindRotate_gpu
 from .performance import PerformanceParameters
 
 
-def lwe_bootstrapping_key(
-        thr, rng, ks_decomp_length: int, ks_log2_base: int, key_in: LweKey, rgsw_key: TGswKey,
-        perf_params: PerformanceParameters):
+def make_keyswitch_key(
+        thr, rng, ks_decomp_length: int, ks_log2_base: int, lwe_key: LweKey, tgsw_key: TGswKey):
 
-    bk_params = rgsw_key.params
-    in_out_params = key_in.params
+    bk_params = tgsw_key.params
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
-
-    accum_key = rgsw_key.tlwe_key
-    extracted_key = LweKey.from_tlwe_key(extract_params, accum_key)
-
-    ks = LweKeyswitchKey(thr, rng, extracted_key, key_in, ks_decomp_length, ks_log2_base)
-
-    bk = TGswSampleArray(thr, bk_params, (in_out_params.size,))
-    kin = key_in.key
-    noise = accum_params.min_noise
-
-    tgsw_encrypt_int(thr, rng, bk, kin, noise, rgsw_key, perf_params)
-
-    return bk, ks
+    extracted_key = LweKey.from_tlwe_key(extract_params, tgsw_key.tlwe_key)
+    return LweKeyswitchKey(thr, rng, extracted_key, lwe_key, ks_decomp_length, ks_log2_base)
 
 
-class LweBootstrappingKeyFFT:
+def make_bootstrap_key(
+        thr, rng, lwe_key: LweKey, tgsw_key: TGswKey, perf_params: PerformanceParameters):
+
+    bk_params = tgsw_key.params
+    accum_params = bk_params.tlwe_params
+
+    # Make a non-transformed bootstrap key
+    bk = TGswSampleArray(thr, bk_params, (lwe_key.params.size,))
+    tgsw_encrypt_int(thr, rng, bk, lwe_key.key, accum_params.min_noise, tgsw_key, perf_params)
+
+    # Convert it to transformed space, because that's where it will be used
+    bk_transformed = TransformedTGswSampleArray(thr, bk_params, (lwe_key.params.size,))
+    tgsw_transform_samples(thr, bk_transformed, bk, perf_params)
+    return bk_transformed
+
+
+class BootstrapKey:
 
     def __init__(
             self, thr, rng, ks_decomp_length: int, ks_log2_base: int,
@@ -73,21 +76,14 @@ class LweBootstrappingKeyFFT:
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        bk, ks = lwe_bootstrapping_key(
-            thr, rng, ks_decomp_length, ks_log2_base, lwe_key, tgsw_key, perf_params)
+        self.in_out_params = in_out_params
+        self.bk_params = bk_params
+        self.accum_params = accum_params
+        self.extract_params = extract_params
 
-        n = in_out_params.size
-
-        # Bootstrapping Key FFT
-        bkFFT = TransformedTGswSampleArray(thr, bk_params, (n,))
-        tgsw_transform_samples(thr, bkFFT, bk, perf_params)
-
-        self.in_out_params = in_out_params # paramètre de l'input et de l'output. key: s
-        self.bk_params = bk_params # params of the Gsw elems in bk. key: s"
-        self.accum_params = accum_params # params of the accum variable key: s"
-        self.extract_params = extract_params # params after extraction: key: s'
-        self.bkFFT = bkFFT # the bootstrapping key (s->s")
-        self.ks = ks # the keyswitch key (s'->s)
+        self.bootstrap_key = make_bootstrap_key(thr, rng, lwe_key, tgsw_key, perf_params)
+        self.keyswitch_key = make_keyswitch_key(
+            thr, rng, ks_decomp_length, ks_log2_base, lwe_key, tgsw_key)
 
 
 def nufhe_MuxRotate_FFT(
@@ -114,8 +110,8 @@ def nufhe_MuxRotate_FFT(
  * @param bk_params The parameters of bk
 """
 def nufhe_blindRotate_FFT(
-        thr, accum: TLweSampleArray, bkFFT: TransformedTGswSampleArray, bara, n: int, bk_params: TGswParams,
-        perf_params: PerformanceParameters):
+        thr, accum: TLweSampleArray, bootstrap_key: TransformedTGswSampleArray,
+        bara, n: int, bk_params: TGswParams, perf_params: PerformanceParameters):
 
     # TYPING: bara::Array{Int32}
     temp = TLweSampleArray(thr, bk_params.tlwe_params, accum.shape)
@@ -126,10 +122,10 @@ def nufhe_blindRotate_FFT(
     accum_in_temp3 = True
 
     for i in range(n):
-        # TODO: here we only need to pass bkFFT[i] and bara[:,i],
+        # TODO: here we only need to pass bootstrap_key[i] and bara[:,i],
         # but Reikna kernels have to be recompiled for every set of strides/offsets,
         # so for now we are just passing full arrays and an index.
-        nufhe_MuxRotate_FFT(thr, temp2, temp3, bkFFT, i, bara, bk_params, perf_params)
+        nufhe_MuxRotate_FFT(thr, temp2, temp3, bootstrap_key, i, bara, bk_params, perf_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
@@ -150,7 +146,7 @@ def nufhe_blindRotate_FFT(
 """
 def nufhe_blindRotateAndExtract_FFT(
         thr, result: LweSampleArray,
-        v: TorusPolynomialArray, bk: LweBootstrappingKeyFFT,
+        v: TorusPolynomialArray, bk: BootstrapKey,
         barb, bara,
         perf_params: PerformanceParameters,
         no_keyswitch=False):
@@ -185,13 +181,13 @@ def nufhe_blindRotateAndExtract_FFT(
     else:
         # Blind rotation
         nufhe_blindRotate_FFT(
-            thr, acc, bk.bkFFT, bara, bk.in_out_params.size, bk_params, perf_params)
+            thr, acc, bk.bootstrap_key, bara, bk.in_out_params.size, bk_params, perf_params)
 
         # Extraction
         tlwe_extract_lwe_samples(thr, extracted_result, acc)
 
         if not no_keyswitch:
-            lwe_keyswitch(thr, result, bk.ks, extracted_result)
+            lwe_keyswitch(thr, result, bk.keyswitch_key, extracted_result)
 
 
 """
@@ -202,7 +198,7 @@ def nufhe_blindRotateAndExtract_FFT(
  * @param x The input sample
 """
 def bootstrap(
-        thr, result: LweSampleArray, bk: LweBootstrappingKeyFFT, mu: Torus32, x: LweSampleArray,
+        thr, result: LweSampleArray, bk: BootstrapKey, mu: Torus32, x: LweSampleArray,
         perf_params: PerformanceParameters,
         no_keyswitch=False):
 

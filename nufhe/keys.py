@@ -21,7 +21,7 @@ from .numeric_functions import phase_to_t32
 from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
-from .bootstrap import LweBootstrappingKeyFFT
+from .bootstrap import BootstrapKey
 from .performance import performance_parameters
 
 
@@ -67,9 +67,9 @@ class NuFHESecretKey:
 
 class NuFHECloudKey:
 
-    def __init__(self, params: NuFHEParameters, bkFFT: LweBootstrappingKeyFFT):
+    def __init__(self, params: NuFHEParameters, bootstrap_key: BootstrapKey):
         self.params = params
-        self.bkFFT = bkFFT
+        self.bootstrap_key = bootstrap_key
 
 
 def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
@@ -86,9 +86,9 @@ def make_key_pair(thr, rng, **params):
     # TODO: use PerformanceParameters from the user
     perf_params = performance_parameters(nufhe_params=params)
 
-    bkFFT = LweBootstrappingKeyFFT(
+    bk = BootstrapKey(
         thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key, perf_params)
-    cloud_key = NuFHECloudKey(params, bkFFT)
+    cloud_key = NuFHECloudKey(params, bk)
 
     return secret_key, cloud_key
 
