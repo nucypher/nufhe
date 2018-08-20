@@ -156,6 +156,17 @@ class LweKeyswitchKey:
         self.decomp_length = decomp_length # decomposition length
         self.log2_base = log2_base # log_2(decomposition base)
 
+    @classmethod
+    def from_tgsw_key(
+            cls, thr, rng, ks_decomp_length: int, ks_log2_base: int,
+            lwe_key: LweKey, tgsw_key: 'TGswKey'):
+
+        bk_params = tgsw_key.params
+        accum_params = bk_params.tlwe_params
+        extract_params = accum_params.extracted_lweparams
+        extracted_key = LweKey.from_tlwe_key(extract_params, tgsw_key.tlwe_key)
+        return cls(thr, rng, extracted_key, lwe_key, ks_decomp_length, ks_log2_base)
+
 
 def lwe_keyswitch(thr: Thread, result: LweSampleArray, ks: LweKeyswitchKey, sample: LweSampleArray):
     """

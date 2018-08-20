@@ -207,7 +207,8 @@ class BlindRotateAndKeySwitch(Computation):
 
 def BlindRotate_gpu(
         lwe_out: LweSampleArray, accum: TLweSampleArray,
-        bk: 'BootstrapKey', bara, perf_params: PerformanceParameters, no_keyswitch=False):
+        bk: 'BootstrapKey', ks: 'LweKeyswitchKey',
+        bara, perf_params: PerformanceParameters, no_keyswitch=False):
 
     thr = accum.a.coeffs.thread
 
@@ -215,12 +216,12 @@ def BlindRotate_gpu(
 
     if no_keyswitch:
         comp = get_computation(thr, BlindRotate, bk.bk_params, bk.in_out_params, shape, perf_params)
-        comp(lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bootstrap_key.samples.a.coeffs, bara)
+        comp(lwe_out.a, lwe_out.b, accum.a.coeffs, bk.tgsw.samples.a.coeffs, bara)
     else:
         comp = get_computation(
             thr, BlindRotateAndKeySwitch,
             bk.bk_params, bk.in_out_params, lwe_out.shape_info,
-            bk.keyswitch_key.log2_base, bk.keyswitch_key.decomp_length, perf_params)
+            ks.log2_base, ks.decomp_length, perf_params)
         comp(
-            lwe_out.a, lwe_out.b, accum.a.coeffs, bk.bootstrap_key.samples.a.coeffs,
-            bk.keyswitch_key.lwe.a, bk.keyswitch_key.lwe.b, bara)
+            lwe_out.a, lwe_out.b, accum.a.coeffs, bk.tgsw.samples.a.coeffs,
+            ks.lwe.a, ks.lwe.b, bara)

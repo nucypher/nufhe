@@ -54,16 +54,16 @@ def result_shape(shape1, shape2):
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_nand(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
 
@@ -76,7 +76,7 @@ def gate_nand(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -85,16 +85,16 @@ def gate_nand(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_or(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca + cb
@@ -106,7 +106,7 @@ def gate_or(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -115,16 +115,16 @@ def gate_or(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_and(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca + cb
@@ -136,7 +136,7 @@ def gate_and(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -145,16 +145,16 @@ def gate_and(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_xor(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/4) + 2*(ca + cb)
@@ -166,7 +166,7 @@ def gate_xor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -175,16 +175,16 @@ def gate_xor(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_xnor(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/4) + 2*(-ca-cb)
@@ -196,7 +196,7 @@ def gate_xnor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -205,9 +205,9 @@ def gate_xnor(
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_not(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     lwe_negate(thr, result, ca)
 
 
@@ -217,9 +217,9 @@ def gate_not(
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_copy(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
         perf_params=None):
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     lwe_copy(thr, result, ca)
 
 
@@ -228,8 +228,8 @@ def gate_copy(
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def gate_constant(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
-    in_out_params = bk.params.in_out_params
+def gate_constant(thr, ck: NuFHECloudKey, result: LweSampleArray, val):
+    in_out_params = ck.params.in_out_params
     MU = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, result, MU if val else -MU)
 
@@ -240,16 +240,16 @@ def gate_constant(thr, bk: NuFHECloudKey, result: LweSampleArray, val):
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_nor(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca - cb
@@ -261,7 +261,7 @@ def gate_nor(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -270,16 +270,16 @@ def gate_nor(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_andny(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) - ca + cb
@@ -291,7 +291,7 @@ def gate_andny(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -300,16 +300,16 @@ def gate_andny(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_andyn(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,-1/8) + ca - cb
@@ -321,7 +321,7 @@ def gate_andyn(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -330,16 +330,16 @@ def gate_andyn(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_orny(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) - ca + cb
@@ -351,7 +351,7 @@ def gate_orny(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -360,16 +360,16 @@ def gate_orny(
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_oryn(
-        thr, bk: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
+        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
     #compute: (0,1/8) + ca - cb
@@ -381,7 +381,7 @@ def gate_oryn(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, bk.bootstrap_key, MU, temp_result, perf_params)
+    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
 
 
 """
@@ -391,19 +391,19 @@ def gate_oryn(
 """
 def gate_mux(
         thr,
-        bk: NuFHECloudKey, result: LweSampleArray,
+        ck: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = performance_parameters(nufhe_params=ck.params)
 
     rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
     assert rshape == result.shape_info.shape
 
     MU = phase_to_t32(1, 8)
-    in_out_params = bk.params.in_out_params
-    extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
+    in_out_params = ck.params.in_out_params
+    extracted_params = ck.params.tgsw_params.tlwe_params.extracted_lweparams
 
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
     temp_result1 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
@@ -416,14 +416,18 @@ def gate_mux(
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u1, bk.bootstrap_key, MU, temp_result, perf_params, no_keyswitch=True)
+    bootstrap(
+        thr, u1, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result,
+        perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     lwe_noiseless_trivial(thr, temp_result, AndConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, c)
     # Bootstrap without KeySwitch
-    bootstrap(thr, u2, bk.bootstrap_key, MU, temp_result, perf_params, no_keyswitch=True)
+    bootstrap(
+        thr, u2, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result,
+        perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
     MuxConst = phase_to_t32(1, 8)
@@ -432,4 +436,4 @@ def gate_mux(
     lwe_add_to(thr, temp_result1, u2)
 
     # Key switching
-    lwe_keyswitch(thr, result, bk.bootstrap_key.keyswitch_key, temp_result1)
+    lwe_keyswitch(thr, result, ck.keyswitch_key, temp_result1)

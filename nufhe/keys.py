@@ -18,7 +18,7 @@
 import numpy
 
 from .numeric_functions import phase_to_t32
-from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt
+from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt, LweKeyswitchKey
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .bootstrap import BootstrapKey
@@ -48,7 +48,8 @@ class NuFHEParameters:
         max_stdev = 1/2**4 / 4 * coeff # max standard deviation for a 1/4 msg space
 
         params_in = LweParams(lwe_size, ks_stdev, max_stdev)
-        params_accum = TLweParams(tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev, transform_type)
+        params_accum = TLweParams(
+            tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev, transform_type)
         params_bs = TGswParams(params_accum, bs_decomp_length, bs_log2_base)
 
         self.ks_decomp_length = ks_decomp_length
@@ -67,9 +68,12 @@ class NuFHESecretKey:
 
 class NuFHECloudKey:
 
-    def __init__(self, params: NuFHEParameters, bootstrap_key: BootstrapKey):
+    def __init__(
+            self, params: NuFHEParameters,
+            bootstrap_key: BootstrapKey, keyswitch_key: LweKeyswitchKey):
         self.params = params
         self.bootstrap_key = bootstrap_key
+        self.keyswitch_key = keyswitch_key
 
 
 def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
@@ -86,9 +90,10 @@ def make_key_pair(thr, rng, **params):
     # TODO: use PerformanceParameters from the user
     perf_params = performance_parameters(nufhe_params=params)
 
-    bk = BootstrapKey(
-        thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key, perf_params)
-    cloud_key = NuFHECloudKey(params, bk)
+    bk = BootstrapKey(thr, rng, lwe_key, tgsw_key, perf_params)
+    ks = LweKeyswitchKey.from_tgsw_key(
+        thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key)
+    cloud_key = NuFHECloudKey(params, bk, ks)
 
     return secret_key, cloud_key
 
