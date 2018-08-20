@@ -19,7 +19,7 @@ import numpy
 
 from .keys import empty_ciphertext, nufhe_parameters
 from .performance import performance_parameters
-from .boot_gates import (
+from .gates import (
     gate_constant,
     gate_xnor,
     gate_mux,

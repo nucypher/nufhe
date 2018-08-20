@@ -23,7 +23,7 @@ from .keys import (
     empty_ciphertext
     )
 
-from .boot_gates import (
+from .gates import (
     gate_nand,
     gate_or,
     gate_and,

@@ -32,14 +32,8 @@ from .lwe import (
     lwe_copy,
     )
 from .keys import NuFHECloudKey
-from .lwe_bootstrapping import bootstrap
+from .bootstrap import bootstrap
 from .performance import performance_parameters
-
-from . import lwe_bootstrapping
-
-#*#*****************************************
-# zones on the torus -> to see
-#*#*****************************************
 
 
 def result_shape(shape1, shape2):

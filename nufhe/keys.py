@@ -21,7 +21,7 @@ from .numeric_functions import phase_to_t32
 from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
-from .lwe_bootstrapping import LweBootstrappingKeyFFT
+from .bootstrap import LweBootstrappingKeyFFT
 from .performance import performance_parameters
 
 
