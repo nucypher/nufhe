@@ -39,14 +39,13 @@ def _rand_uniform_torus32(rng, shape):
     return rng.randint(-2**31, 2**31, size=shape, dtype=Torus32)
 
 
-def _rand_gaussian_float(rng, sigma: float, shape):
-    return rng.normal(size=shape, scale=sigma)
-
-
 # Gaussian sample centered in message, with standard deviation sigma
-def _rand_gaussian_torus32(rng, message: Torus32, sigma: float, shape):
+def _rand_gaussian_torus32(rng, message: Torus32, sigma: float, shape, centered=False):
     # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    return Torus32(message) + double_to_t32(rng.normal(size=shape, scale=sigma))
+    rfloats = rng.normal(size=shape, scale=sigma)
+    if centered:
+        rfloats -= rfloats.mean()
+    return Torus32(message) + double_to_t32(rfloats)
 
 
 def rand_uniform_int32(thr, rng, shape):
@@ -57,9 +56,5 @@ def rand_uniform_torus32(thr, rng, shape):
     return thr.to_device(_rand_uniform_torus32(rng, shape))
 
 
-def rand_gaussian_float(thr, rng, sigma, shape):
-    return thr.to_device(_rand_gaussian_float(rng, sigma, shape))
-
-
-def rand_gaussian_torus32(thr, rng, message: Torus32, sigma: float, shape):
-    return thr.to_device(_rand_gaussian_torus32(rng, message, sigma, shape))
+def rand_gaussian_torus32(thr, rng, message: Torus32, sigma: float, shape, centered=False):
+    return thr.to_device(_rand_gaussian_torus32(rng, message, sigma, shape, centered=centered))

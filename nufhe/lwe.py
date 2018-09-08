@@ -36,7 +36,6 @@ from .lwe_gpu import (
     )
 from .random_numbers import (
     rand_uniform_int32,
-    rand_gaussian_float,
     rand_uniform_torus32,
     rand_gaussian_torus32,
     )
@@ -140,8 +139,8 @@ class LweKeyswitchKey:
 
         lwe = LweSampleArray.empty(thr, out_key.params, (input_size, decomp_length, base))
 
-        noises_b = rand_gaussian_float(
-            thr, rng, noise, (input_size, decomp_length, base - 1))
+        noises_b = rand_gaussian_torus32(
+            thr, rng, 0, noise, (input_size, decomp_length, base - 1), centered=True)
         noises_a = rand_uniform_torus32(
             thr, rng, (input_size, decomp_length, base - 1, output_size))
 

@@ -33,7 +33,7 @@ def lwe_encrypt_with_external_noise(
     ks_cv[:,:,0] = 0
 
     ks_a[:,:,1:,:] = noises_a
-    ks_b[:,:,1:] = messages + double_to_t32(noises_b) + vec_mul_mat(noises_a, key)
+    ks_b[:,:,1:] = messages + noises_b + vec_mul_mat(noises_a, key)
     ks_cv[:,:,1:] = noise**2
 
 
@@ -43,9 +43,6 @@ def MakeLweKeyswitchKeyReference(
     base = 2**log2_base
 
     def _kernel(ks_a, ks_b, ks_cv, in_key, out_key, noises_a, noises_b):
-
-        # recenter the noises
-        noises_b -= noises_b.mean()
 
         hs = numpy.arange(1, base).astype(Torus32)
         js = numpy.arange(decomp_length).astype(Torus32)

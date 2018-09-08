@@ -16,7 +16,7 @@
 ## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 <%def name="make_lwe_keyswitch_key(
-        idxs, ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b, noises_b_mean)">
+        idxs, ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b)">
 
     int input_idx = ${idxs[0]};
     int decomp_idx = ${idxs[1]};
@@ -36,9 +36,7 @@
         int key = ${in_key.load_idx}(input_idx);
         int message = key * base_idx * (1 << (32 - (decomp_idx + 1) * ${log2_base}));
 
-        ${noises_b.ctype} noise_b =
-            ${noises_b.load_idx}(input_idx, decomp_idx, base_idx - 1)
-            - ${noises_b_mean.load_idx}();
+        ${noises_b.ctype} noise_b = ${noises_b.load_idx}(input_idx, decomp_idx, base_idx - 1);
 
         ${ks_cv.store_idx}(input_idx, decomp_idx, base_idx, ${noise**2});
 
@@ -52,7 +50,7 @@
         ${ks_b.store_idx}(
             input_idx, decomp_idx, base_idx,
             message
-            + ${double_to_t32}(noise_b)
+            + noise_b
             + ${b_term.load_idx}(input_idx, decomp_idx, base_idx - 1));
     }
 </%def>

@@ -38,12 +38,3 @@ def t32_to_phase(thr, result, messages, mspace_size: int):
 
 def double_to_t32(d: float):
     return ((d - numpy.trunc(d)) * 2**32).astype(Torus32)
-
-
-double_to_t32_module = Module.create(
-    """
-    WITHIN_KERNEL int ${prefix}(double d)
-    {
-        return (d - trunc(d)) * ${2**32};
-    }
-    """)

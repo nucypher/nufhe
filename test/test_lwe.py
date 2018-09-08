@@ -38,7 +38,7 @@ from nufhe.lwe_cpu import (
     LweLinearReference,
     LweNoiselessTrivialReference,
     )
-from nufhe.numeric_functions import Torus32, Int32, Float
+from nufhe.numeric_functions import Torus32, Int32, Float, double_to_t32
 import nufhe.random_numbers as rn
 
 from utils import get_test_array
@@ -118,7 +118,8 @@ def test_make_lwe_keyswitch_key(thread):
     in_key = get_test_array(input_size, Int32, (0, 2))
     out_key = get_test_array(output_size, Int32, (0, 2))
     noises_a = get_test_array((input_size, decomp_length, base - 1, output_size), Torus32)
-    noises_b = get_test_array((input_size, decomp_length, base - 1), Float, (-noise, noise))
+    noises_b = double_to_t32(
+        get_test_array((input_size, decomp_length, base - 1), Float, (-noise, noise)))
 
     test = MakeLweKeyswitchKey(
         input_size, output_size, decomp_length, log2_base, noise).compile(thread)

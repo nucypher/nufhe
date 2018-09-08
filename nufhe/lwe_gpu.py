@@ -23,7 +23,7 @@ from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
-from .numeric_functions import Torus32, Int32, Float, double_to_t32_module
+from .numeric_functions import Torus32, Int32, Float
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -75,7 +75,7 @@ class MakeLweKeyswitchKey(Computation):
         out_key = Type(Int32, output_size)
 
         noises_a = Type(Torus32, (input_size, decomp_length, base - 1, output_size))
-        noises_b = Type(Float, (input_size, decomp_length, base - 1))
+        noises_b = Type(Torus32, (input_size, decomp_length, base - 1))
 
         self._output_size = output_size
         self._log2_base = log2_base
@@ -98,12 +98,6 @@ class MakeLweKeyswitchKey(Computation):
 
         extracted_n, t, base, inner_n = ks_a.shape
 
-        mean = Reduce(noises_b, predicate_sum(noises_b.dtype))
-        norm = transformations.div_const(mean.parameter.output, numpy.prod(noises_b.shape))
-        mean.parameter.output.connect(norm, norm.input, mean=norm.output)
-
-        noises_b_mean = plan.temp_array_like(mean.parameter.mean)
-
         mul_key = MatrixMulVector(noises_a)
         b_term = plan.temp_array_like(mul_key.parameter.output)
 
@@ -114,20 +108,18 @@ class MakeLweKeyswitchKey(Computation):
             Parameter('in_key', Annotation(in_key, 'i')),
             Parameter('b_term', Annotation(b_term, 'i')),
             Parameter('noises_a', Annotation(noises_a, 'i')),
-            Parameter('noises_b', Annotation(noises_b, 'i')),
-            Parameter('noises_b_mean', Annotation(noises_b_mean, 'i'))],
+            Parameter('noises_b', Annotation(noises_b, 'i'))],
             Snippet(
                 TEMPLATE.get_def("make_lwe_keyswitch_key"),
                 render_kwds=dict(
                     log2_base=self._log2_base, output_size=self._output_size,
-                    double_to_t32=double_to_t32_module, noise=self._noise)),
+                    noise=self._noise)),
             guiding_array="ks_b")
 
-        plan.computation_call(mean, noises_b_mean, noises_b)
         plan.computation_call(mul_key, b_term, noises_a, out_key)
         plan.computation_call(
             build_keyswitch,
-            ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b, noises_b_mean)
+            ks_a, ks_b, ks_cv, in_key, b_term, noises_a, noises_b)
 
         return plan
 
