@@ -18,7 +18,7 @@
 import numpy
 
 from nufhe.keys import NuFHEParameters
-from nufhe.numeric_functions import Torus32, Int32, Float
+from nufhe.numeric_functions import Torus32, Int32, ErrorFloat
 from nufhe.tlwe import TLweParams
 from nufhe.tlwe_gpu import (
     TLweNoiselessTrivial,
@@ -45,7 +45,7 @@ def test_tlwe_noiseless_trivial(thread):
 
     mu = get_test_array(shape + (polynomial_degree,), Torus32)
     a = numpy.empty(shape + (mask_size + 1, polynomial_degree), Torus32)
-    cv = numpy.empty(shape, Float)
+    cv = numpy.empty(shape, ErrorFloat)
 
     a_dev = thread.empty_like(a)
     cv_dev = thread.empty_like(cv)
@@ -107,7 +107,7 @@ def test_tlwe_encrypt_zero(thread):
     shape = (3, 4, 5)
 
     result_a = numpy.empty(shape + (mask_size + 1, polynomial_degree), Torus32)
-    result_cv = numpy.empty(shape, Float)
+    result_cv = numpy.empty(shape, ErrorFloat)
     noises1 = get_test_array(shape + (mask_size, polynomial_degree), Torus32)
     noises2 = get_test_array(shape + (polynomial_degree,), Torus32)
     key = get_test_array((mask_size, polynomial_degree), Int32, (0, 2))

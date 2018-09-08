@@ -23,7 +23,7 @@ from reikna.cluda import functions, Snippet
 import reikna.helpers as helpers
 from reikna import transformations
 
-from .numeric_functions import Torus32, Int32, Float
+from .numeric_functions import Torus32, Int32, ErrorFloat
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -70,7 +70,7 @@ class MakeLweKeyswitchKey(Computation):
 
         a = Type(Torus32, (input_size, decomp_length, base, output_size))
         b = Type(Torus32, (input_size, decomp_length, base))
-        cv = Type(Float, (input_size, decomp_length, base))
+        cv = Type(ErrorFloat, (input_size, decomp_length, base))
         in_key = Type(Int32, input_size)
         out_key = Type(Int32, output_size)
 
@@ -138,7 +138,7 @@ class LweKeyswitch(Computation):
 
         ks_a = Type(Torus32, (input_size, decomp_length, base, output_size))
         ks_b = Type(Torus32, (input_size, decomp_length, base))
-        ks_cv = Type(Float, (input_size, decomp_length, base))
+        ks_cv = Type(ErrorFloat, (input_size, decomp_length, base))
 
         source_a = Type(Torus32, result_shape_info.shape + (input_size,))
         source_b = Type(Torus32, result_shape_info.shape)
@@ -188,7 +188,7 @@ class LweEncrypt(Computation):
 
         result_a = Type(Torus32, shape + (lwe_size,))
         result_b = Type(Torus32, shape)
-        result_cv = Type(Float, shape)
+        result_cv = Type(ErrorFloat, shape)
         messages = Type(Torus32, shape)
         key = Type(Int32, (lwe_size,))
         noises_a = Type(Torus32, shape + (lwe_size,))

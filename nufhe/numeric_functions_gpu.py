@@ -32,8 +32,8 @@ Torus32 = numpy.int32
 # Accompanying integer type (same size)
 Int32 = numpy.int32
 
-# The type for floating-point values (e.g., errors)
-Float = numpy.float64
+# The type for secondary floating-point values (e.g., errors)
+ErrorFloat = numpy.float32
 
 
 class Torus32ToPhase(Computation):

@@ -21,7 +21,7 @@ from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.algorithms import PureParallel
 import reikna.helpers as helpers
 
-from .numeric_functions import Torus32, Int32, Float
+from .numeric_functions import Torus32, Int32, ErrorFloat
 from .polynomial_transform import get_transform
 from .performance import PerformanceParameters, performance_parameters_for_device
 
@@ -33,7 +33,7 @@ class TLweNoiselessTrivial(Computation):
 
     def __init__(self, params: 'TLweParams', shape):
         a_type = Type(Torus32, shape + (params.mask_size + 1, params.polynomial_degree))
-        cv_type = Type(Float, shape + (params.mask_size + 1,))
+        cv_type = Type(ErrorFloat, shape + (params.mask_size + 1,))
         mu_type = Type(Torus32, shape + (params.polynomial_degree,))
 
         self._mask_size = params.mask_size
@@ -117,7 +117,7 @@ class TLweEncryptZero(Computation):
         mask_size = params.mask_size
 
         result_a = Type(Torus32, shape + (mask_size + 1, polynomial_degree))
-        result_cv = Type(Float, shape)
+        result_cv = Type(ErrorFloat, shape)
         key = Type(Int32, (mask_size, polynomial_degree))
         noises1 = Type(Torus32, shape + (mask_size, polynomial_degree))
         noises2 = Type(Torus32, shape + (polynomial_degree,))

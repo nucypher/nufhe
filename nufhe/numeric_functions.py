@@ -20,7 +20,7 @@ import numpy
 from reikna.cluda import Module
 
 from .numeric_functions_gpu import Torus32ToPhase
-from .numeric_functions_gpu import Torus32, Int32, Float # for re-export
+from .numeric_functions_gpu import Torus32, Int32, ErrorFloat # for re-export
 from .computation_cache import get_computation
 
 

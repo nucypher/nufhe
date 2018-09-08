@@ -24,7 +24,7 @@ from reikna.core import Type
 
 from .numeric_functions import (
     Torus32,
-    Float,
+    ErrorFloat,
     )
 from .lwe_gpu import (
     LweKeyswitch,
@@ -112,7 +112,7 @@ class LweSampleArray:
     def empty(cls, thr: Thread, params: LweParams, shape):
         a = thr.array(shape + (params.size,), Torus32)
         b = thr.array(shape, Torus32)
-        current_variances = thr.array(shape, Float)
+        current_variances = thr.array(shape, ErrorFloat)
         return cls(params, a, b, current_variances)
 
     @property

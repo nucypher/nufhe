@@ -23,7 +23,7 @@ import numpy
 
 from .polynomial_transform import get_transform
 from .computation_cache import get_computation
-from .numeric_functions import Float
+from .numeric_functions import ErrorFloat
 from .random_numbers import rand_uniform_int32
 from .lwe import LweParams, LweSampleArray
 from .polynomials import (
@@ -77,7 +77,7 @@ class TLweSampleArray:
             thr, params.polynomial_degree, shape + (params.mask_size + 1,))
 
         # avg variance of the sample
-        self.current_variances = thr.to_device(numpy.zeros(shape, Float))
+        self.current_variances = thr.to_device(numpy.zeros(shape, ErrorFloat))
 
         self.shape = shape
         self.params = params
@@ -92,7 +92,7 @@ class TransformedTLweSampleArray:
             thr, params.transform_type, params.polynomial_degree, shape + (params.mask_size + 1,))
 
         # avg variance of the sample
-        self.current_variances = thr.to_device(numpy.zeros(shape, Float))
+        self.current_variances = thr.to_device(numpy.zeros(shape, ErrorFloat))
 
         self.shape = shape
         self.params = params

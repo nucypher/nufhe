@@ -27,7 +27,7 @@ from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
 from .performance import PerformanceParameters, performance_parameters_for_device
-from .numeric_functions import Torus32, Float
+from .numeric_functions import Torus32, ErrorFloat
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -159,7 +159,7 @@ class BlindRotateAndKeySwitch(Computation):
         gsw = Type(tdtype, (output_size, mask_size + 1, bk_decomp_length, mask_size + 1, tlength))
         ks_a = Type(Torus32, (input_size, ks_decomp_length, ks_base, output_size))
         ks_b = Type(Torus32, (input_size, ks_decomp_length, ks_base))
-        ks_cv = Type(Float, (input_size, ks_decomp_length, ks_base))
+        ks_cv = Type(ErrorFloat, (input_size, ks_decomp_length, ks_base))
         bara = Type(Torus32, shape + (output_size,))
 
         self._result_shape_info = result_shape_info

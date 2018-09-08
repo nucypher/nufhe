@@ -19,8 +19,6 @@ import pytest
 import numpy
 
 from nufhe.keys import NuFHEParameters
-from nufhe.numeric_functions import Torus32, Float
-
 from nufhe.lwe import LweSampleArrayShapeInfo
 from nufhe.lwe_gpu import (
     LweKeyswitch,
@@ -38,7 +36,7 @@ from nufhe.lwe_cpu import (
     LweLinearReference,
     LweNoiselessTrivialReference,
     )
-from nufhe.numeric_functions import Torus32, Int32, Float, double_to_t32
+from nufhe.numeric_functions import Torus32, Int32, ErrorFloat, double_to_t32
 import nufhe.random_numbers as rn
 
 from utils import get_test_array
@@ -57,10 +55,10 @@ def test_lwe_keyswitch(thread):
 
     result_a = numpy.empty(batch_shape + (output_size,), Torus32)
     result_b = numpy.empty(batch_shape, Torus32)
-    result_cv = numpy.empty(batch_shape, Float)
+    result_cv = numpy.empty(batch_shape, ErrorFloat)
     ks_a = get_test_array((input_size, decomp_length, base, output_size), Torus32, (-1000, 1000))
     ks_b = get_test_array((input_size, decomp_length, base), Torus32, (-1000, 1000))
-    ks_cv = get_test_array((input_size, decomp_length, base), Float, (-1, 1))
+    ks_cv = get_test_array((input_size, decomp_length, base), ErrorFloat, (-1, 1))
 
     # The base=0 slice of the keyswitch key is a "padding" - it's filled with zeroes.
     # The keyswitch function may rely on that.
@@ -113,13 +111,13 @@ def test_make_lwe_keyswitch_key(thread):
 
     ks_a = numpy.empty((input_size, decomp_length, base, output_size), dtype=Torus32)
     ks_b = numpy.empty((input_size, decomp_length, base), dtype=Torus32)
-    ks_cv = numpy.empty((input_size, decomp_length, base), dtype=Float)
+    ks_cv = numpy.empty((input_size, decomp_length, base), dtype=ErrorFloat)
 
     in_key = get_test_array(input_size, Int32, (0, 2))
     out_key = get_test_array(output_size, Int32, (0, 2))
     noises_a = get_test_array((input_size, decomp_length, base - 1, output_size), Torus32)
     noises_b = double_to_t32(
-        get_test_array((input_size, decomp_length, base - 1), Float, (-noise, noise)))
+        get_test_array((input_size, decomp_length, base - 1), ErrorFloat, (-noise, noise)))
 
     test = MakeLweKeyswitchKey(
         input_size, output_size, decomp_length, log2_base, noise).compile(thread)
@@ -155,7 +153,7 @@ def test_lwe_encrypt(thread):
     shape = (16, 20)
     result_a = numpy.empty(shape + (lwe_size,), Torus32)
     result_b = numpy.empty(shape, Torus32)
-    result_cv = numpy.empty(shape, Float)
+    result_cv = numpy.empty(shape, ErrorFloat)
     key = get_test_array(lwe_size, Int32, (0, 2))
     messages = get_test_array(shape, Torus32)
     noises_a = get_test_array(shape + (lwe_size,), Torus32)
@@ -224,11 +222,11 @@ def test_lwe_linear(thread, positive_coeff, add_result):
 
     res_a = get_test_array(shape + (lwe_size,), Torus32)
     res_b = get_test_array(shape, Torus32)
-    res_cv = get_test_array(shape, Float, (-1, 1))
+    res_cv = get_test_array(shape, ErrorFloat, (-1, 1))
 
     src_a = get_test_array(shape + (lwe_size,), Torus32)
     src_b = get_test_array(shape, Torus32)
-    src_cv = get_test_array(shape, Float, (-1, 1))
+    src_cv = get_test_array(shape, ErrorFloat, (-1, 1))
 
     coeff = 1 if positive_coeff else -1
 
@@ -262,7 +260,7 @@ def test_lwe_noiseless_trivial(thread):
 
     res_a = numpy.empty(shape + (lwe_size,), Torus32)
     res_b = numpy.empty(shape, Torus32)
-    res_cv = numpy.empty(shape, Float)
+    res_cv = numpy.empty(shape, ErrorFloat)
     mu = Torus32(-5)
 
     shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
