@@ -27,7 +27,7 @@ from .performance import performance_parameters
 
 class NuFHEParameters:
 
-    def __init__(self, transform_type='FFT', tlwe_mask_size=1):
+    def __init__(self, transform_type='NTT', tlwe_mask_size=1):
         # Note: the default parameters correspond to about 128bit of security!
 
         assert transform_type in ('FFT', 'NTT')
