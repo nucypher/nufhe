@@ -26,6 +26,8 @@ from reikna.cluda import cuda_id
 from nufhe import *
 from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 
+from utils import supports_transform
+
 
 @pytest.fixture(scope='module')
 def key_pair(thread):
@@ -92,6 +94,8 @@ def check_gate(
 
 
 def test_transform_type(thread, transform_type):
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
     rng = numpy.random.RandomState()
     key_pair = make_key_pair(thread, rng, transform_type=transform_type)
     check_gate(thread, key_pair, 2, gate_nand, nand_ref)
@@ -313,6 +317,9 @@ def test_single_kernel_bs_performance(
         thread, transform_type, single_kernel_bootstrap,
         test_function_name, heavy_performance_load):
 
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
+
     test_function = dict(
         NAND=(gate_nand, nand_ref, 2),
         MUX=(gate_mux, mux_ref, 3),
@@ -341,6 +348,9 @@ def test_constant_mem_performance(
         thread, transform_type, single_kernel_bootstrap, heavy_performance_load,
         use_constant_memory):
 
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
+
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
@@ -368,6 +378,9 @@ def test_constant_mem_performance(
     'transforms_per_block', [1, 2, 3, 4], ids=['tpb=1', 'tpb=2', 'tpb=3', 'tpb=4'])
 def test_transforms_per_block_performance(
         thread, transform_type, heavy_performance_load, transforms_per_block):
+
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
 
     size = 4096 if heavy_performance_load else 64
 

@@ -29,15 +29,17 @@ import nufhe.transform.ntt as tr_ntt
 from utils import *
 
 
-@pytest.mark.parametrize('transform_name', ['FFT', 'NTT'])
 @pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
 @pytest.mark.parametrize('i32_conversion', [False, True], ids=['no_conversion', 'poly_conversion'])
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
-def test_transform_correctness(thread, transform_name, inverse, i32_conversion, constant_memory):
+def test_transform_correctness(thread, transform_type, inverse, i32_conversion, constant_memory):
+
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
 
     batch_shape = (128,)
 
-    if transform_name == 'FFT':
+    if transform_type == 'FFT':
         transform = fft512(use_constant_memory=constant_memory)
         transform_ref = tr_fft.fft_transform_ref
     else:
@@ -71,11 +73,13 @@ def poly_mul_ref(p1, p2):
     return result
 
 
-@pytest.mark.parametrize('transform_name', ['FFT', 'NTT'])
-def test_polynomial_multiplication(thread, transform_name):
+def test_polynomial_multiplication(thread, transform_type):
+    if not supports_transform(thread, transform_type):
+        pytest.skip()
+
     batch_shape = (10,)
 
-    if transform_name == 'FFT':
+    if transform_type == 'FFT':
         transform = fft512()
         transform_ref = tr_fft.fft_transform_ref
         tr_mul_ref = tr_fft.fft_transformed_mul_ref

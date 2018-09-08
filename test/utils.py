@@ -55,3 +55,9 @@ def get_test_array(shape, tp, val_range=None):
             + 1j * numpy.random.uniform(nmin, nmax, size=shape)).astype(dtype)
     else:
         raise NotImplementedError(dtype)
+
+
+def supports_transform(thread, transform_type):
+    # FFT required double precision, otherwise the polynomial multiplication in Fourier space
+    # won't have enough bits for its results.
+    return thread.device_params.supports_dtype(numpy.complex128) or not transform_type == 'FFT'

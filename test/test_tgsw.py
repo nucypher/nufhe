@@ -72,7 +72,7 @@ def test_tgsw_polynomial_decomp_trf(thread):
 def test_tlwe_transformed_add_mul_to_trf(thread):
 
     shape = (2, 3)
-    params = NuFHEParameters()
+    params = NuFHEParameters(transform_type='NTT')
     perf_params = performance_parameters_for_device(performance_parameters(), thread.device_params)
     tgsw_params = params.tgsw_params
 
@@ -93,9 +93,8 @@ def test_tlwe_transformed_add_mul_to_trf(thread):
 
     result = numpy.empty(result_shape, tdtype)
 
-    sample = get_test_array(sample_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
-    bootstrap_key = get_test_array(
-        bootstrap_key_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
+    sample = get_test_array(sample_shape, 'ff_number')
+    bootstrap_key = get_test_array(bootstrap_key_shape, 'ff_number')
 
     result_dev = thread.empty_like(result)
     sample_dev = thread.to_device(sample)
@@ -116,7 +115,7 @@ def test_tlwe_transformed_add_mul_to_trf(thread):
 def test_tgsw_transformed_external_mul(thread):
 
     shape = (2, 3)
-    params = NuFHEParameters()
+    params = NuFHEParameters(transform_type='NTT')
     perf_params = performance_parameters()
     tgsw_params = params.tgsw_params
 
@@ -134,8 +133,7 @@ def test_tgsw_transformed_external_mul(thread):
     bootstrap_key_shape = (bk_len, mask_size + 1, decomp_length, mask_size + 1, tlength)
     bk_row_idx = 2
 
-    bootstrap_key = get_test_array(
-        bootstrap_key_shape, 'ff_number' if transform_type == 'NTT' else tdtype)
+    bootstrap_key = get_test_array(bootstrap_key_shape, 'ff_number')
     accum = get_test_array(accum_shape, Torus32, (-1000, 1000))
 
     bootstrap_key_dev = thread.to_device(bootstrap_key)
