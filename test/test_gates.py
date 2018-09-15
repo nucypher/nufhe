@@ -27,7 +27,7 @@ from nufhe import *
 from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 from nufhe.blind_rotate import single_kernel_bootstrap_supported
 
-from utils import supports_transform
+from utils import transform_supported
 
 
 @pytest.fixture(scope='module')
@@ -95,7 +95,7 @@ def check_gate(
 
 
 def test_transform_type(thread, transform_type):
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
     rng = numpy.random.RandomState()
     key_pair = make_key_pair(thread, rng, transform_type=transform_type)
@@ -326,7 +326,7 @@ def test_single_kernel_bs_performance(
         thread, transform_type, single_kernel_bootstrap,
         test_function_name, heavy_performance_load):
 
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
 
     test_function = dict(
@@ -364,7 +364,7 @@ def test_constant_mem_performance(
         thread, transform_type, single_kernel_bootstrap, heavy_performance_load,
         use_constant_memory):
 
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
 
     # We want to test the effect of using constant memory on the bootstrap calculation.
@@ -400,7 +400,7 @@ def test_constant_mem_performance(
 def test_transforms_per_block_performance(
         thread, transform_type, heavy_performance_load, transforms_per_block):
 
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
 
     size = 4096 if heavy_performance_load else 64

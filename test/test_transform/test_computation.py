@@ -34,7 +34,7 @@ from utils import *
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
 def test_transform_correctness(thread, transform_type, inverse, i32_conversion, constant_memory):
 
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
 
     batch_shape = (128,)
@@ -79,7 +79,7 @@ def poly_mul_ref(p1, p2):
 
 
 def test_polynomial_multiplication(thread, transform_type):
-    if not supports_transform(thread, transform_type):
+    if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
 
     batch_shape = (10,)
@@ -146,7 +146,7 @@ def get_times(thread, comp, out_arr, in_arr, attempts=10):
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
 def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
-    if not supports_transform(thread, 'NTT'):
+    if not transform_supported(thread.device_params, 'NTT'):
         pytest.skip()
 
     is_cuda = thread.api.get_id() == cuda_id()
@@ -216,7 +216,7 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_pe
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
 def test_fft_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
-    if not supports_transform(thread, 'FFT'):
+    if not transform_supported(thread.device_params, 'FFT'):
         pytest.skip()
 
     is_cuda = thread.api.get_id() == cuda_id()
