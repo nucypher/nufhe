@@ -27,7 +27,7 @@ from reikna.helpers import product
 import nufhe.transform as ntt
 import nufhe.transform.ntt_cpu as ntt_cpu
 
-from utils import *
+from utils import get_test_array, tp_dtype
 
 
 @pytest.fixture(params=["c", "cuda_asm", "c_from_asm"])

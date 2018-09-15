@@ -26,7 +26,7 @@ from nufhe.transform import fft512, ntt1024, Transform
 import nufhe.transform.fft as tr_fft
 import nufhe.transform.ntt as tr_ntt
 
-from utils import *
+from utils import get_test_array, transform_supported
 
 
 @pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
