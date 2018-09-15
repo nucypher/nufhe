@@ -69,6 +69,11 @@ def pytest_generate_tests(metafunc):
                     vals.append((api_id, pnum, dnum))
                     ids.append("{api_id}:{pnum}:{dnum}".format(api_id=api_id, pnum=pnum, dnum=dnum))
 
+        if len(vals) == 0:
+            raise RuntimeError(
+                "Neither PyCUDA nor PyOpenCL could find any suitable devices. "
+                "Check your system configuration.")
+
         metafunc.parametrize("thread", vals, ids=ids, indirect=True)
 
     if 'transform_type' in metafunc.fixturenames:
