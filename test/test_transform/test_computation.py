@@ -164,7 +164,7 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_pe
     batch_shape = (2**14,)
     a = get_test_array(batch_shape + (1024,), "ff_number")
 
-    kernel_repetitions = 100 if heavy_performance_load else 1
+    kernel_repetitions = 100 if heavy_performance_load else 5
 
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(a_dev)
@@ -224,7 +224,7 @@ def test_fft_performance(thread, transforms_per_block, constant_memory, heavy_pe
     batch_shape = (2**14,)
     a = get_test_array(batch_shape + (512,), numpy.complex128)
 
-    kernel_repetitions = 100 if heavy_performance_load else 1
+    kernel_repetitions = 100 if heavy_performance_load else 5
 
     a_dev = thread.to_device(a)
     res_dev = thread.empty_like(a_dev)
