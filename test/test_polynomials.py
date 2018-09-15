@@ -24,7 +24,7 @@ from nufhe.numeric_functions import Torus32, Int32
 from nufhe.polynomials_gpu import ShiftTorusPolynomial
 from nufhe.polynomials_cpu import ShiftTorusPolynomialReference
 
-from utils import get_test_array
+from utils import get_test_array, errors_allclose
 
 
 @pytest.mark.parametrize('option', ['minus_one', 'invert_powers', 'powers_view'])
@@ -55,4 +55,4 @@ def test_shift_torus_polynomial(thread, option):
 
     ref(result, source, powers, powers_idx)
 
-    assert numpy.allclose(result_test, result)
+    assert errors_allclose(result_test, result)

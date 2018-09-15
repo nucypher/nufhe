@@ -32,7 +32,7 @@ from nufhe.tlwe_cpu import (
     )
 from nufhe import PerformanceParameters
 
-from utils import get_test_array
+from utils import get_test_array, errors_allclose
 
 
 def test_tlwe_noiseless_trivial(thread):
@@ -60,8 +60,8 @@ def test_tlwe_noiseless_trivial(thread):
 
     ref(a, cv, mu)
 
-    assert numpy.allclose(a_test, a)
-    assert numpy.allclose(cv_test, cv)
+    assert (a_test == a).all()
+    assert errors_allclose(cv_test, cv)
 
 
 def test_tlwe_extract_lwe_samples(thread):
@@ -90,8 +90,8 @@ def test_tlwe_extract_lwe_samples(thread):
 
     ref(a, b, tlwe_a)
 
-    assert numpy.allclose(a_test, a)
-    assert numpy.allclose(b_test, b)
+    assert (a_test == a).all()
+    assert (b_test == b).all()
 
 
 def test_tlwe_encrypt_zero(thread):
@@ -128,4 +128,4 @@ def test_tlwe_encrypt_zero(thread):
     result_cv_test = result_cv_dev.get()
 
     assert (result_a_test == result_a).all()
-    assert numpy.allclose(result_cv_test, result_cv)
+    assert errors_allclose(result_cv_test, result_cv)

@@ -38,7 +38,7 @@ from nufhe.tgsw_cpu import (
     )
 from nufhe.performance import PerformanceParameters
 
-from utils import get_test_array
+from utils import get_test_array, errors_allclose
 
 
 def test_tgsw_polynomial_decomp_trf(thread):
@@ -109,7 +109,10 @@ def test_tlwe_transformed_add_mul_to_trf(thread):
 
     ref(result, sample, bootstrap_key, bk_row_idx)
 
-    assert numpy.allclose(result, result_test)
+    if numpy.issubdtype(tdtype, numpy.integer):
+        assert (result == result_test).all()
+    else:
+        assert numpy.allclose(result, result_test)
 
 
 def test_tgsw_transformed_external_mul(thread):
@@ -148,7 +151,7 @@ def test_tgsw_transformed_external_mul(thread):
 
     ref(accum, bootstrap_key, bk_row_idx)
 
-    assert numpy.allclose(accum, accum_test)
+    assert (accum == accum_test).all()
 
 
 def test_tgsw_add_message(thread):
@@ -178,4 +181,4 @@ def test_tgsw_add_message(thread):
 
     result_a_test = result_a_dev.get()
 
-    assert numpy.allclose(result_a_test, result_a)
+    assert (result_a_test == result_a).all()

@@ -57,6 +57,13 @@ def get_test_array(shape, tp, val_range=None):
         raise NotImplementedError(dtype)
 
 
+def errors_allclose(arr1, arr2):
+    # Errors are single-precision floats, and implementations of single-float arithmetic
+    # tend to give slightly different answer depending on the device.
+    # So the default values of `numpy.allclose` are too strict.
+    return numpy.allclose(arr1, arr2, rtol=1e-3)
+
+
 def supports_transform(thread, transform_type):
     # FFT required double precision, otherwise the polynomial multiplication in Fourier space
     # won't have enough bits for its results.

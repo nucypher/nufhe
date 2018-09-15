@@ -57,9 +57,14 @@ def test_transform_correctness(thread, transform_type, inverse, i32_conversion, 
     res_dev = thread.empty_like(comp.parameter.output)
 
     comp(res_dev, a_dev)
+    res_test = res_dev.get()
+
     res_ref = transform_ref(a, inverse=inverse, i32_conversion=i32_conversion)
 
-    assert numpy.allclose(res_dev.get(), res_ref)
+    if numpy.issubdtype(res_dev.dtype, numpy.integer):
+        assert (res_test == res_ref).all()
+    else:
+        assert numpy.allclose(res_test, res_ref)
 
 
 def poly_mul_ref(p1, p2):
@@ -115,7 +120,7 @@ def test_polynomial_multiplication(thread, transform_type):
     res_test = res_dev.get()
     res_ref = poly_mul_ref(a, b)
 
-    assert numpy.allclose(res_test, res_ref)
+    assert (res_test == res_ref).all()
 
 
 def get_times(thread, comp, out_arr, in_arr, attempts=10):

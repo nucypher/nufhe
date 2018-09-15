@@ -39,7 +39,7 @@ from nufhe.lwe_cpu import (
 from nufhe.numeric_functions import Torus32, Int32, ErrorFloat, double_to_t32
 import nufhe.random_numbers as rn
 
-from utils import get_test_array
+from utils import get_test_array, errors_allclose
 
 
 def test_lwe_keyswitch(thread):
@@ -96,7 +96,7 @@ def test_lwe_keyswitch(thread):
 
     assert (result_a == result_a_test).all()
     assert (result_b == result_b_test).all()
-    assert numpy.allclose(result_cv, result_cv_test)
+    assert errors_allclose(result_cv, result_cv_test)
 
 
 def test_make_lwe_keyswitch_key(thread):
@@ -141,7 +141,7 @@ def test_make_lwe_keyswitch_key(thread):
 
     assert (ks_a_test == ks_a).all()
     assert (ks_b_test == ks_b).all()
-    assert numpy.allclose(ks_cv_test, ks_cv)
+    assert errors_allclose(ks_cv_test, ks_cv)
 
 
 def test_lwe_encrypt(thread):
@@ -181,7 +181,7 @@ def test_lwe_encrypt(thread):
 
     assert (result_a_test == result_a).all()
     assert (result_b_test == result_b).all()
-    assert numpy.allclose(result_cv_test, result_cv)
+    assert errors_allclose(result_cv_test, result_cv)
 
 
 def test_lwe_decrypt(thread):
@@ -248,7 +248,7 @@ def test_lwe_linear(thread, positive_coeff, add_result):
 
     assert (res_a_dev.get() == res_a).all()
     assert (res_b_dev.get() == res_b).all()
-    assert numpy.allclose(res_cv_dev.get(), res_cv)
+    assert errors_allclose(res_cv_dev.get(), res_cv)
 
 
 def test_lwe_noiseless_trivial(thread):
@@ -277,4 +277,4 @@ def test_lwe_noiseless_trivial(thread):
 
     assert (res_a_dev.get() == res_a).all()
     assert (res_b_dev.get() == res_b).all()
-    assert numpy.allclose(res_cv_dev.get(), res_cv)
+    assert errors_allclose(res_cv_dev.get(), res_cv)
