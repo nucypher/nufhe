@@ -23,7 +23,7 @@ import reikna.helpers as helpers
 
 from .numeric_functions import Torus32, Int32, ErrorFloat
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters, performance_parameters_for_device
+from .performance import PerformanceParameters
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -145,7 +145,7 @@ class TLweEncryptZero(Computation):
         batch_shape = result_a.shape[:-2]
         batch_len = helpers.product(batch_shape)
 
-        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+        perf_params = self._perf_params.for_device(device_params)
 
         transform = get_transform(self._transform_type)
 

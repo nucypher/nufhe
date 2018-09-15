@@ -22,7 +22,7 @@ from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt, Lw
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .bootstrap import BootstrapKey
-from .performance import performance_parameters
+from .performance import PerformanceParameters
 
 
 class NuFHEParameters:
@@ -57,6 +57,16 @@ class NuFHEParameters:
         self.in_out_params = params_in
         self.tgsw_params = params_bs
 
+        self._transform_type = transform_type
+        self._tlwe_mask_size = tlwe_mask_size
+
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self._transform_type,
+            self._tlwe_mask_size,
+            ))
+
 
 class NuFHESecretKey:
 
@@ -81,19 +91,19 @@ def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
 
 
 def make_key_pair(thr, rng, **params):
-    params = NuFHEParameters(**params)
+    nufhe_params = NuFHEParameters(**params)
 
-    lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
-    tgsw_key = TGswKey(thr, params.tgsw_params, rng)
-    secret_key = NuFHESecretKey(params, lwe_key, tgsw_key)
+    lwe_key = LweKey.from_rng(thr, nufhe_params.in_out_params, rng)
+    tgsw_key = TGswKey(thr, nufhe_params.tgsw_params, rng)
+    secret_key = NuFHESecretKey(nufhe_params, lwe_key, tgsw_key)
 
     # TODO: use PerformanceParameters from the user
-    perf_params = performance_parameters(nufhe_params=params)
+    perf_params = PerformanceParameters(nufhe_params)
 
     bk = BootstrapKey(thr, rng, lwe_key, tgsw_key, perf_params)
     ks = LweKeyswitchKey.from_tgsw_key(
-        thr, rng, params.ks_decomp_length, params.ks_log2_base, lwe_key, tgsw_key)
-    cloud_key = NuFHECloudKey(params, bk, ks)
+        thr, rng, nufhe_params.ks_decomp_length, nufhe_params.ks_log2_base, lwe_key, tgsw_key)
+    cloud_key = NuFHECloudKey(nufhe_params, bk, ks)
 
     return secret_key, cloud_key
 

@@ -30,7 +30,7 @@ from nufhe.tlwe_cpu import (
     TLweExtractLweSamplesReference,
     TLweEncryptZeroReference,
     )
-from nufhe.performance import performance_parameters
+from nufhe import PerformanceParameters
 
 from utils import get_test_array
 
@@ -97,7 +97,7 @@ def test_tlwe_extract_lwe_samples(thread):
 def test_tlwe_encrypt_zero(thread):
 
     nufhe_params = NuFHEParameters()
-    perf_params = performance_parameters()
+    perf_params = PerformanceParameters(nufhe_params)
     params = nufhe_params.tgsw_params.tlwe_params
 
     mask_size = params.mask_size

@@ -33,7 +33,7 @@ from .polynomials import (
     shift_tp_minus_one_power_from_array,
     )
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
-from .performance import PerformanceParameters, performance_parameters_for_device
+from .performance import PerformanceParameters
 from .tlwe_gpu import (
     TLweNoiselessTrivial,
     TLweExtractLweSamples,
@@ -147,7 +147,7 @@ def tlwe_transform_samples(
         thr, result: TransformedTLweSampleArray, source: TLweSampleArray,
         perf_params: PerformanceParameters):
 
-    perf_params = performance_parameters_for_device(perf_params, thr.device_params)
+    perf_params = perf_params.for_device(thr.device_params)
 
     transform = get_transform(source.params.transform_type)
     comp = get_computation(

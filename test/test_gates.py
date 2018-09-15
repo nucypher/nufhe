@@ -25,6 +25,7 @@ from reikna.cluda import cuda_id
 
 from nufhe import *
 from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
+from nufhe.blind_rotate import single_kernel_bootstrap_supported
 
 from utils import supports_transform
 
@@ -55,7 +56,7 @@ def check_gate(
     secret_key, cloud_key = key_pair
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=secret_key.params)
+        perf_params = PerformanceParameters(secret_key.params)
 
     rng = numpy.random.RandomState()
 
@@ -111,18 +112,26 @@ def test_tlwe_mask_size(thread, tlwe_mask_size):
 def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs a bootstrap with keyswitch
     secret_key, cloud_key = key_pair
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
-        single_kernel_bootstrap=single_kernel_bootstrap)
+
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, 2, gate_nand, nand_ref, perf_params=perf_params)
 
 
 def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
     # Test a gate that employs separate calls to bootstrap and keyswitch
     secret_key, cloud_key = key_pair
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
-        single_kernel_bootstrap=single_kernel_bootstrap)
+
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
     check_gate(thread, key_pair, 3, gate_mux, mux_ref, perf_params=perf_params)
 
 
@@ -333,9 +342,16 @@ def test_single_kernel_bs_performance(
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
-        single_kernel_bootstrap=single_kernel_bootstrap)
+
+    # TODO: instead of creating a whole key and then checking if the parameters are supported,
+    # we can just create a parameter object separately.
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
+
     results = check_performance(
         thread, (secret_key, cloud_key), perf_params, shape=shape, test_function=test_function)
     print()
@@ -351,22 +367,27 @@ def test_constant_mem_performance(
     if not supports_transform(thread, transform_type):
         pytest.skip()
 
+    # We want to test the effect of using constant memory on the bootstrap calculation.
+    # A single-kernel bootstrap uses the `use_constant_memory_multi_iter` option,
+    # and a multi-kernel bootstrap uses the `use_constant_memory_single_iter` option.
+    kwds = dict(single_kernel_bootstrap=single_kernel_bootstrap)
+    if single_kernel_bootstrap:
+        kwds.update(dict(use_constant_memory_multi_iter=use_constant_memory))
+    else:
+        kwds.update(dict(use_constant_memory_single_iter=use_constant_memory))
+
     size = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
 
-    # We want to test the effect of using constant memory on the bootstrap calculation.
-    # A single-kernel bootstrap uses the `use_constant_memory_multi_iter` option,
-    # and a multi-kernel bootstrap uses the `use_constant_memory_single_iter` option.
-    kwds = dict(
-        nufhe_params=secret_key.params,
-        single_kernel_bootstrap=single_kernel_bootstrap)
-    if single_kernel_bootstrap:
-        kwds.update(dict(use_constant_memory_multi_iter=use_constant_memory))
-    else:
-        kwds.update(dict(use_constant_memory_single_iter=use_constant_memory))
-    perf_params = performance_parameters(**kwds)
+    # TODO: instead of creating a whole key and then checking if the parameters are supported,
+    # we can just create a parameter object separately.
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(secret_key.params, **kwds)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -384,12 +405,15 @@ def test_transforms_per_block_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    perf_params = performance_parameters(
+    rng = numpy.random.RandomState()
+    secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
+
+    perf_params = PerformanceParameters(
+        secret_key.params,
         single_kernel_bootstrap=False,
         transforms_per_block=transforms_per_block)
-    rng = numpy.random.RandomState()
-    key_pair = make_key_pair(thread, rng, transform_type=transform_type)
-    results = check_performance(thread, key_pair, perf_params, shape=size)
+
+    results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
     print(check_performance_str(results))
 
@@ -407,8 +431,15 @@ def test_ntt_base_method_performance(
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
+
+    # TODO: instead of creating a whole key and then checking if the parameters are supported,
+    # we can just create a parameter object separately.
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_base_method=ntt_base_method)
 
@@ -432,8 +463,15 @@ def test_ntt_mul_method_performance(
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
+
+    # TODO: instead of creating a whole key and then checking if the parameters are supported,
+    # we can just create a parameter object separately.
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_mul_method=ntt_mul_method)
 
@@ -457,8 +495,15 @@ def test_ntt_lsh_method_performance(
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
-    perf_params = performance_parameters(
-        nufhe_params=secret_key.params,
+
+    # TODO: instead of creating a whole key and then checking if the parameters are supported,
+    # we can just create a parameter object separately.
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(
+        secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
         ntt_lsh_method=ntt_lsh_method)
 
@@ -469,13 +514,20 @@ def test_ntt_lsh_method_performance(
 
 def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
 
+    secret_key, cloud_key = key_pair
+    params = nufhe_parameters(cloud_key)
+
+    if (single_kernel_bootstrap
+            and not single_kernel_bootstrap_supported(params, thread.device_params)):
+        pytest.skip()
+
+    perf_params = PerformanceParameters(params, single_kernel_bootstrap=single_kernel_bootstrap)
+
     nufhe_func = gate_nand
     reference_func = nand_ref
     num_arguments = 2
 
-    secret_key, cloud_key = key_pair
     rng = numpy.random.RandomState(123)
-    params = nufhe_parameters(cloud_key)
 
     shape = (5, 8)
 
@@ -499,9 +551,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     answer = empty_ciphertext(thread, params, shape)
     answer_view = answer[result_slices]
 
-    nufhe_func(thread, cloud_key, answer_view, ct1, ct2,
-        perf_params=performance_parameters(
-            nufhe_params=params, single_kernel_bootstrap=single_kernel_bootstrap))
+    nufhe_func(thread, cloud_key, answer_view, ct1, ct2, perf_params=perf_params)
 
     answer_bits = decrypt(thread, secret_key, answer)
     answer_bits_view = answer_bits[result_slices]

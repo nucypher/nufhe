@@ -36,7 +36,7 @@ from nufhe.tgsw_cpu import (
     TGswTransformedExternalMulReference,
     TGswAddMessageReference,
     )
-from nufhe.performance import performance_parameters, performance_parameters_for_device
+from nufhe.performance import PerformanceParameters
 
 from utils import get_test_array
 
@@ -73,7 +73,7 @@ def test_tlwe_transformed_add_mul_to_trf(thread):
 
     shape = (2, 3)
     params = NuFHEParameters(transform_type='NTT')
-    perf_params = performance_parameters_for_device(performance_parameters(), thread.device_params)
+    perf_params = PerformanceParameters(params).for_device(thread.device_params)
     tgsw_params = params.tgsw_params
 
     decomp_length = tgsw_params.decomp_length
@@ -116,7 +116,7 @@ def test_tgsw_transformed_external_mul(thread):
 
     shape = (2, 3)
     params = NuFHEParameters(transform_type='NTT')
-    perf_params = performance_parameters()
+    perf_params = PerformanceParameters(params)
     tgsw_params = params.tgsw_params
 
     decomp_length = tgsw_params.decomp_length

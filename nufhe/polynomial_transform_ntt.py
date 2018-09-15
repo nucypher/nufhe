@@ -21,7 +21,7 @@ from .transform import ntt1024, Transform
 from .transform.arithmetic import add, mul, get_ff_elem
 from .transform.ntt import ntt_transform_ref
 from .transform import ntt_cpu
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
 def transformed_dtype():
@@ -71,6 +71,11 @@ def transformed_mul(perf_params: PerformanceParameters):
     return mul(ff_elem=ff_elem, method=perf_params.ntt_mul_method).module
 
 
+def threads_per_transform():
+    # TODO: a duplicate of the value in the transform module, should be taken from there somehow.
+    return 128
+
+
 def transform_module(perf_params: PerformanceParameters, multi_iter=False):
     use_constant_memory = (
         perf_params.use_constant_memory_multi_iter if multi_iter
@@ -83,14 +88,14 @@ def transform_module(perf_params: PerformanceParameters, multi_iter=False):
         use_constant_memory=use_constant_memory)
 
 
-def ForwardTransform(batch_shape, N, perf_params: PerformanceParameters):
+def ForwardTransform(batch_shape, N, perf_params: PerformanceParametersForDevice):
     assert N == 1024
     return Transform(
         transform_module(perf_params), batch_shape,
         transforms_per_block=perf_params.transforms_per_block, i32_conversion=True)
 
 
-def InverseTransform(batch_shape, N, perf_params: PerformanceParameters):
+def InverseTransform(batch_shape, N, perf_params: PerformanceParametersForDevice):
     assert N == 1024
     return Transform(
         transform_module(perf_params), batch_shape,

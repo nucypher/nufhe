@@ -40,4 +40,4 @@ from .gates import (
     gate_mux,
     )
 
-from .performance import performance_parameters
+from .performance import PerformanceParameters

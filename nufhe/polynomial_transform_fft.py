@@ -21,7 +21,7 @@ from reikna.cluda import functions, Module
 
 from .transform import fft512, Transform
 from .transform.fft import fft_transform_ref
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
 def transformed_dtype():
@@ -75,6 +75,11 @@ def transformed_mul(perf_params):
     return functions.mul(transformed_dtype(), transformed_dtype())
 
 
+def threads_per_transform():
+    # TODO: a duplicate of the value in the transform module, should be taken from there somehow.
+    return 64
+
+
 def transform_module(perf_params: PerformanceParameters, multi_iter=False):
     use_constant_memory = (
         perf_params.use_constant_memory_multi_iter if multi_iter
@@ -82,14 +87,14 @@ def transform_module(perf_params: PerformanceParameters, multi_iter=False):
     return fft512(use_constant_memory=use_constant_memory)
 
 
-def ForwardTransform(batch_shape, N, perf_params: PerformanceParameters):
+def ForwardTransform(batch_shape, N, perf_params: PerformanceParametersForDevice):
     assert N == 1024
     return Transform(
         transform_module(perf_params), batch_shape,
         transforms_per_block=perf_params.transforms_per_block, i32_conversion=True)
 
 
-def InverseTransform(batch_shape, N, perf_params: PerformanceParameters):
+def InverseTransform(batch_shape, N, perf_params: PerformanceParametersForDevice):
     assert N == 1024
     return Transform(
         transform_module(perf_params), batch_shape,

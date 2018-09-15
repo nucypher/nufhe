@@ -33,7 +33,7 @@ from .lwe import (
     )
 from .keys import NuFHECloudKey
 from .bootstrap import bootstrap
-from .performance import performance_parameters
+from .performance import PerformanceParameters
 
 
 def result_shape(shape1, shape2):
@@ -58,7 +58,7 @@ def gate_nand(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -89,7 +89,7 @@ def gate_or(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -119,7 +119,7 @@ def gate_and(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -149,7 +149,7 @@ def gate_xor(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -179,7 +179,7 @@ def gate_xnor(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -244,7 +244,7 @@ def gate_nor(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -274,7 +274,7 @@ def gate_andny(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -304,7 +304,7 @@ def gate_andyn(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -334,7 +334,7 @@ def gate_orny(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -364,7 +364,7 @@ def gate_oryn(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
     assert rshape == result.shape_info.shape
@@ -396,7 +396,7 @@ def gate_mux(
         perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=ck.params)
+        perf_params = PerformanceParameters(ck.params)
 
     rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
     assert rshape == result.shape_info.shape

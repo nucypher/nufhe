@@ -18,7 +18,7 @@
 import numpy
 
 from .keys import empty_ciphertext, nufhe_parameters
-from .performance import performance_parameters
+from .performance import PerformanceParameters
 from .gates import (
     gate_constant,
     gate_xnor,
@@ -64,7 +64,7 @@ def bitarray_to_uintarray(xs):
 def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
 
     if perf_params is None:
-        perf_params = performance_parameters(nufhe_params=bk.params)
+        perf_params = PerformanceParameters(bk.params)
 
     params = nufhe_parameters(cloud_key)
 

@@ -16,93 +16,117 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from collections import namedtuple
+from reikna.helpers import min_blocks
 from reikna.cluda import cuda_id
 
 
-PerformanceParameters = namedtuple(
-    'PerformanceParameters',
-    [
-        'single_kernel_bootstrap',
-        'ntt_base_method',
-        'ntt_mul_method',
-        'ntt_lsh_method',
-        'use_constant_memory_multi_iter',
-        'use_constant_memory_single_iter',
-        'transforms_per_block'
-    ])
+class PerformanceParameters:
+
+    def __init__(
+            self,
+            nufhe_params: 'NuFHEParameters',
+            ntt_base_method=None,
+            ntt_mul_method=None,
+            ntt_lsh_method=None,
+            use_constant_memory_multi_iter=True,
+            use_constant_memory_single_iter=False,
+            transforms_per_block=None,
+            single_kernel_bootstrap=None):
+
+        assert ntt_base_method in (None, 'cuda_asm', 'c')
+        assert ntt_mul_method in (None, 'cuda_asm', 'c_from_asm', 'c')
+        assert ntt_lsh_method in (None, 'cuda_asm', 'c_from_asm', 'c')
+
+        self.nufhe_params = nufhe_params
+
+        self.ntt_base_method = ntt_base_method
+        self.ntt_mul_method = ntt_mul_method
+        self.ntt_lsh_method = ntt_lsh_method
+        self.use_constant_memory_multi_iter = use_constant_memory_multi_iter
+        self.use_constant_memory_single_iter = use_constant_memory_single_iter
+        self.transforms_per_block = transforms_per_block
+        self.single_kernel_bootstrap = single_kernel_bootstrap
+
+    def for_device(self, device_params):
+        return PerformanceParametersForDevice(self, device_params)
+
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.nufhe_params,
+            self.ntt_base_method,
+            self.ntt_mul_method,
+            self.ntt_lsh_method,
+            self.use_constant_memory_multi_iter,
+            self.use_constant_memory_single_iter,
+            self.transforms_per_block,
+            self.single_kernel_bootstrap,
+            ))
 
 
-def performance_parameters(
-        nufhe_params=None,
-        ntt_base_method=None,
-        ntt_mul_method=None,
-        ntt_lsh_method=None,
-        use_constant_memory_multi_iter=True,
-        use_constant_memory_single_iter=False,
-        transforms_per_block=None,
-        single_kernel_bootstrap=None):
+class PerformanceParametersForDevice:
 
-    assert ntt_base_method in (None, 'cuda_asm', 'c')
-    assert ntt_mul_method in (None, 'cuda_asm', 'c_from_asm', 'c')
-    assert ntt_lsh_method in (None, 'cuda_asm', 'c_from_asm', 'c')
+    def __init__(self, perf_params: PerformanceParameters, device_params):
 
-    if nufhe_params is not None:
-        mask_size = nufhe_params.tgsw_params.tlwe_params.mask_size
-        decomp_length = nufhe_params.tgsw_params.decomp_length
-        single_kernel_bootstrap_possible = mask_size == 1 and decomp_length == 2
-    else:
-        single_kernel_bootstrap_possible = False
+        is_cuda = device_params.api_id == cuda_id()
 
-    if single_kernel_bootstrap is None:
-        single_kernel_bootstrap = single_kernel_bootstrap_possible
-    elif single_kernel_bootstrap:
-        if nufhe_params is None:
-            raise ValueError(
-                "The `nufhe_params` option must be specified to enable single-kernel bootstrap")
-        elif not single_kernel_bootstrap_possible:
-            raise ValueError(
-                "Single-kernel bootstrap is only supported for mask_size=1 and decomp_length=2")
+        transform_type = perf_params.nufhe_params.tgsw_params.tlwe_params.transform_type
+        mask_size = perf_params.nufhe_params.tgsw_params.tlwe_params.mask_size
+        decomp_length = perf_params.nufhe_params.tgsw_params.decomp_length
 
-    if transforms_per_block is None:
-        if nufhe_params is not None:
-            transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
+        ntt_base_method = perf_params.ntt_base_method
+        ntt_mul_method = perf_params.ntt_mul_method
+        ntt_lsh_method = perf_params.ntt_lsh_method
+        if ntt_base_method is None:
+            ntt_base_method = 'cuda_asm' if is_cuda else 'c'
+        if ntt_mul_method is None:
+            ntt_mul_method = 'cuda_asm' if is_cuda else 'c'
+        if ntt_lsh_method is None:
+            ntt_lsh_method = 'cuda_asm' if is_cuda else 'c'
+
+        transforms_per_block = perf_params.transforms_per_block
+        if perf_params.transforms_per_block is None:
             transforms_per_block = 4 if transform_type == 'NTT' else 2
-        else:
-            transforms_per_block = 4
-    else:
-        assert transforms_per_block >= 1 and transforms_per_block <= 4
 
-    return PerformanceParameters(
-        single_kernel_bootstrap=single_kernel_bootstrap,
-        ntt_base_method=ntt_base_method,
-        ntt_mul_method=ntt_mul_method,
-        ntt_lsh_method=ntt_lsh_method,
-        use_constant_memory_multi_iter=use_constant_memory_multi_iter,
-        use_constant_memory_single_iter=use_constant_memory_single_iter,
-        transforms_per_block=transforms_per_block,
-        )
+        # Avoiding circular reference
+        from .polynomial_transform import get_transform
+        transform = get_transform(transform_type)
+        threads_per_transform = transform.threads_per_transform()
 
+        max_work_group_size = device_params.max_work_group_size
+        max_transforms_per_block = min_blocks(max_work_group_size, threads_per_transform)
+        transforms_per_block = min(transforms_per_block, max_transforms_per_block)
 
-def performance_parameters_for_device(perf_params, device_params):
+        # Avoiding circular reference
+        from .blind_rotate import single_kernel_bootstrap_supported
 
-    is_cuda = device_params.api_id == cuda_id()
+        single_kernel_bootstrap = perf_params.single_kernel_bootstrap
+        skb_supported = single_kernel_bootstrap_supported(perf_params.nufhe_params, device_params)
 
-    ntt_base_method = perf_params.ntt_base_method
-    ntt_mul_method = perf_params.ntt_mul_method
-    ntt_lsh_method = perf_params.ntt_lsh_method
+        if single_kernel_bootstrap is None:
+            # If both encryption parameters and device capabilities allow it,
+            # single kernel bootstrap is the optimal choice.
+            single_kernel_bootstrap = skb_supported
+        elif single_kernel_bootstrap and not skb_supported:
+            single_kernel_bootstrap_supported(
+                perf_params.nufhe_params, device_params, raise_exception=True)
 
-    if ntt_base_method is None:
-        ntt_base_method = 'cuda_asm' if is_cuda else 'c'
-    if ntt_mul_method is None:
-        ntt_mul_method = 'cuda_asm' if is_cuda else 'c'
-    if ntt_lsh_method is None:
-        ntt_lsh_method = 'cuda_asm' if is_cuda else 'c'
+        self.ntt_base_method = ntt_base_method
+        self.ntt_mul_method = ntt_mul_method
+        self.ntt_lsh_method = ntt_lsh_method
+        self.use_constant_memory_multi_iter = perf_params.use_constant_memory_multi_iter
+        self.use_constant_memory_single_iter = perf_params.use_constant_memory_single_iter
+        self.transforms_per_block = transforms_per_block
+        self.single_kernel_bootstrap = single_kernel_bootstrap
 
-    pdict = perf_params._asdict()
-    pdict.update(
-        ntt_base_method=ntt_base_method,
-        ntt_mul_method=ntt_mul_method,
-        ntt_lsh_method=ntt_lsh_method,
-        )
-
-    return PerformanceParameters(**pdict)
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.ntt_base_method,
+            self.ntt_mul_method,
+            self.ntt_lsh_method,
+            self.use_constant_memory_multi_iter,
+            self.use_constant_memory_single_iter,
+            self.transforms_per_block,
+            self.single_kernel_bootstrap,
+            ))

@@ -26,11 +26,39 @@ from .tgsw import TGswParams, TransformedTGswSampleArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters, performance_parameters_for_device
+from .performance import PerformanceParameters
 from .numeric_functions import Torus32, ErrorFloat
 
 
 TEMPLATE = helpers.template_for(__file__)
+
+
+def single_kernel_bootstrap_supported(nufhe_params, device_params, raise_exception=False):
+
+    mask_size = nufhe_params.tgsw_params.tlwe_params.mask_size
+    decomp_length = nufhe_params.tgsw_params.decomp_length
+
+    if not (mask_size == 1 and decomp_length == 2):
+        if raise_exception:
+            raise ValueError(
+                "Single-kernel bootstrap is only supported for mask_size=1 and decomp_length=2")
+        else:
+            return False
+
+    skb_transforms = (mask_size + 1) * decomp_length
+
+    transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
+    transform = get_transform(transform_type)
+    threads_per_transform = transform.threads_per_transform()
+    max_work_group_size = device_params.max_work_group_size
+    if not threads_per_transform * skb_transforms <= max_work_group_size:
+        if raise_exception:
+            raise ValueError(
+                "The chosen device is not capable of running single-kernel bootstrap")
+        else:
+            return False
+
+    return True
 
 
 class BlindRotate(Computation):
@@ -78,7 +106,7 @@ class BlindRotate(Computation):
         decomp_length = params.decomp_length
         mask_size = tlwe_params.mask_size
 
-        perf_params = performance_parameters_for_device(self._perf_params, device_params)
+        perf_params = self._perf_params.for_device(device_params)
         transform_type = self._params.tlwe_params.transform_type
         transform = get_transform(transform_type)
 
