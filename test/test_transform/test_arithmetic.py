@@ -224,9 +224,10 @@ def test_lsh(thread, exp_range, method):
 
 
 def check_func_performance(
-        tag, thread, func_module, reference_func, output_type, input_types, ranges=None):
+        tag, thread, func_module, reference_func, output_type, input_types, ranges=None,
+        heavy_performance_load=False):
 
-    N = 1024 * 1024
+    N = 1024 * (1024 if heavy_performance_load else 32)
     repetitions = 100000
 
     test = get_func_kernel(thread, func_module, output_type, input_types)
@@ -270,7 +271,7 @@ def check_func_performance(
 
 
 @pytest.mark.perf
-def test_add_perf(thread, method):
+def test_add_perf(thread, method, heavy_performance_load):
     if method == "cuda_asm" and thread.api.get_id() != cluda.cuda_id():
         pytest.skip()
     if method == "c_from_asm":
@@ -278,11 +279,12 @@ def test_add_perf(thread, method):
 
     check_func_performance(
         "add(), " + method,
-        thread, ntt.add(method=method), ref_add, 'ff_number', ['ff_number', 'ff_number'])
+        thread, ntt.add(method=method), ref_add, 'ff_number', ['ff_number', 'ff_number'],
+        heavy_performance_load=heavy_performance_load)
 
 
 @pytest.mark.perf
-def test_sub_perf(thread, method):
+def test_sub_perf(thread, method, heavy_performance_load):
     if method == "cuda_asm" and thread.api.get_id() != cluda.cuda_id():
         pytest.skip()
     if method == "c_from_asm":
@@ -290,4 +292,5 @@ def test_sub_perf(thread, method):
 
     check_func_performance(
         "sub(), " + method,
-        thread, ntt.sub(method=method), ref_sub, 'ff_number', ['ff_number', 'ff_number'])
+        thread, ntt.sub(method=method), ref_sub, 'ff_number', ['ff_number', 'ff_number'],
+        heavy_performance_load=heavy_performance_load)
