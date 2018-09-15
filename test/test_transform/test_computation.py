@@ -146,6 +146,9 @@ def get_times(thread, comp, out_arr, in_arr, attempts=10):
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
 def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
+    if not supports_transform(thread, 'NTT'):
+        pytest.skip()
+
     is_cuda = thread.api.get_id() == cuda_id()
 
     methods = list(itertools.product(
@@ -212,6 +215,9 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_pe
 @pytest.mark.parametrize('transforms_per_block', [1, 2, 3, 4])
 @pytest.mark.parametrize('constant_memory', [False, True], ids=['global_mem', 'constant_mem'])
 def test_fft_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
+
+    if not supports_transform(thread, 'FFT'):
+        pytest.skip()
 
     is_cuda = thread.api.get_id() == cuda_id()
 
