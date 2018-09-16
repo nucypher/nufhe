@@ -33,6 +33,6 @@ setup(
         'nufhe': ['*.mako'],
         'nufhe/transform': ['*.mako'],
         },
-    install_requires=['numpy', 'reikna>=0.7.1'],
+    install_requires=['numpy', 'reikna>=0.7.2'],
     extras_require={'testing': ['pytest', 'pytest-cov']},
     zip_safe=True)
