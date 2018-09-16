@@ -153,3 +153,13 @@ def ntt1024(
             use_constant_memory=use_constant_memory,
             ))
     return NTT1024(ff_elem, module, use_constant_memory)
+
+
+def ntt1024_requirements():
+    return dict(
+        threads_per_transform=128,
+        transform_length=1024,
+        temp_length=1024,
+        elem_dtype_itemsize=numpy.dtype('uint64').itemsize,
+        temp_dtype_itemsize=numpy.dtype('uint64').itemsize,
+        polynomial_length=1024)

@@ -90,8 +90,8 @@ class PerformanceParametersForDevice:
 
         # Avoiding circular reference
         from .polynomial_transform import get_transform
-        transform = get_transform(transform_type)
-        threads_per_transform = transform.threads_per_transform()
+        reqs = get_transform(transform_type).transform_module_requirements()
+        threads_per_transform = reqs['threads_per_transform']
 
         max_work_group_size = device_params.max_work_group_size
         max_transforms_per_block = min_blocks(max_work_group_size, threads_per_transform)

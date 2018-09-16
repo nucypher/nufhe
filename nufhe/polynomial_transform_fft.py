@@ -19,7 +19,7 @@ import numpy
 
 from reikna.cluda import functions, Module
 
-from .transform import fft512, Transform
+from .transform import fft512, fft512_requirements, Transform
 from .transform.fft import fft_transform_ref
 from .performance import PerformanceParameters, PerformanceParametersForDevice
 
@@ -75,9 +75,8 @@ def transformed_mul(perf_params):
     return functions.mul(transformed_dtype(), transformed_dtype())
 
 
-def threads_per_transform():
-    # TODO: a duplicate of the value in the transform module, should be taken from there somehow.
-    return 64
+def transform_module_requirements():
+    return fft512_requirements()
 
 
 def transform_module(perf_params: PerformanceParameters, multi_iter=False):

@@ -17,7 +17,7 @@
 
 import numpy
 
-from .transform import ntt1024, Transform
+from .transform import ntt1024, ntt1024_requirements, Transform
 from .transform.arithmetic import add, mul, get_ff_elem
 from .transform.ntt import ntt_transform_ref
 from .transform import ntt_cpu
@@ -71,9 +71,8 @@ def transformed_mul(perf_params: PerformanceParameters):
     return mul(ff_elem=ff_elem, method=perf_params.ntt_mul_method).module
 
 
-def threads_per_transform():
-    # TODO: a duplicate of the value in the transform module, should be taken from there somehow.
-    return 128
+def transform_module_requirements():
+    return ntt1024_requirements()
 
 
 def transform_module(perf_params: PerformanceParameters, multi_iter=False):

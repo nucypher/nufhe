@@ -111,3 +111,13 @@ def fft512(use_constant_memory=False):
             use_constant_memory=use_constant_memory,
             ))
     return FFT512(module, use_constant_memory)
+
+
+def fft512_requirements():
+    return dict(
+        threads_per_transform=64,
+        transform_length=512,
+        temp_length=576,
+        elem_dtype_itemsize=numpy.dtype('complex128').itemsize,
+        temp_dtype_itemsize=numpy.dtype('float64').itemsize,
+        polynomial_length=1024)

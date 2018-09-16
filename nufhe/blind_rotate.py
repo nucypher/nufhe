@@ -19,6 +19,7 @@ import numpy
 
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.cluda import OutOfResourcesError
+import reikna.cluda.dtypes as dtypes
 import reikna.helpers as helpers
 
 from .lwe import LweParams, LweSampleArray, LweKeyswitch
@@ -35,6 +36,9 @@ TEMPLATE = helpers.template_for(__file__)
 
 def single_kernel_bootstrap_supported(nufhe_params, device_params, raise_exception=False):
 
+    transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
+    reqs = get_transform(transform_type).transform_module_requirements()
+
     mask_size = nufhe_params.tgsw_params.tlwe_params.mask_size
     decomp_length = nufhe_params.tgsw_params.decomp_length
 
@@ -46,15 +50,28 @@ def single_kernel_bootstrap_supported(nufhe_params, device_params, raise_excepti
             return False
 
     skb_transforms = (mask_size + 1) * decomp_length
-
-    transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
-    transform = get_transform(transform_type)
-    threads_per_transform = transform.threads_per_transform()
+    threads_per_transform = reqs['threads_per_transform']
     max_work_group_size = device_params.max_work_group_size
     if not threads_per_transform * skb_transforms <= max_work_group_size:
         if raise_exception:
             raise ValueError(
-                "The chosen device is not capable of running single-kernel bootstrap")
+                "The chosen device does not support a block/workgroup size big enough "
+                "to run single-kernel bootstrap")
+        else:
+            return False
+
+    tr_size = reqs['transform_length'] * reqs['elem_dtype_itemsize']
+    temp_size = reqs['temp_length'] * reqs['temp_dtype_itemsize']
+    poly_dtype_itemsize = dtypes.normalize_type(Torus32).itemsize
+    sh_size = max(tr_size, temp_size)
+    required_lmem_size = (
+        sh_size * ((mask_size + 1) * decomp_length + mask_size)
+        + (mask_size + 1) * reqs['polynomial_length'] * poly_dtype_itemsize)
+    if required_lmem_size > device_params.local_mem_size:
+        if raise_exception:
+            raise ValueError(
+                "The chosen device does not have enough shared/local memory "
+                "to run single-kernel bootstrap")
         else:
             return False
 

@@ -16,6 +16,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .arithmetic import add, sub, mod, mul, pow, inv_pow2, lsh
-from .ntt import ntt1024
-from .fft import fft512
+from .ntt import ntt1024, ntt1024_requirements
+from .fft import fft512, fft512_requirements
 from .computation import Transform
