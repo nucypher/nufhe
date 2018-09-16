@@ -338,7 +338,7 @@ def test_single_kernel_bs_performance(
     if test_function_name == 'uint_min':
         shape = (128, 32) if heavy_performance_load else (4, 16)
     else:
-        shape = 4096 if heavy_performance_load else 16
+        shape = 4096 if heavy_performance_load else 64
 
     rng = numpy.random.RandomState()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
