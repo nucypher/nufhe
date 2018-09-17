@@ -25,6 +25,7 @@ from reikna.cluda import ocl_id, cuda_id
 from nufhe.transform import fft512, ntt1024, Transform
 import nufhe.transform.fft as tr_fft
 import nufhe.transform.ntt as tr_ntt
+from nufhe.polynomial_transform import max_supported_transforms_per_block
 
 from utils import get_test_array, transform_supported
 
@@ -149,6 +150,9 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_pe
     if not transform_supported(thread.device_params, 'NTT'):
         pytest.skip()
 
+    if transforms_per_block > max_supported_transforms_per_block(thread.device_params, 'NTT'):
+        pytest.skip()
+
     is_cuda = thread.api.get_id() == cuda_id()
 
     methods = list(itertools.product(
@@ -217,6 +221,9 @@ def test_ntt_performance(thread, transforms_per_block, constant_memory, heavy_pe
 def test_fft_performance(thread, transforms_per_block, constant_memory, heavy_performance_load):
 
     if not transform_supported(thread.device_params, 'FFT'):
+        pytest.skip()
+
+    if transforms_per_block > max_supported_transforms_per_block(thread.device_params, 'FFT'):
         pytest.skip()
 
     is_cuda = thread.api.get_id() == cuda_id()

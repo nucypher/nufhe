@@ -16,7 +16,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from collections import namedtuple
-from reikna.helpers import min_blocks
 from reikna.cluda import cuda_id
 
 
@@ -89,21 +88,22 @@ class PerformanceParametersForDevice:
         if use_constant_memory_single_iter is None:
             use_constant_memory_single_iter = False
 
+        # Avoiding circular reference
+        from .polynomial_transform import max_supported_transforms_per_block
+        max_supported_tpb = max_supported_transforms_per_block(device_params, transform_type)
+
         transforms_per_block = perf_params.transforms_per_block
         if transforms_per_block is None:
             if low_end_device:
                 transforms_per_block = 1
             else:
                 transforms_per_block = 4 if transform_type == 'NTT' else 2
-
-        # Avoiding circular reference
-        from .polynomial_transform import get_transform
-        reqs = get_transform(transform_type).transform_module_requirements()
-        threads_per_transform = reqs['threads_per_transform']
-
-        max_work_group_size = device_params.max_work_group_size
-        max_transforms_per_block = min_blocks(max_work_group_size, threads_per_transform)
-        transforms_per_block = min(transforms_per_block, max_transforms_per_block)
+            transforms_per_block = min(transforms_per_block, max_supported_tpb)
+        else:
+            if transforms_per_block > max_supported_tpb:
+                raise ValueError(
+                    "The chosen device does not support more than " + str(max_supported_tpb) +
+                    " transforms per block")
 
         # Avoiding circular reference
         from .blind_rotate import single_kernel_bootstrap_supported
