@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import numpy
+
 from reikna.helpers import min_blocks
 
 from . import polynomial_transform_fft
@@ -31,3 +33,9 @@ def get_transform(transform_type):
 def max_supported_transforms_per_block(device_params, transform_type):
     reqs = get_transform(transform_type).transform_module_requirements()
     return min_blocks(device_params.max_work_group_size, reqs['threads_per_transform'])
+
+
+def transform_supported(device_params, transform_type):
+    # FFT requires double precision, otherwise the polynomial multiplication in Fourier space
+    # won't have enough bits for its results.
+    return device_params.supports_dtype(numpy.complex128) or not transform_type == 'FFT'

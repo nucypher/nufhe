@@ -62,9 +62,3 @@ def errors_allclose(arr1, arr2):
     # tend to give slightly different answer depending on the device.
     # So the default values of `numpy.allclose` are too strict.
     return numpy.allclose(arr1, arr2, rtol=1e-3)
-
-
-def transform_supported(device_params, transform_type):
-    # FFT required double precision, otherwise the polynomial multiplication in Fourier space
-    # won't have enough bits for its results.
-    return device_params.supports_dtype(numpy.complex128) or not transform_type == 'FFT'

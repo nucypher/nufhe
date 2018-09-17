@@ -25,9 +25,9 @@ from reikna.cluda import ocl_id, cuda_id
 from nufhe.transform import fft512, ntt1024, Transform
 import nufhe.transform.fft as tr_fft
 import nufhe.transform.ntt as tr_ntt
-from nufhe.polynomial_transform import max_supported_transforms_per_block
+from nufhe.polynomial_transform import max_supported_transforms_per_block, transform_supported
 
-from utils import get_test_array, transform_supported
+from utils import get_test_array
 
 
 @pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])

@@ -26,9 +26,7 @@ from reikna.cluda import cuda_id
 from nufhe import *
 from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 from nufhe.blind_rotate import single_kernel_bootstrap_supported
-from nufhe.polynomial_transform import max_supported_transforms_per_block
-
-from utils import transform_supported
+from nufhe.polynomial_transform import max_supported_transforms_per_block, transform_supported
 
 
 @pytest.fixture(scope='module')
