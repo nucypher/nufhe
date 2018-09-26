@@ -89,22 +89,6 @@ class TLweKey:
 
         return cls(params, key)
 
-    def dump(self, file_obj):
-        pickle.dump(self.params, file_obj)
-        self.key.dump(file_obj)
-
-    @classmethod
-    def load(cls, file_obj, thr):
-        params = pickle.load(file_obj)
-        key = IntPolynomialArray.load(file_obj, thr)
-        return cls(params, key)
-
-    def __eq__(self, other: 'TLweKey'):
-        return (
-            self.__class__ == other.__class__
-            and self.params == other.params
-            and self.key == other.key)
-
 
 class TLweSampleArray:
 

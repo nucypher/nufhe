@@ -77,22 +77,6 @@ class TGswKey:
     def from_rng(cls, thr, params: TGswParams, rng):
         return cls(params, TLweKey.from_rng(thr, params.tlwe_params, rng))
 
-    def dump(self, file_obj):
-        pickle.dump(self.params, file_obj)
-        self.tlwe_key.dump(file_obj)
-
-    @classmethod
-    def load(cls, file_obj, thr):
-        params = pickle.load(file_obj)
-        tlwe_key = TLweKey.load(file_obj, thr)
-        return cls(params, tlwe_key)
-
-    def __eq__(self, other: 'TGswKey'):
-        return (
-            self.__class__ == other.__class__
-            and self.params == other.params
-            and self.tlwe_key == other.tlwe_key)
-
 
 class TGswSampleArray:
 

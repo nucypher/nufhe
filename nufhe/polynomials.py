@@ -35,19 +35,6 @@ class IntPolynomialArray:
         self.shape = coeffs.shape[:-1]
         self.polynomial_degree = coeffs.shape[-1]
 
-    def dump(self, file_obj):
-        pickle.dump(self.coeffs.get(), file_obj)
-
-    @classmethod
-    def load(cls, file_obj, thr):
-        coeffs = pickle.load(file_obj)
-        return cls(thr.to_device(coeffs))
-
-    def __eq__(self, other):
-        return (
-            self.__class__ == other.__class__
-            and arrays_equal(self.coeffs, other.coeffs))
-
 
 # This structure represents an torus polynomial modulo X^N+1
 class TorusPolynomialArray:
