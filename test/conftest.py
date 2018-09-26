@@ -15,10 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import numpy
 import pytest
 
 from reikna.cluda import cuda_api, ocl_api, get_api, supported_api_ids, find_devices
 
+from nufhe import make_key_pair
 from nufhe.computation_cache import clear_computation_cache
 
 
@@ -111,3 +113,9 @@ def thread(request):
 def heavy_performance_load(request):
     return request.config.option.heavy_performance_load
 
+
+@pytest.fixture(scope='session')
+def key_pair(thread):
+    rng = numpy.random.RandomState()
+    secret_key, cloud_key = make_key_pair(thread, rng)
+    return secret_key, cloud_key

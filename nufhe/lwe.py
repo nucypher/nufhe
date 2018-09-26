@@ -19,9 +19,14 @@
 LWE (Learning With Errors) functions.
 """
 
+import pickle
+
+import numpy
+
 from reikna.cluda.api import Thread
 from reikna.core import Type
 
+from .utils import arrays_equal
 from .numeric_functions import (
     Torus32,
     ErrorFloat,
@@ -49,6 +54,16 @@ class LweParams:
         self.min_noise = min_noise # the smallest noise that makes it secure
         self.max_noise = max_noise # the biggest noise that allows decryption
 
+    def __eq__(self, other: 'LweParams'):
+        return (
+            self.__class__ == other.__class__
+            and self.size == other.size
+            and self.min_noise == other.min_noise
+            and self.max_noise == other.max_noise)
+
+    def __hash__(self):
+        return hash((self.__class__, self.size, self.min_noise, self.max_noise))
+
 
 class LweKey:
 
@@ -71,6 +86,22 @@ class LweKey:
 
         return cls(params, key)
 
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        pickle.dump(self.key.get(), file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        key = pickle.load(file_obj)
+        return cls(params, thr.to_device(key))
+
+    def __eq__(self, other: 'LweKey'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and arrays_equal(self.key, other.key))
+
 
 class LweSampleArrayShapeInfo:
 
@@ -92,8 +123,7 @@ class LweSampleArrayShapeInfo:
             self.__class__ == other.__class__
             and self.a == other.a
             and self.b == other.b
-            and self.current_variances == other.current_variances
-            )
+            and self.current_variances == other.current_variances)
 
     def __hash__(self):
         return hash((self.__class__, self.a, self.b, self.current_variances))
@@ -125,35 +155,39 @@ class LweSampleArray:
         cv_view = self.current_variances[index]
         return LweSampleArray(self.params, a_view, b_view, cv_view)
 
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        pickle.dump(self.a.get(), file_obj)
+        pickle.dump(self.b.get(), file_obj)
+        pickle.dump(self.current_variances.get(), file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        a = thr.to_device(pickle.load(file_obj))
+        b = thr.to_device(pickle.load(file_obj))
+        current_variances = thr.to_device(pickle.load(file_obj))
+        return cls(params, a, b, current_variances)
+
+    def __eq__(self, other: 'LweSampleArray'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and arrays_equal(self.a, other.a)
+            and arrays_equal(self.b, other.b)
+            and arrays_equal(self.current_variances, other.current_variances))
+
 
 class LweKeyswitchKey:
 
-    def __init__(
-            self, thr: Thread, rng,
-            in_key: LweKey, out_key: LweKey, decomp_length: int, log2_base: int):
-
-        input_size = in_key.params.size
-        output_size = out_key.params.size
-        noise = out_key.params.min_noise
-        base = 2**log2_base
-
-        lwe = LweSampleArray.empty(thr, out_key.params, (input_size, decomp_length, base))
-
-        noises_b = rand_gaussian_torus32(
-            thr, rng, 0, noise, (input_size, decomp_length, base - 1), centered=True)
-        noises_a = rand_uniform_torus32(
-            thr, rng, (input_size, decomp_length, base - 1, output_size))
-
-        comp = get_computation(
-            thr, MakeLweKeyswitchKey,
-            input_size, output_size, decomp_length, log2_base, noise)
-        comp(lwe.a, lwe.b, lwe.current_variances, in_key.key, out_key.key, noises_a, noises_b)
+    def __init__(self, lwe: LweSampleArray):
+        input_size, decomp_length, base = lwe.shape
 
         self.lwe = lwe
         self.input_size = input_size # length of the input key: s'
-        self.output_size = output_size # params of the output key s
+        self.output_size = lwe.params.size # params of the output key s
         self.decomp_length = decomp_length # decomposition length
-        self.log2_base = log2_base # log_2(decomposition base)
+        self.log2_base = int(numpy.log2(base)) # log_2(decomposition base)
 
     @classmethod
     def from_tgsw_key(
@@ -164,7 +198,41 @@ class LweKeyswitchKey:
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
         extracted_key = LweKey.from_tlwe_key(extract_params, tgsw_key.tlwe_key)
-        return cls(thr, rng, extracted_key, lwe_key, ks_decomp_length, ks_log2_base)
+
+        in_key = extracted_key
+        out_key = lwe_key
+
+        input_size = in_key.params.size
+        output_size = out_key.params.size
+        noise = out_key.params.min_noise
+        base = 2**ks_log2_base
+
+        lwe = LweSampleArray.empty(thr, out_key.params, (input_size, ks_decomp_length, base))
+
+        noises_b = rand_gaussian_torus32(
+            thr, rng, 0, noise, (input_size, ks_decomp_length, base - 1), centered=True)
+        noises_a = rand_uniform_torus32(
+            thr, rng, (input_size, ks_decomp_length, base - 1, output_size))
+
+        comp = get_computation(
+            thr, MakeLweKeyswitchKey,
+            input_size, output_size, ks_decomp_length, ks_log2_base, noise)
+        comp(lwe.a, lwe.b, lwe.current_variances, in_key.key, out_key.key, noises_a, noises_b)
+
+        return cls(lwe)
+
+    def dump(self, file_obj):
+        self.lwe.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        lwe = LweSampleArray.load(file_obj, thr)
+        return cls(lwe)
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__
+            and self.lwe == other.lwe)
 
 
 def lwe_keyswitch(thr: Thread, result: LweSampleArray, ks: LweKeyswitchKey, sample: LweSampleArray):

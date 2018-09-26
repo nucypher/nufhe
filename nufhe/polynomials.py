@@ -15,8 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import pickle
+
 import numpy
 
+from .utils import arrays_equal
 from .computation_cache import get_computation
 from .numeric_functions import Torus32, Int32
 from .polynomial_transform import get_transform
@@ -31,6 +34,19 @@ class IntPolynomialArray:
         self.coeffs = coeffs
         self.shape = coeffs.shape[:-1]
         self.polynomial_degree = coeffs.shape[-1]
+
+    def dump(self, file_obj):
+        pickle.dump(self.coeffs.get(), file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        coeffs = pickle.load(file_obj)
+        return cls(thr.to_device(coeffs))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__
+            and arrays_equal(self.coeffs, other.coeffs))
 
 
 # This structure represents an torus polynomial modulo X^N+1
@@ -65,6 +81,22 @@ class TransformedPolynomialArray:
             shape + (transform.transformed_length(polynomial_degree),),
             transform.transformed_dtype())
         return cls(transform_type, coeffs)
+
+    def dump(self, file_obj):
+        pickle.dump(self.transform_type, file_obj)
+        pickle.dump(self.coeffs.get(), file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        transform_type = pickle.load(file_obj)
+        coeffs = pickle.load(file_obj)
+        return cls(transform_type, thr.to_device(coeffs))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__
+            and self.transform_type == other.transform_type
+            and arrays_equal(self.coeffs, other.coeffs))
 
 
 # result = X^(2N - pwr) * source

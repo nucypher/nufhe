@@ -20,7 +20,10 @@ from .keys import (
     nufhe_parameters,
     encrypt,
     decrypt,
-    empty_ciphertext
+    empty_ciphertext,
+    NuFHESecretKey,
+    NuFHECloudKey,
+    LweSampleArray,
     )
 
 from .gates import (

@@ -19,6 +19,8 @@
 Torus Gentry, Sahai & Waters bootstrapping functions.
 """
 
+import pickle
+
 import numpy
 
 from .numeric_functions import Torus32
@@ -54,12 +56,42 @@ class TGswParams:
         self.bs_log2_base = bs_log2_base
         self.tlwe_params = tlwe_params # Params of each row
 
+    def __eq__(self, other: 'TGswParams'):
+        return (
+            self.__class__ == other.__class__
+            and self.decomp_length == other.decomp_length
+            and self.bs_log2_base == other.bs_log2_base
+            and self.tlwe_params == other.tlwe_params)
+
+    def __hash__(self):
+        return hash((self.__class__, self.decomp_length, self.bs_log2_base, self.tlwe_params))
+
 
 class TGswKey:
 
-    def __init__(self, thr, params: TGswParams, rng):
+    def __init__(self, params: TGswParams, tlwe_key: TLweKey):
         self.params = params
-        self.tlwe_key = TLweKey(thr, params.tlwe_params, rng)
+        self.tlwe_key = tlwe_key
+
+    @classmethod
+    def from_rng(cls, thr, params: TGswParams, rng):
+        return cls(params, TLweKey.from_rng(thr, params.tlwe_params, rng))
+
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        self.tlwe_key.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        tlwe_key = TLweKey.load(file_obj, thr)
+        return cls(params, tlwe_key)
+
+    def __eq__(self, other: 'TGswKey'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and self.tlwe_key == other.tlwe_key)
 
 
 class TGswSampleArray:
@@ -75,13 +107,36 @@ class TGswSampleArray:
 
 class TransformedTGswSampleArray:
 
-    def __init__(self, thr, params: TGswParams, shape):
+    def __init__(self, params: TGswParams, samples: TransformedTLweSampleArray):
         self.mask_size = params.tlwe_params.mask_size
         self.decomp_length = params.decomp_length
-        self.samples = TransformedTLweSampleArray(
-            thr, params.tlwe_params, shape + (self.mask_size + 1, self.decomp_length))
+        self.samples = samples
         self.params = params
-        self.shape = shape
+        self.shape = samples.shape[:-2]
+
+    @classmethod
+    def empty(cls, thr, params: TGswParams, shape):
+        mask_size = params.tlwe_params.mask_size
+        decomp_length = params.decomp_length
+        samples = TransformedTLweSampleArray.empty(
+            thr, params.tlwe_params, shape + (mask_size + 1, decomp_length))
+        return cls(params, samples)
+
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        self.samples.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        samples = TransformedTLweSampleArray.load(file_obj, thr)
+        return cls(params, samples)
+
+    def __eq__(self, other: 'TransformedTGswSampleArray'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and self.samples == other.samples)
 
 
 # For all the kpl TLWE samples composing the TGSW sample

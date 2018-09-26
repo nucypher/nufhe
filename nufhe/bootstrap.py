@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import pickle
+
 from .numeric_functions import Torus32, t32_to_phase
 from .polynomials import TorusPolynomialArray, shift_tp_inverted_power
-from .lwe import LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
+from .lwe import LweParams, LweKey, LweSampleArray, LweKeyswitchKey, lwe_keyswitch
 from .tgsw import (
     TGswKey,
     TransformedTGswSampleArray,
@@ -42,10 +44,9 @@ from .performance import PerformanceParameters
 class BootstrapKey:
 
     def __init__(
-            self, thr, rng, lwe_key: LweKey, tgsw_key: TGswKey, perf_params: PerformanceParameters):
+            self, in_out_params: LweParams, tgsw: TransformedTGswSampleArray):
 
-        in_out_params = lwe_key.params
-        bk_params = tgsw_key.params
+        bk_params = tgsw.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
@@ -53,16 +54,42 @@ class BootstrapKey:
         self.bk_params = bk_params
         self.accum_params = accum_params
         self.extract_params = extract_params
+        self.tgsw = tgsw
+
+    @classmethod
+    def from_rng(
+            cls, thr, rng, lwe_key: LweKey, tgsw_key: TGswKey, perf_params: PerformanceParameters):
+
+        in_out_params = lwe_key.params
+        bk_params = tgsw_key.params
+        accum_params = bk_params.tlwe_params
 
         # Make a non-transformed bootstrap key
-        bk = TGswSampleArray(thr, bk_params, (lwe_key.params.size,))
+        bk = TGswSampleArray(thr, bk_params, (in_out_params.size,))
         tgsw_encrypt_int(thr, rng, bk, lwe_key.key, accum_params.min_noise, tgsw_key, perf_params)
 
         # Convert it to transformed space, because that's where it will be used
-        bk_transformed = TransformedTGswSampleArray(thr, bk_params, (lwe_key.params.size,))
+        bk_transformed = TransformedTGswSampleArray.empty(thr, bk_params, (in_out_params.size,))
         tgsw_transform_samples(thr, bk_transformed, bk, perf_params)
 
-        self.tgsw = bk_transformed
+        return cls(in_out_params, bk_transformed)
+
+    def dump(self, file_obj):
+        pickle.dump(self.in_out_params, file_obj)
+        self.tgsw.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        in_out_params = pickle.load(file_obj)
+        tgsw = TransformedTGswSampleArray.load(file_obj, thr)
+        return cls(in_out_params, tgsw)
+
+    def __eq__(self, other: 'BootstrapKey'):
+        return (
+            self.__class__ == other.__class__
+            and self.in_out_params == other.in_out_params
+            and self.tgsw == other.tgsw)
+
 
 
 def nufhe_MuxRotate_FFT(

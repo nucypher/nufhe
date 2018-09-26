@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import pickle
+
 import numpy
 
 from .numeric_functions import phase_to_t32
@@ -67,6 +69,12 @@ class NuFHEParameters:
             self._tlwe_mask_size,
             ))
 
+    def __eq__(self, other: 'NuFHEParameters'):
+        return (
+            self.__class__ == other.__class__
+            and self._transform_type == other._transform_type
+            and self._tlwe_mask_size == other._tlwe_mask_size)
+
 
 class NuFHESecretKey:
 
@@ -74,6 +82,25 @@ class NuFHESecretKey:
         self.params = params
         self.lwe_key = lwe_key
         self.tgsw_key = tgsw_key
+
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        self.lwe_key.dump(file_obj)
+        self.tgsw_key.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        lwe_key = LweKey.load(file_obj, thr)
+        tgsw_key = TGswKey.load(file_obj, thr)
+        return cls(params, lwe_key, tgsw_key)
+
+    def __eq__(self, other: 'NuFHESecretKey'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and self.lwe_key == other.lwe_key
+            and self.tgsw_key == other.tgsw_key)
 
 
 class NuFHECloudKey:
@@ -85,6 +112,25 @@ class NuFHECloudKey:
         self.bootstrap_key = bootstrap_key
         self.keyswitch_key = keyswitch_key
 
+    def dump(self, file_obj):
+        pickle.dump(self.params, file_obj)
+        self.bootstrap_key.dump(file_obj)
+        self.keyswitch_key.dump(file_obj)
+
+    @classmethod
+    def load(cls, file_obj, thr):
+        params = pickle.load(file_obj)
+        bootstrap_key = BootstrapKey.load(file_obj, thr)
+        keyswitch_key = LweKeyswitchKey.load(file_obj, thr)
+        return cls(params, bootstrap_key, keyswitch_key)
+
+    def __eq__(self, other: 'NuFHECloudKey'):
+        return (
+            self.__class__ == other.__class__
+            and self.params == other.params
+            and self.bootstrap_key == other.bootstrap_key
+            and self.keyswitch_key == other.keyswitch_key)
+
 
 def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
     return key.params
@@ -94,13 +140,13 @@ def make_key_pair(thr, rng, **params):
     nufhe_params = NuFHEParameters(**params)
 
     lwe_key = LweKey.from_rng(thr, nufhe_params.in_out_params, rng)
-    tgsw_key = TGswKey(thr, nufhe_params.tgsw_params, rng)
+    tgsw_key = TGswKey.from_rng(thr, nufhe_params.tgsw_params, rng)
     secret_key = NuFHESecretKey(nufhe_params, lwe_key, tgsw_key)
 
     # TODO: use PerformanceParameters from the user
     perf_params = PerformanceParameters(nufhe_params)
 
-    bk = BootstrapKey(thr, rng, lwe_key, tgsw_key, perf_params)
+    bk = BootstrapKey.from_rng(thr, rng, lwe_key, tgsw_key, perf_params)
     ks = LweKeyswitchKey.from_tgsw_key(
         thr, rng, nufhe_params.ks_decomp_length, nufhe_params.ks_log2_base, lwe_key, tgsw_key)
     cloud_key = NuFHECloudKey(nufhe_params, bk, ks)

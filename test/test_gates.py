@@ -16,7 +16,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import time
-import numpy
 
 import pytest
 import numpy
@@ -27,13 +26,6 @@ from nufhe import *
 from nufhe.operators_integer import uint_min, bitarray_to_uintarray, uintarray_to_bitarray
 from nufhe.blind_rotate import single_kernel_bootstrap_supported
 from nufhe.polynomial_transform import max_supported_transforms_per_block, transform_supported
-
-
-@pytest.fixture(scope='module')
-def key_pair(thread):
-    rng = numpy.random.RandomState()
-    secret_key, cloud_key = make_key_pair(thread, rng)
-    return secret_key, cloud_key
 
 
 @pytest.fixture(scope='module', params=[False, True], ids=['bs_loop', 'bs_kernel'])
