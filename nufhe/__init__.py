@@ -17,7 +17,6 @@
 
 from .keys import (
     make_key_pair,
-    nufhe_parameters,
     encrypt,
     decrypt,
     empty_ciphertext,

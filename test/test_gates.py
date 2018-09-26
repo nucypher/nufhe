@@ -56,7 +56,7 @@ def check_gate(
 
     reference = reference_func(*plaintexts)
 
-    params = nufhe_parameters(cloud_key)
+    params = cloud_key.params
     answer = empty_ciphertext(thread, params, shape)
 
     if performance_test:
@@ -233,7 +233,7 @@ def test_constant_gate(thread, key_pair):
     secret_key, cloud_key = key_pair
     rng = numpy.random.RandomState()
 
-    params = nufhe_parameters(cloud_key)
+    params = cloud_key.params
     answer = empty_ciphertext(thread, params, (size,))
 
     for val in (False, True):
@@ -510,7 +510,7 @@ def test_ntt_lsh_method_performance(
 def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
 
     secret_key, cloud_key = key_pair
-    params = nufhe_parameters(cloud_key)
+    params = cloud_key.params
 
     if (single_kernel_bootstrap
             and not single_kernel_bootstrap_supported(params, thread.device_params)):

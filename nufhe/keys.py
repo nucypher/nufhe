@@ -144,10 +144,6 @@ class NuFHECloudKey:
             and self.keyswitch_key == other.keyswitch_key)
 
 
-def nufhe_parameters(key): # union(NuFHESecretKey, NuFHECloudKey)
-    return key.params
-
-
 def make_key_pair(thr, rng, **params):
 
     nufhe_params = NuFHEParameters(**params)

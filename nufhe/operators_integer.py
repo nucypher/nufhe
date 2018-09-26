@@ -17,7 +17,7 @@
 
 import numpy
 
-from .keys import empty_ciphertext, nufhe_parameters
+from .keys import empty_ciphertext
 from .performance import PerformanceParameters
 from .gates import (
     gate_constant,
@@ -66,7 +66,7 @@ def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
     if perf_params is None:
         perf_params = PerformanceParameters(bk.params)
 
-    params = nufhe_parameters(cloud_key)
+    params = cloud_key.params
 
     itemsize = answer.shape_info.shape[-1]
 
