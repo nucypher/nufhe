@@ -28,9 +28,19 @@ from .performance import PerformanceParameters
 
 
 class NuFHEParameters:
+    """
+    Parameters of the FHE scheme.
+
+    :param transform_type: ``'NTT'`` or ``'FFT'``, specifying the transform to be used for
+        internal purposes. ``'FFT'`` is generally faster, but may not be supported on
+        some videocards (since it requires double precision floating point numbers).
+
+    .. note::
+
+        The default parameters correspond to about 128 bits of security.
+    """
 
     def __init__(self, transform_type='NTT', tlwe_mask_size=1):
-        # Note: the default parameters correspond to about 128bit of security!
 
         assert transform_type in ('FFT', 'NTT')
         assert tlwe_mask_size >= 1
@@ -77,22 +87,44 @@ class NuFHEParameters:
 
 
 class NuFHESecretKey:
+    """
+    A secret key for the FHE scheme.
+
+        .. py:attribute:: params
+
+            A :py:class:`NuFHEParameters` object.
+    """
 
     def __init__(self, params: NuFHEParameters, lwe_key: LweKey):
+        """__init__()""" # hide the signature from Sphinx
         self.params = params
         self.lwe_key = lwe_key
 
     @classmethod
     def from_rng(cls, thr, params: NuFHEParameters, rng):
+        """
+        Generate a new secret key.
+
+        :param thr: a ``reikna`` ``Thread`` object.
+        :param params: FHE scheme parameters.
+        :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+        """
         lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
         return cls(params, lwe_key)
 
     def dump(self, file_obj):
+        """
+        Serialize into the given ``file_obj``, a writeable file-like object.
+        """
         pickle.dump(self.params, file_obj)
         self.lwe_key.dump(file_obj)
 
     @classmethod
     def load(cls, file_obj, thr):
+        """
+        Deserialize from the given ``file_obj``, a readable file-like object,
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
         params = pickle.load(file_obj)
         lwe_key = LweKey.load(file_obj, thr)
         return cls(params, lwe_key)
@@ -105,10 +137,18 @@ class NuFHESecretKey:
 
 
 class NuFHECloudKey:
+    """
+    A cloud key for the FHE scheme.
+
+        .. py:attribute:: params
+
+            A :py:class:`NuFHEParameters` object.
+    """
 
     def __init__(
             self, params: NuFHEParameters,
             bootstrap_key: BootstrapKey, keyswitch_key: LweKeyswitchKey):
+        """__init__()""" # hide the signature from Sphinx
         self.params = params
         self.bootstrap_key = bootstrap_key
         self.keyswitch_key = keyswitch_key
@@ -116,7 +156,20 @@ class NuFHECloudKey:
     @classmethod
     def from_rng(
             cls, thr, params: NuFHEParameters, rng, secret_key: NuFHESecretKey,
-            perf_params: PerformanceParameters):
+            perf_params: PerformanceParameters=None):
+        """
+        Generate a new cloud key based on the given secret key.
+
+        :param thr: a ``reikna`` ``Thread`` object.
+        :param params: FHE scheme parameters.
+        :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+        :param secret_key: the secret key object.
+        :param perf_params: an override for performance parameters.
+        """
+
+        if perf_params is None:
+            perf_params = PerformanceParameters(params)
+
         tgsw_key = TGswKey.from_rng(thr, params.tgsw_params, rng)
         bk = BootstrapKey.from_rng(thr, rng, secret_key.lwe_key, tgsw_key, perf_params)
         ks = LweKeyswitchKey.from_tgsw_key(
@@ -125,12 +178,19 @@ class NuFHECloudKey:
         return cls(params, bk, ks)
 
     def dump(self, file_obj):
+        """
+        Serialize into the given ``file_obj``, a writeable file-like object.
+        """
         pickle.dump(self.params, file_obj)
         self.bootstrap_key.dump(file_obj)
         self.keyswitch_key.dump(file_obj)
 
     @classmethod
     def load(cls, file_obj, thr):
+        """
+        Deserialize from the given ``file_obj``, a readable file-like object,
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
         params = pickle.load(file_obj)
         bootstrap_key = BootstrapKey.load(file_obj, thr)
         keyswitch_key = LweKeyswitchKey.load(file_obj, thr)
@@ -145,15 +205,13 @@ class NuFHECloudKey:
 
 
 def make_key_pair(thr, rng, **params):
-
+    """
+    Creates a pair of :py:class:`NuFHESecretKey` and :py:class:`NuFHECloudKey`
+    corresponding to :py:class:`NuFHEParameters` created with keywords ``params``.
+    """
     nufhe_params = NuFHEParameters(**params)
-
-    # TODO: use PerformanceParameters from the user
-    perf_params = PerformanceParameters(nufhe_params)
-
     secret_key = NuFHESecretKey.from_rng(thr, nufhe_params, rng)
-    cloud_key = NuFHECloudKey.from_rng(thr, nufhe_params, rng, secret_key, perf_params)
-
+    cloud_key = NuFHECloudKey.from_rng(thr, nufhe_params, rng, secret_key)
     return secret_key, cloud_key
 
 
@@ -169,6 +227,15 @@ def _from_mu(mu):
 
 
 def encrypt(thr, rng, key: NuFHESecretKey, message):
+    """
+    Encrypts a message.
+
+    :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+    :param key: the secret key.
+    :param message: a ``numpy`` array of bit values to encrypt;
+        if the ``dtype`` is not ``numpy.bool``, it will be converted to ``numpy.bool``.
+    :returns: a :py:class:`LweSampleArray` object with the same `shape` as the given array.
+    """
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(_to_mu(message))
     noise = key.params.in_out_params.min_noise
@@ -177,9 +244,21 @@ def encrypt(thr, rng, key: NuFHESecretKey, message):
 
 
 def decrypt(thr, key: NuFHESecretKey, ciphertext: LweSampleArray):
+    """
+    Decrypts a message.
+
+    :param key: the secret key.
+    :param ciphertext: an encrypted message.
+    :returns: a ``numpy.ndarray`` object of the type ``numpy.bool``
+        and the same `shape` as ``ciphertext``.
+    """
+
     mus = lwe_decrypt(thr, ciphertext, key.lwe_key)
     return _from_mu(mus)
 
 
 def empty_ciphertext(thr, params: NuFHEParameters, shape):
+    """
+    Creates an uninitialized :py:class:`LweSampleArray` with the shape ``shape``.
+    """
     return LweSampleArray.empty(thr, params.in_out_params, shape)

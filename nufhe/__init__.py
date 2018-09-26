@@ -20,6 +20,7 @@ from .keys import (
     encrypt,
     decrypt,
     empty_ciphertext,
+    NuFHEParameters,
     NuFHESecretKey,
     NuFHECloudKey,
     LweSampleArray,

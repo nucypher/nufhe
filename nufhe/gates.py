@@ -48,179 +48,264 @@ def result_shape(shape1, shape2):
     return tuple((l1 if l1 > 1 else l2) for l1, l2 in zip(shape1, shape2))
 
 
-"""
- * Homomorphic bootstrapped NAND gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_nand(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped NAND gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
 
     temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
 
-    #compute: (0,1/8) - ca - cb
+    #compute: (0,1/8) - a - b
     NandConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, NandConst)
-    lwe_sub_to(thr, temp_result, ca)
-    lwe_sub_to(thr, temp_result, cb)
+    lwe_sub_to(thr, temp_result, a)
+    lwe_sub_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped OR gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_or(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped OR gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,1/8) + ca + cb
+    #compute: (0,1/8) + a + b
     OrConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrConst)
-    lwe_add_to(thr, temp_result, ca)
-    lwe_add_to(thr, temp_result, cb)
+    lwe_add_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped AND gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_and(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped AND gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,-1/8) + ca + cb
+    #compute: (0,-1/8) + a + b
     AndConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndConst)
-    lwe_add_to(thr, temp_result, ca)
-    lwe_add_to(thr, temp_result, cb)
+    lwe_add_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped XOR gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_xor(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped XOR gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,1/4) + 2*(ca + cb)
+    #compute: (0,1/4) + 2*(a + b)
     XorConst = phase_to_t32(1, 4)
     lwe_noiseless_trivial(thr, temp_result, XorConst)
-    lwe_add_mul_to(thr, temp_result, 2, ca)
-    lwe_add_mul_to(thr, temp_result, 2, cb)
+    lwe_add_mul_to(thr, temp_result, 2, a)
+    lwe_add_mul_to(thr, temp_result, 2, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped XNOR gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_xnor(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped XNOR gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,-1/4) + 2*(-ca-cb)
+    #compute: (0,-1/4) + 2*(-a-b)
     XnorConst = phase_to_t32(-1, 4)
     lwe_noiseless_trivial(thr, temp_result, XnorConst)
-    lwe_sub_mul_to(thr, temp_result, 2, ca)
-    lwe_sub_mul_to(thr, temp_result, 2, cb)
+    lwe_sub_mul_to(thr, temp_result, 2, a)
+    lwe_sub_mul_to(thr, temp_result, 2, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped NOT gate (doesn't need to be bootstrapped)
- * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_not(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
-        perf_params=None):
-    in_out_params = ck.params.in_out_params
-    lwe_negate(thr, result, ca)
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray, a: LweSampleArray,
+        perf_params: PerformanceParameters=None):
+    """
+    Homomorphic NOT gate.
+    Applied elementwise on an encrypted array of bits.
+
+    Not bootstrapped; ``perf_params`` does not have any effect and is only present
+    for the sake of API uniformity.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a``.
+    :param a: the source ciphertext.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 1 LWE sample (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
+
+    in_out_params = cloud_key.params.in_out_params
+    lwe_negate(thr, result, a)
 
 
-"""
- * Homomorphic bootstrapped COPY gate (doesn't need to be bootstrapped)
- * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_copy(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray,
-        perf_params=None):
-    in_out_params = ck.params.in_out_params
-    lwe_copy(thr, result, ca)
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray, a: LweSampleArray,
+        perf_params: PerformanceParameters=None):
+    """
+    Copy the contents of the ciphertext ``a`` to ``result``.
+
+    Not bootstrapped; ``perf_params`` does not have any effect and is only present
+    for the sake of API uniformity.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a``.
+    :param a: the source ciphertext.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 1 LWE sample (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
+
+    in_out_params = cloud_key.params.in_out_params
+    lwe_copy(thr, result, a)
 
 
 """
@@ -228,182 +313,269 @@ def gate_copy(
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
-def gate_constant(thr, ck: NuFHECloudKey, result: LweSampleArray, val):
-    in_out_params = ck.params.in_out_params
+def gate_constant(
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray, val: bool,
+        perf_params: PerformanceParameters=None):
+    """
+    Fill each bit of the ciphertext ``result`` with the plaintext value ``val``
+    (which will be converted to ``bool``).
+
+    Not bootstrapped; ``perf_params`` does not have any effect and is only present
+    for the sake of API uniformity.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+    :param val: the bit value used to fill the ciphertext.
+    :param perf_params: an override for performance parameters.
+    """
+
+    in_out_params = cloud_key.params.in_out_params
     MU = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, result, MU if val else -MU)
 
 
-"""
- * Homomorphic bootstrapped NOR gate
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_nor(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped NOR gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,-1/8) - ca - cb
+    #compute: (0,-1/8) - a - b
     NorConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, NorConst)
-    lwe_sub_to(thr, temp_result, ca)
-    lwe_sub_to(thr, temp_result, cb)
+    lwe_sub_to(thr, temp_result, a)
+    lwe_sub_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped AndNY Gate: not(a) and b
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_andny(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped ANDNY (`(not a) and b`) gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,-1/8) - ca + cb
+    #compute: (0,-1/8) - a + b
     AndNYConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndNYConst)
-    lwe_sub_to(thr, temp_result, ca)
-    lwe_add_to(thr, temp_result, cb)
+    lwe_sub_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped AndYN Gate: a and not(b)
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_andyn(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped ANDYN (`a and (not b)`) gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,-1/8) + ca - cb
+    #compute: (0,-1/8) + a - b
     AndYNConst = phase_to_t32(-1, 8)
     lwe_noiseless_trivial(thr, temp_result, AndYNConst)
-    lwe_add_to(thr, temp_result, ca)
-    lwe_sub_to(thr, temp_result, cb)
+    lwe_add_to(thr, temp_result, a)
+    lwe_sub_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped OrNY Gate: not(a) or b
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_orny(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped ORNY (`(not a) or b`) gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,1/8) - ca + cb
+    #compute: (0,1/8) - a + b
     OrNYConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrNYConst)
-    lwe_sub_to(thr, temp_result, ca)
-    lwe_add_to(thr, temp_result, cb)
+    lwe_sub_to(thr, temp_result, a)
+    lwe_add_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped OrYN Gate: a or not(b)
- * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_oryn(
-        thr, ck: NuFHECloudKey, result: LweSampleArray, ca: LweSampleArray, cb: LweSampleArray,
-        perf_params=None):
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped ORYN (`a or (not b)`) gate.
+    Applied elementwise on two encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a`` and ``b``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(ca.shape_info.shape, cb.shape_info.shape)
+    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
     assert rshape == result.shape_info.shape
 
-    in_out_params = ck.params.in_out_params
+    in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
 
-    #compute: (0,1/8) + ca - cb
+    #compute: (0,1/8) + a - b
     OrYNConst = phase_to_t32(1, 8)
     lwe_noiseless_trivial(thr, temp_result, OrYNConst)
-    lwe_add_to(thr, temp_result, ca)
-    lwe_sub_to(thr, temp_result, cb)
+    lwe_add_to(thr, temp_result, a)
+    lwe_sub_to(thr, temp_result, b)
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     MU = phase_to_t32(1, 8)
-    bootstrap(thr, result, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result, perf_params)
+    bootstrap(
+        thr, result, cloud_key.bootstrap_key, cloud_key.keyswitch_key,
+        MU, temp_result, perf_params)
 
 
-"""
- * Homomorphic bootstrapped Mux(a,b,c) = a?b:c = a*b + not(a)*c
- * Takes in input 3 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
-"""
 def gate_mux(
         thr,
-        ck: NuFHECloudKey, result: LweSampleArray,
+        cloud_key: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
-        perf_params=None):
+        perf_params: PerformanceParameters=None):
+    """
+    Homomorphic bootstrapped MUX (`b if a else c`, or, equivalently, `(a and b) or ((not a) and c)`) gate.
+    Applied elementwise on three encrypted arrays of bits.
+
+    :param thr: a ``reikna`` ``Thread`` object.
+    :param cloud_key: the cloud key.
+    :param result: an empty ciphertext where the result will be stored.
+        Should be the same shape as ``a``, ``b`` and ``c``.
+    :param a: the ciphertext with the first argument.
+    :param b: the ciphertext with the second argument.
+    :param c: the ciphertext with the third argument.
+    :param perf_params: an override for performance parameters.
+    """
+
+    # * Takes in input 3 LWE samples (with message space [-1/8,1/8], noise<1/16)
+    # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(ck.params)
+        perf_params = PerformanceParameters(cloud_key.params)
 
     rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
     assert rshape == result.shape_info.shape
 
     MU = phase_to_t32(1, 8)
-    in_out_params = ck.params.in_out_params
-    extracted_params = ck.params.tgsw_params.tlwe_params.extracted_lweparams
+    in_out_params = cloud_key.params.in_out_params
+    extracted_params = cloud_key.params.tgsw_params.tlwe_params.extracted_lweparams
 
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
     temp_result1 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
@@ -417,7 +589,7 @@ def gate_mux(
     lwe_add_to(thr, temp_result, b)
     # Bootstrap without KeySwitch
     bootstrap(
-        thr, u1, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result,
+        thr, u1, cloud_key.bootstrap_key, cloud_key.keyswitch_key, MU, temp_result,
         perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
@@ -426,7 +598,7 @@ def gate_mux(
     lwe_add_to(thr, temp_result, c)
     # Bootstrap without KeySwitch
     bootstrap(
-        thr, u2, ck.bootstrap_key, ck.keyswitch_key, MU, temp_result,
+        thr, u2, cloud_key.bootstrap_key, cloud_key.keyswitch_key, MU, temp_result,
         perf_params, no_keyswitch=True)
 
     # Add u1=u1+u2
@@ -436,4 +608,4 @@ def gate_mux(
     lwe_add_to(thr, temp_result1, u2)
 
     # Key switching
-    lwe_keyswitch(thr, result, ck.keyswitch_key, temp_result1)
+    lwe_keyswitch(thr, result, cloud_key.keyswitch_key, temp_result1)

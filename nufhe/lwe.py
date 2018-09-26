@@ -130,8 +130,16 @@ class LweSampleArrayShapeInfo:
 
 
 class LweSampleArray:
+    """
+    A ciphertext object.
+
+    .. py:attribute:: shape
+
+        The shape of the encrypted plaintext message.
+    """
 
     def __init__(self, params: LweParams, a, b, current_variances):
+        """__init__()""" # hide the signature from Sphinx
         self.params = params
         self.a = a
         self.b = b
@@ -150,12 +158,20 @@ class LweSampleArray:
         return self.shape_info.shape
 
     def __getitem__(self, index):
+        """
+        Returns a view over the ciphertext (still a :py:class:`LweSampleArray` object).
+        The indexing works in the same way as if it was a regular ``numpy`` array
+        with the shape ``shape``.
+        """
         a_view = self.a[index]
         b_view = self.b[index]
         cv_view = self.current_variances[index]
         return LweSampleArray(self.params, a_view, b_view, cv_view)
 
     def dump(self, file_obj):
+        """
+        Serialize into the given ``file_obj``, a writeable file-like object.
+        """
         pickle.dump(self.params, file_obj)
         pickle.dump(self.a.get(), file_obj)
         pickle.dump(self.b.get(), file_obj)
@@ -163,6 +179,10 @@ class LweSampleArray:
 
     @classmethod
     def load(cls, file_obj, thr):
+        """
+        Deserialize from the given ``file_obj``, a readable file-like object,
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
         params = pickle.load(file_obj)
         a = thr.to_device(pickle.load(file_obj))
         b = thr.to_device(pickle.load(file_obj))
