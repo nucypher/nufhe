@@ -22,7 +22,8 @@
     i32 = dtypes.ctype(numpy.int32)
 
     def lsh(label, shift):
-        build_call = lambda module: f"{module}({label}, {shift})"
+        build_call = lambda module: (
+            "{module}({label}, {shift})".format(module=module, label=label, shift=shift))
         if shift < 32:
             return build_call(lsh32)
         elif shift < 64:
@@ -135,7 +136,7 @@ WITHIN_KERNEL INLINE void ${prefix}NTTInv8(${ff_elem}* r)
 WITHIN_KERNEL INLINE void ${prefix}NTT8x2Lsh_1(${ff_elem}* s)
 {
     %for j in range(1, 8):
-    s[${j}] = ${lsh(f"s[{j}]", 12 * j)};
+    s[${j}] = ${lsh("s[{j}]".format(j=j), 12 * j)};
     %endfor
 }
 
@@ -150,7 +151,7 @@ WITHIN_KERNEL INLINE void ${prefix}NTT8x2Lsh(${ff_elem}* s, ${ff.u32} col)
 WITHIN_KERNEL INLINE void ${prefix}NTTInv8x2Lsh_1(${ff_elem}* s)
 {
     %for j in range(1, 8):
-    s[${j}] = ${lsh(f"s[{j}]", 192 - 12 * j)};
+    s[${j}] = ${lsh("s[{j}]".format(j=j), 192 - 12 * j)};
     %endfor
 }
 
@@ -166,7 +167,7 @@ WITHIN_KERNEL INLINE void ${prefix}NTTInv8x2Lsh(${ff_elem}* s, ${ff.u32} col)
 WITHIN_KERNEL INLINE void ${prefix}NTT8x8Lsh_${i}(${ff_elem}* s)
 {
     %for j in range(1, 8):
-    s[${j}] = ${lsh(f"s[{j}]", 3 * i * j)};
+    s[${j}] = ${lsh("s[{j}]".format(j=j), 3 * i * j)};
     %endfor
 }
 %endfor
@@ -195,7 +196,7 @@ WITHIN_KERNEL INLINE void ${prefix}NTT8x8Lsh(${ff_elem}* s, ${ff.u32} col)
 WITHIN_KERNEL INLINE void ${prefix}NTTInv8x8Lsh_${i}(${ff_elem}* s)
 {
     %for j in range(1, 8):
-    s[${j}] = ${lsh(f"s[{j}]", 192 - 3 * i * j)};
+    s[${j}] = ${lsh("s[{j}]".format(j=j), 192 - 3 * i * j)};
     %endfor
 }
 %endfor

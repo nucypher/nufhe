@@ -35,4 +35,5 @@ setup(
         },
     install_requires=['numpy', 'reikna>=0.7.2'],
     extras_require={'testing': ['pytest', 'pytest-cov']},
+    python_requires='>=3.5',
     zip_safe=True)
