@@ -20,10 +20,65 @@ from reikna.cluda import cuda_id
 
 
 class PerformanceParameters:
+    """
+    Advanced performance settings for bootstrapping.
+
+    For all the optional parameters below, if ``None`` is given,
+    the library will attempt to select the best performing variant,
+    given the available information.
+
+    :param nufhe_params: a :py:class:`NuFHEParameters` object.
+    :param ntt_base_method: ``'cuda_asm'`` or ``'c'``;
+        An algorithm used in NTT for modulo addition, modulo subtraction, and modulus.
+    :param ntt_mul_method: one of ``'cuda_asm'``, ``'c_from_asm'`` and ``'c'``;
+        An algorithm used in NTT for modulo multiplication.
+    :param ntt_lsh_method: one of ``'cuda_asm'``, ``'c_from_asm'`` and ``'c'``;
+        An algorithm used in NTT for modulo bitshift.
+
+    .. note::
+
+        ``'cuda_asm'`` is only available for CUDA backend.
+        When available, it is usually the fastest variant, or close to it.
+
+    :param use_constant_memory_multi_iter: use constant GPU memory (as opposed to global memory)
+        for precalculated coefficients in NTT/FFT in kernels where one of these transformations
+        is executed multiple times per kernel call.
+    :param use_constant_memory_single_iter: use constant GPU memory (as opposed to global memory)
+        for precalculated coefficients in NTT/FFT in kernels where one of these transformations
+        is executed once per kernel call.
+
+    .. note::
+
+        Using constant memory is usually beneficial on fast videocards
+        if the transformation is executed many times per kernel call.
+
+    :param transforms_per_block: a positive integer value, denoting how many separate transforms
+        to execute in parallel on a single GPU multiprocessor (compute unit).
+
+    .. note::
+
+        On most videocards 1 to 4 transforms is supported for NTT, and 1 to 8 for FFT.
+        More transforms does not necessarily mean better performance, since parallel threads
+        on the same compute unit compete for resources.
+
+    :param single_kernel_bootstrap: if ``True``, execute bootstrap in a single kernel,
+        instead of many separate kernel calls in a loop.
+
+    .. note::
+
+        Single kernel bootstrap is only supported for default FHE parameters,
+        and needs the videocard to support a certain amount of parallel threads on a compute unit
+        (256 for FFT, 512 for NTT).
+        If available, it is usually significantly faster,
+        partially due to lower kernel call overhead.
+
+    :param low_end_device: if ``True``, the optimal values for low-end videocards will be picked.
+        If ``None``, the decision will be made based on the number of compute units the device has.
+    """
 
     def __init__(
             self,
-            nufhe_params: 'NuFHEParameters',
+            nufhe_params, # TODO: type annotation here ('NuFHEParameters') triggers a Sphinx error.
             ntt_base_method=None,
             ntt_mul_method=None,
             ntt_lsh_method=None,

@@ -73,3 +73,9 @@ Ternary gates
 -------------
 
 .. autofunction:: gate_mux
+
+
+Performance parameters
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: PerformanceParameters
