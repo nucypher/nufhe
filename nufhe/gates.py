@@ -70,8 +70,8 @@ def gate_nand(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
 
@@ -113,11 +113,11 @@ def gate_or(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,1/8) + a + b
     OrConst = phase_to_t32(1, 8)
@@ -155,11 +155,11 @@ def gate_and(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,-1/8) + a + b
     AndConst = phase_to_t32(-1, 8)
@@ -197,11 +197,11 @@ def gate_xor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,1/4) + 2*(a + b)
     XorConst = phase_to_t32(1, 4)
@@ -239,11 +239,11 @@ def gate_xnor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,-1/4) + 2*(-a-b)
     XnorConst = phase_to_t32(-1, 4)
@@ -357,11 +357,11 @@ def gate_nor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,-1/8) - a - b
     NorConst = phase_to_t32(-1, 8)
@@ -399,11 +399,11 @@ def gate_andny(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,-1/8) - a + b
     AndNYConst = phase_to_t32(-1, 8)
@@ -441,11 +441,11 @@ def gate_andyn(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,-1/8) + a - b
     AndYNConst = phase_to_t32(-1, 8)
@@ -483,11 +483,11 @@ def gate_orny(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,1/8) - a + b
     OrNYConst = phase_to_t32(1, 8)
@@ -525,11 +525,11 @@ def gate_oryn(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, b.shape_info.shape)
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, b.shape)
+    assert rshape == result.shape
 
     in_out_params = cloud_key.params.in_out_params
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,1/8) + a - b
     OrYNConst = phase_to_t32(1, 8)
@@ -570,17 +570,17 @@ def gate_mux(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params)
 
-    rshape = result_shape(a.shape_info.shape, result_shape(b.shape_info.shape, c.shape_info.shape))
-    assert rshape == result.shape_info.shape
+    rshape = result_shape(a.shape, result_shape(b.shape, c.shape))
+    assert rshape == result.shape
 
     MU = phase_to_t32(1, 8)
     in_out_params = cloud_key.params.in_out_params
     extracted_params = cloud_key.params.tgsw_params.tlwe_params.extracted_lweparams
 
-    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape_info.shape)
-    temp_result1 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
-    u1 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
-    u2 = LweSampleArray.empty(thr, extracted_params, result.shape_info.shape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
+    temp_result1 = LweSampleArray.empty(thr, extracted_params, result.shape)
+    u1 = LweSampleArray.empty(thr, extracted_params, result.shape)
+    u2 = LweSampleArray.empty(thr, extracted_params, result.shape)
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = phase_to_t32(-1, 8)
