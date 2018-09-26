@@ -177,6 +177,10 @@ class PerformanceParametersForDevice:
         ntt_base_method = perf_params.ntt_base_method
         ntt_mul_method = perf_params.ntt_mul_method
         ntt_lsh_method = perf_params.ntt_lsh_method
+
+        if 'cuda_asm' in (ntt_base_method, ntt_mul_method, ntt_lsh_method) and not is_cuda:
+            raise ValueError("'cuda_asm' is only supported for the CUDA backend")
+
         if low_end_device:
             skbs = single_kernel_bootstrap
             if ntt_base_method is None:
