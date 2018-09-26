@@ -34,6 +34,10 @@ setup(
         'nufhe/transform': ['*.mako'],
         },
     install_requires=['numpy', 'reikna>=0.7.2'],
-    extras_require={'testing': ['pytest', 'pytest-cov']},
     python_requires='>=3.5',
+    extras_require={
+        'testing': ['pytest', 'pytest-cov'],
+        'pyopencl': ['pyopencl>=2018.1.1'],
+        'pycuda': ['pycyda>=2018.1.1'],
+        },
     zip_safe=True)
