@@ -217,12 +217,14 @@ def make_key_pair(thr, rng, **params):
 
 _1s8 = phase_to_t32(1, 8)
 
-@numpy.vectorize
-def _to_mu(bit):
-    return _1s8 if bit else -_1s8
 
 @numpy.vectorize
-def _from_mu(mu):
+def bool_to_t32(bit):
+    return _1s8 if bit else -_1s8
+
+
+@numpy.vectorize
+def t32_to_bool(mu):
     return mu > 0
 
 
@@ -237,7 +239,7 @@ def encrypt(thr, rng, key: NuFHESecretKey, message):
     :returns: a :py:class:`LweSampleArray` object with the same `shape` as the given array.
     """
     result = empty_ciphertext(thr, key.params, message.shape)
-    mus = thr.to_device(_to_mu(message))
+    mus = thr.to_device(bool_to_t32(message))
     noise = key.params.in_out_params.min_noise
     lwe_encrypt(thr, rng, result, mus, noise, key.lwe_key)
     return result
@@ -254,7 +256,7 @@ def decrypt(thr, key: NuFHESecretKey, ciphertext: LweSampleArray):
     """
 
     mus = lwe_decrypt(thr, ciphertext, key.lwe_key)
-    return _from_mu(mus)
+    return t32_to_bool(mus)
 
 
 def empty_ciphertext(thr, params: NuFHEParameters, shape):

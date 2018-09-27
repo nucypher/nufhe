@@ -17,6 +17,8 @@
 
 import time
 
+import numpy
+
 from .numeric_functions import phase_to_t32
 from .lwe import (
     LweSampleArray,
@@ -28,10 +30,11 @@ from .lwe import (
     lwe_add_mul_to,
     lwe_sub_mul_to,
     lwe_noiseless_trivial,
+    lwe_noiseless_trivial_constant,
     lwe_negate,
     lwe_copy,
     )
-from .keys import NuFHECloudKey
+from .keys import NuFHECloudKey, bool_to_t32
 from .bootstrap import bootstrap
 from .performance import PerformanceParameters
 
@@ -79,7 +82,7 @@ def gate_nand(
 
     #compute: (0,1/8) - a - b
     NandConst = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, temp_result, NandConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, NandConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_sub_to(thr, temp_result, b)
 
@@ -121,7 +124,7 @@ def gate_or(
 
     #compute: (0,1/8) + a + b
     OrConst = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, temp_result, OrConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, OrConst)
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
 
@@ -163,7 +166,7 @@ def gate_and(
 
     #compute: (0,-1/8) + a + b
     AndConst = phase_to_t32(-1, 8)
-    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, AndConst)
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
 
@@ -205,7 +208,7 @@ def gate_xor(
 
     #compute: (0,1/4) + 2*(a + b)
     XorConst = phase_to_t32(1, 4)
-    lwe_noiseless_trivial(thr, temp_result, XorConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, XorConst)
     lwe_add_mul_to(thr, temp_result, 2, a)
     lwe_add_mul_to(thr, temp_result, 2, b)
 
@@ -247,7 +250,7 @@ def gate_xnor(
 
     #compute: (0,-1/4) + 2*(-a-b)
     XnorConst = phase_to_t32(-1, 4)
-    lwe_noiseless_trivial(thr, temp_result, XnorConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, XnorConst)
     lwe_sub_mul_to(thr, temp_result, 2, a)
     lwe_sub_mul_to(thr, temp_result, 2, b)
 
@@ -314,10 +317,10 @@ def gate_copy(
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 """
 def gate_constant(
-        thr, cloud_key: NuFHECloudKey, result: LweSampleArray, val: bool,
+        thr, cloud_key: NuFHECloudKey, result: LweSampleArray, vals,
         perf_params: PerformanceParameters=None):
     """
-    Fill each bit of the ciphertext ``result`` with the plaintext value ``val``
+    Fill each bit of the ciphertext ``result`` with the plaintext values from ``vals``
     (which will be converted to ``bool``).
 
     Not bootstrapped; ``perf_params`` does not have any effect and is only present
@@ -326,13 +329,16 @@ def gate_constant(
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-    :param val: the bit value used to fill the ciphertext.
+        Must be the same shape as the ``vals`` array.
+    :param vals: a ``numpy.bool`` array (or anything castable to it) used to fill the ciphertext.
     :param perf_params: an override for performance parameters.
     """
 
+    vals = numpy.asarray(vals)
+    vals = bool_to_t32(vals)
+
     in_out_params = cloud_key.params.in_out_params
-    MU = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, result, MU if val else -MU)
+    lwe_noiseless_trivial(thr, result, thr.to_device(vals))
 
 
 def gate_nor(
@@ -365,7 +371,7 @@ def gate_nor(
 
     #compute: (0,-1/8) - a - b
     NorConst = phase_to_t32(-1, 8)
-    lwe_noiseless_trivial(thr, temp_result, NorConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, NorConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_sub_to(thr, temp_result, b)
 
@@ -407,7 +413,7 @@ def gate_andny(
 
     #compute: (0,-1/8) - a + b
     AndNYConst = phase_to_t32(-1, 8)
-    lwe_noiseless_trivial(thr, temp_result, AndNYConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, AndNYConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
 
@@ -449,7 +455,7 @@ def gate_andyn(
 
     #compute: (0,-1/8) + a - b
     AndYNConst = phase_to_t32(-1, 8)
-    lwe_noiseless_trivial(thr, temp_result, AndYNConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, AndYNConst)
     lwe_add_to(thr, temp_result, a)
     lwe_sub_to(thr, temp_result, b)
 
@@ -491,7 +497,7 @@ def gate_orny(
 
     #compute: (0,1/8) - a + b
     OrNYConst = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, temp_result, OrNYConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, OrNYConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
 
@@ -533,7 +539,7 @@ def gate_oryn(
 
     #compute: (0,1/8) + a - b
     OrYNConst = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, temp_result, OrYNConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, OrYNConst)
     lwe_add_to(thr, temp_result, a)
     lwe_sub_to(thr, temp_result, b)
 
@@ -584,7 +590,7 @@ def gate_mux(
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = phase_to_t32(-1, 8)
-    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, AndConst)
     lwe_add_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, b)
     # Bootstrap without KeySwitch
@@ -593,7 +599,7 @@ def gate_mux(
         perf_params, no_keyswitch=True)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
-    lwe_noiseless_trivial(thr, temp_result, AndConst)
+    lwe_noiseless_trivial_constant(thr, temp_result, AndConst)
     lwe_sub_to(thr, temp_result, a)
     lwe_add_to(thr, temp_result, c)
     # Bootstrap without KeySwitch
@@ -603,7 +609,7 @@ def gate_mux(
 
     # Add u1=u1+u2
     MuxConst = phase_to_t32(1, 8)
-    lwe_noiseless_trivial(thr, temp_result1, MuxConst)
+    lwe_noiseless_trivial_constant(thr, temp_result1, MuxConst)
     lwe_add_to(thr, temp_result1, u1)
     lwe_add_to(thr, temp_result1, u2)
 

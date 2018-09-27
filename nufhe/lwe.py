@@ -38,6 +38,7 @@ from .lwe_gpu import (
     LweDecrypt,
     LweLinear,
     LweNoiselessTrivial,
+    LweNoiselessTrivialConstant,
     )
 from .random_numbers import (
     rand_uniform_int32,
@@ -290,11 +291,19 @@ def lwe_decrypt(thr: Thread, sample: LweSampleArray, key: LweKey):
     return result.get()
 
 
-def lwe_noiseless_trivial(thr: Thread, result: LweSampleArray, mu: Torus32):
+def lwe_noiseless_trivial(thr: Thread, result: LweSampleArray, mus):
     """
-    Initialize an LWE sample with (0, mu).
+    Initialize LWE samples with `(0, mu)` for each `mu` in `mus`.
     """
     comp = get_computation(thr, LweNoiselessTrivial, result.shape_info)
+    comp(result.a, result.b, result.current_variances, mus)
+
+
+def lwe_noiseless_trivial_constant(thr: Thread, result: LweSampleArray, mu):
+    """
+    Initialize LWE samples with `(0, mu)`.
+    """
+    comp = get_computation(thr, LweNoiselessTrivialConstant, result.shape_info)
     comp(result.a, result.b, result.current_variances, mu)
 
 

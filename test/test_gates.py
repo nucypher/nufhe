@@ -236,10 +236,11 @@ def test_constant_gate(thread, key_pair):
     params = cloud_key.params
     answer = empty_ciphertext(thread, params, (size,))
 
-    for val in (False, True):
-        gate_constant(thread, cloud_key, answer, val)
-        answer_bits = decrypt(thread, secret_key, answer)
-        assert (answer_bits == val).all()
+    vals = get_plaintexts(rng, 1, shape=(size,))[0]
+
+    gate_constant(thread, cloud_key, answer, vals)
+    answer_bits = decrypt(thread, secret_key, answer)
+    assert (answer_bits == vals).all()
 
 
 def test_uint_min(thread, key_pair):

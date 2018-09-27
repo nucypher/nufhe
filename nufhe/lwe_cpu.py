@@ -125,6 +125,16 @@ def LweLinearReference(result_shape_info, source_shape_info, add_result=False):
 
 def LweNoiselessTrivialReference(result_shape_info):
 
+    def _kernel(result_a, result_b, result_cv, mus):
+        result_a.fill(0)
+        numpy.copyto(result_b, mus)
+        result_cv.fill(0)
+
+    return _kernel
+
+
+def LweNoiselessTrivialConstantReference(result_shape_info):
+
     def _kernel(result_a, result_b, result_cv, mu):
         result_a.fill(0)
         result_b.fill(mu)

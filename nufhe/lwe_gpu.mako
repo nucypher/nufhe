@@ -170,7 +170,7 @@ ${kernel_declaration}
 
 
 <%def name="lwe_noiseless_trivial(
-    kernel_declaration, result_a, result_b, result_cv, mu)">
+    kernel_declaration, result_a, result_b, result_cv, mus)">
 
 <%
     rshape = result_b.shape
@@ -191,7 +191,7 @@ ${kernel_declaration}
     ${result_a.store_idx}(${result_ids}, n_id, 0);
     if (n_id == 0)
     {
-        ${result_b.store_idx}(${result_ids}, ${mu});
+        ${result_b.store_idx}(${result_ids}, ${mus.load_idx}(${result_ids}));
         ${result_cv.store_idx}(${result_ids}, 0);
     }
 }

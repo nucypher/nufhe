@@ -323,9 +323,9 @@ class LweNoiselessTrivial(Computation):
             Parameter('result_a', Annotation(shape_info.a, 'o')),
             Parameter('result_b', Annotation(shape_info.b, 'o')),
             Parameter('result_cv', Annotation(shape_info.current_variances, 'o')),
-            Parameter('mu', Annotation(Type(Torus32)))])
+            Parameter('mus', Annotation(Type(Torus32, shape_info.shape), 'i'))])
 
-    def _build_plan(self, plan_factory, device_params, result_a, result_b, result_cv, mu):
+    def _build_plan(self, plan_factory, device_params, result_a, result_b, result_cv, mus):
 
         plan = plan_factory()
 
@@ -333,7 +333,15 @@ class LweNoiselessTrivial(Computation):
         lwe_size = result_a.shape[-1]
         plan.kernel_call(
             TEMPLATE.get_def("lwe_noiseless_trivial"),
-            [result_a, result_b, result_cv, mu],
+            [result_a, result_b, result_cv, mus],
             global_size=batch_shape + (lwe_size,))
 
         return plan
+
+
+def LweNoiselessTrivialConstant(shape_info):
+    comp = LweNoiselessTrivial(shape_info)
+    bc = transformations.broadcast_param(comp.parameter.mus)
+    comp.parameter.mus.connect(bc, bc.output, mu=bc.param)
+    return comp
+

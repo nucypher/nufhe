@@ -27,6 +27,7 @@ from nufhe.lwe_gpu import (
     LweDecrypt,
     LweLinear,
     LweNoiselessTrivial,
+    LweNoiselessTrivialConstant,
     )
 from nufhe.lwe_cpu import (
     LweKeyswitchReference,
@@ -35,6 +36,7 @@ from nufhe.lwe_cpu import (
     LweDecryptReference,
     LweLinearReference,
     LweNoiselessTrivialReference,
+    LweNoiselessTrivialConstantReference,
     )
 from nufhe.numeric_functions import Torus32, Int32, ErrorFloat, double_to_t32
 import nufhe.random_numbers as rn
@@ -251,7 +253,7 @@ def test_lwe_linear(thread, positive_coeff, add_result):
     assert errors_allclose(res_cv_dev.get(), res_cv)
 
 
-def test_lwe_noiseless_trivial(thread):
+def test_lwe_noiseless_trivial_constant(thread):
 
     params = NuFHEParameters()
     lwe_size = params.in_out_params.size
@@ -265,8 +267,8 @@ def test_lwe_noiseless_trivial(thread):
 
     shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
 
-    test = LweNoiselessTrivial(shape_info).compile(thread)
-    ref = LweNoiselessTrivialReference(shape_info)
+    test = LweNoiselessTrivialConstant(shape_info).compile(thread)
+    ref = LweNoiselessTrivialConstantReference(shape_info)
 
     res_a_dev = thread.empty_like(res_a)
     res_b_dev = thread.empty_like(res_b)
@@ -274,6 +276,36 @@ def test_lwe_noiseless_trivial(thread):
 
     test(res_a_dev, res_b_dev, res_cv_dev, mu)
     ref(res_a, res_b, res_cv, mu)
+
+    assert (res_a_dev.get() == res_a).all()
+    assert (res_b_dev.get() == res_b).all()
+    assert errors_allclose(res_cv_dev.get(), res_cv)
+
+
+def test_lwe_noiseless_trivial(thread):
+
+    params = NuFHEParameters()
+    lwe_size = params.in_out_params.size
+
+    shape = (10, 20)
+
+    res_a = numpy.empty(shape + (lwe_size,), Torus32)
+    res_b = numpy.empty(shape, Torus32)
+    res_cv = numpy.empty(shape, ErrorFloat)
+    mus = get_test_array(shape, Torus32)
+
+    shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
+
+    test = LweNoiselessTrivial(shape_info).compile(thread)
+    ref = LweNoiselessTrivialReference(shape_info)
+
+    res_a_dev = thread.empty_like(res_a)
+    res_b_dev = thread.empty_like(res_b)
+    res_cv_dev = thread.empty_like(res_cv)
+    mus_dev = thread.to_device(mus)
+
+    test(res_a_dev, res_b_dev, res_cv_dev, mus_dev)
+    ref(res_a, res_b, res_cv, mus)
 
     assert (res_a_dev.get() == res_a).all()
     assert (res_b_dev.get() == res_b).all()
