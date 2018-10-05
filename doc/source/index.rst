@@ -1,15 +1,11 @@
-.. nufhe documentation master file, created by
-   sphinx-quickstart on Fri Aug 17 09:28:21 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 NuFHE, a GPU-powered Torus FHE implementation
 =============================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
+   implementation_details
    api
 
 
