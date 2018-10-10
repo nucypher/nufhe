@@ -38,6 +38,6 @@ setup(
     extras_require={
         'dev': ['pytest', 'pytest-cov', 'sphinx', 'sphinx_autodoc_typehints'],
         'pyopencl': ['pyopencl>=2018.1.1'],
-        'pycuda': ['pycyda>=2018.1.1'],
+        'pycuda': ['pycuda>=2018.1.1'],
         },
     zip_safe=True)
