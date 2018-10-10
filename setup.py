@@ -36,7 +36,7 @@ setup(
     install_requires=['numpy', 'reikna>=0.7.2'],
     python_requires='>=3.5',
     extras_require={
-        'testing': ['pytest', 'pytest-cov', 'sphinx_autodoc_typehints'],
+        'dev': ['pytest', 'pytest-cov', 'sphinx', 'sphinx_autodoc_typehints'],
         'pyopencl': ['pyopencl>=2018.1.1'],
         'pycuda': ['pycyda>=2018.1.1'],
         },
