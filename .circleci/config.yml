@@ -33,11 +33,13 @@ jobs:
       - checkout
 
       # Download and cache dependencies
-      - restore_cache:
-          keys:
-          - v1-dependencies-{{ checksum "requirements.txt" }}
-          # fallback to using the latest cache if no exact match is found
-          - v1-dependencies-
+      # Commented for the time being, because requirements.txt is missing
+      # (nufhe has "mandatory" extras)
+      #- restore_cache:
+      #    keys:
+      #    - v1-dependencies-{{ checksum "requirements.txt" }}
+      #    # fallback to using the latest cache if no exact match is found
+      #    - v1-dependencies-
 
       # PyOpenCL needs CL headers to be installed.
       #- run:
@@ -49,10 +51,10 @@ jobs:
       #      pip install numpy
       #      pip install .[pyopencl,dev]
 
-      - save_cache:
-          paths:
-            - ./venv
-          key: v1-dependencies-{{ checksum "requirements.txt" }}
+      #- save_cache:
+      #    paths:
+      #      - ./venv
+      #    key: v1-dependencies-{{ checksum "requirements.txt" }}
 
       # Test run requires a GPU, so it fails on CircleCI. Disabling for the time being.
       #- run:
