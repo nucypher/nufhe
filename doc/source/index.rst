@@ -7,6 +7,7 @@ NuFHE, a GPU-powered Torus FHE implementation
 
    implementation_details
    api
+   history
 
 
 ---------------
