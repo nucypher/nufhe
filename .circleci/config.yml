@@ -79,8 +79,8 @@ jobs:
       - run:
           name: create packages
           command: |
-            pipenv run python setup.py sdist
-            pipenv run python setup.py bdist_wheel
+            python3 setup.py sdist
+            python3 setup.py bdist_wheel
       - run:
           name: upload to pypi
-          command: pipenv run twine upload dist/*
+          command: twine upload dist/*
