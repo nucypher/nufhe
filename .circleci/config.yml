@@ -89,4 +89,4 @@ jobs:
             python3 -m venv venv
             . venv/bin/activate
             pip install twine
-            twine upload dist/* --config-file=.pypirc
+            twine upload dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
