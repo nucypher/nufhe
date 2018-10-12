@@ -42,12 +42,8 @@ jobs:
       #    - v1-dependencies-
 
       # PyOpenCL needs CL headers to be installed.
-      - run:
-          name: install dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install twine
+      #- run:
+      #    name: install dependencies
       #    # installing `numpy` separately, because otherwise pyopencl installation fails
       #    command: |
       #      python3 -m venv venv
@@ -90,4 +86,7 @@ jobs:
       - run:
           name: upload to pypi
           command: |
-            python3 -m twine upload dist/*
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install twine
+            twine upload dist/*
