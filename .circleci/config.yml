@@ -85,4 +85,6 @@ jobs:
             python3 setup.py bdist_wheel
       - run:
           name: upload to pypi
-          command: twine upload dist/*
+          command: |
+            pip install twine
+            twine upload dist/*
