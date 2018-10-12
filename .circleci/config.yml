@@ -23,14 +23,15 @@ jobs:
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
-      - run:
-          name: install dependencies
-          # installing `numpy` separately, because otherwise pyopencl installation fails
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            pip install numpy
-            pip install .[pyopencl,dev]
+      # PyOpenCL needs CL headers to be installed.
+      #- run:
+      #    name: install dependencies
+      #    # installing `numpy` separately, because otherwise pyopencl installation fails
+      #    command: |
+      #      python3 -m venv venv
+      #      . venv/bin/activate
+      #      pip install numpy
+      #      pip install .[pyopencl,dev]
 
       - save_cache:
           paths:
