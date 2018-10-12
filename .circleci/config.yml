@@ -49,6 +49,8 @@ jobs:
           destination: test-reports
 
   deploy:
+    docker:
+      - image: circleci/python:3.6.1
     steps:
       - checkout
       - run:
