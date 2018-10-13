@@ -1,6 +1,14 @@
 # A GPU implementation of fully homomorphic encryption on torus
 
-This library implements the fully homomorphic encryption algorithm from [`TFHE`](https://github.com/tfhe/tfhe) using CUDA and OpenCL. Unlike `TFHE`, where FFT is used internally to speed up polynomial multiplication, `nuFHE` can use either FFT or purely integer NTT (DFT-like transform on a finite field). The latter is based on the arithmetic operations and NTT scheme from [`cuFHE`](https://github.com/vernamlab/cuFHE).
+This library implements the fully homomorphic encryption algorithm from [`TFHE`](https://github.com/tfhe/tfhe) using CUDA and OpenCL. For the theoretical background one may refer to the works TFHE is based on:
+
+* C. Gentry, A. Sahai, and B. Waters, [*"Homomorphic encryption from learning with errors: Conceptually-simpler, asymptotically-faster, attribute-based."*](https://link.springer.com/chapter/10.1007/978-3-642-40041-4_5), Crypto 75-92 (2013);
+* L. Ducas and D. Micciancio, [*"FHEW: Bootstrapping homomorphic encryption in less than a second."*](https://link.springer.com/chapter/10.1007/978-3-662-46800-5_24), Eurocrypt 617-640 (2015);
+* I. Chillotti, N. Gama, M. Georgieva, and M. Izabachène. [*"Faster fully homomorphic encryption: Bootstrapping in less than 0.1 seconds"*](https://link.springer.com/chapter/10.1007/978-3-662-53887-6_1), Asiacrypt 3--33 (2016).
+
+For more details check out [this collection of papers on lattice cryptography](https://cseweb.ucsd.edu/~daniele/LatticeLinks/FHE.html).
+
+Unlike `TFHE`, where FFT is used internally to speed up polynomial multiplication, `nuFHE` can use either FFT or purely integer NTT (DFT-like transform on a finite field). The latter is based on the arithmetic operations and NTT scheme from [`cuFHE`](https://github.com/vernamlab/cuFHE).
 
 <table>
   <tr>
