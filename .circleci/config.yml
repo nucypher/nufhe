@@ -8,6 +8,7 @@ workflows:
             tags:
               only: /.*/
       - deploy:
+          context: NuCypher PyPI
           requires:
             - build
           filters:
