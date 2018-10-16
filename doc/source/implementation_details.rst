@@ -1,3 +1,5 @@
+.. implementation-details:
+
 ----------------------
 Implementation details
 ----------------------
