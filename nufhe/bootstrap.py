@@ -92,7 +92,7 @@ class BootstrapKey:
 
 
 
-def nufhe_MuxRotate_FFT(
+def mux_rotate(
         thr, result: TLweSampleArray, accum: TLweSampleArray, bki: TransformedTGswSampleArray,
         bk_idx: int, barai, bk_params: TGswParams, perf_params: PerformanceParameters):
 
@@ -115,7 +115,7 @@ def nufhe_MuxRotate_FFT(
  * @param bara An array of n coefficients between 0 and 2N-1
  * @param bk_params The parameters of bk
 """
-def nufhe_blindRotate_FFT(
+def blind_rotate(
         thr, accum: TLweSampleArray, bk: BootstrapKey,
         bara, n: int, bk_params: TGswParams, perf_params: PerformanceParameters):
 
@@ -131,7 +131,7 @@ def nufhe_blindRotate_FFT(
         # TODO: here we only need to pass bootstrap_key[i] and bara[:,i],
         # but Reikna kernels have to be recompiled for every set of strides/offsets,
         # so for now we are just passing full arrays and an index.
-        nufhe_MuxRotate_FFT(thr, temp2, temp3, bk.tgsw, i, bara, bk_params, perf_params)
+        mux_rotate(thr, temp2, temp3, bk.tgsw, i, bara, bk_params, perf_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = not accum_in_temp3
@@ -150,7 +150,7 @@ def nufhe_blindRotate_FFT(
  * @param bara An array of n coefficients between 0 and 2N-1
  * @param bk_params The parameters of bk
 """
-def nufhe_blindRotateAndExtract_FFT(
+def blind_rotate_and_extract(
         thr, result: LweSampleArray,
         v: TorusPolynomialArray, bk: BootstrapKey, ks: LweKeyswitchKey,
         barb, bara,
@@ -186,7 +186,7 @@ def nufhe_blindRotateAndExtract_FFT(
 
     else:
         # Blind rotation
-        nufhe_blindRotate_FFT(
+        blind_rotate(
             thr, acc, bk, bara, bk.in_out_params.size, bk_params, perf_params)
 
         # Extraction
@@ -223,6 +223,6 @@ def bootstrap(
     testvect.coeffs.fill(mu)
 
     # Bootstrapping rotation and extraction
-    nufhe_blindRotateAndExtract_FFT(
+    blind_rotate_and_extract(
         thr, result, testvect, bk, ks, barb, bara, perf_params,
         no_keyswitch=no_keyswitch)
