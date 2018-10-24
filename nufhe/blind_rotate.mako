@@ -19,11 +19,14 @@
     kernel_declaration, extracted_a, extracted_b, accum_a, gsw, bara, cdata_forward, cdata_inverse)">
 <%
     tpt = transform.threads_per_transform
-    p_ept = transform.polynomial_length // transform.threads_per_transform
+    plength = transform.polynomial_length
+    log2_plength = plength.bit_length() - 1
+
+    p_ept = plength // transform.threads_per_transform
     tr_ept = transform.transform_length // transform.threads_per_transform
 
     # Makes the code a bit simpler, can be lifted if necessary
-    assert transform.polynomial_length % tpt == 0
+    assert plength % tpt == 0
     assert transform.transform_length % tpt == 0
     assert transform.cdata_fw.size % tpt == 0
     assert transform.cdata_inv.size % tpt == 0
@@ -34,6 +37,10 @@
     temp_size = transform.temp_length * transform.temp_dtype.itemsize
     sh_size = max(tr_size, temp_size)
     sh_length_tr = sh_size // transform.elem_dtype.itemsize
+
+    decomp_mask = 2**bs_log2_base - 1
+    decomp_half = 2**(bs_log2_base - 1)
+    decomp_offset = 2**31 + 2**(31 - bs_log2_base)
 %>
 
 
@@ -50,7 +57,7 @@ ${kernel_declaration}
     // So, for example, for `mask_size=1` and `decomp_length=2`, we need
     // `(1 + 1) * 2 = 4` input buffers and one additional output buffer.
     LOCAL_MEM char sh_char[${sh_size * ((mask_size + 1) * decomp_length + mask_size)}];
-    LOCAL_MEM ${accum_a.ctype} shared_accum[${(mask_size + 1) * transform.polynomial_length}];
+    LOCAL_MEM ${accum_a.ctype} shared_accum[${(mask_size + 1) * plength}];
 
     LOCAL_MEM_ARG ${tr_ctype}* sh = (LOCAL_MEM_ARG ${tr_ctype}*)sh_char;
 
@@ -67,7 +74,7 @@ ${kernel_declaration}
         #pragma unroll
         for (unsigned int i = 0; i < ${p_ept}; i++)
         {
-            shared_accum[mask_id * ${transform.polynomial_length} + i * ${tpt} + thread_in_transform] =
+            shared_accum[mask_id * ${plength} + i * ${tpt} + thread_in_transform] =
                 ${accum_a.load_combined_idx(slices)}(
                     batch_id, mask_id, i * ${tpt} + thread_in_transform);
         }
@@ -81,13 +88,8 @@ ${kernel_declaration}
     ${bara.ctype} ai = ${bara.load_combined_idx(slices2)}(batch_id, bk_idx);
 
     {
-        const unsigned int decomp_bits = ${bs_log2_base};
-        const unsigned int decomp_mask = (1 << decomp_bits) - 1;
-        const int decomp_half = 1 << (decomp_bits - 1);
-        const unsigned int decomp_offset = (0x1u << 31) + (0x1u << (31 - decomp_bits));
-
         <%
-            conversion_multiplier = transform.polynomial_length // transform.transform_length;
+            conversion_multiplier = plength // transform.transform_length;
         %>
 
         %for q in range(conversion_multiplier):
@@ -95,30 +97,31 @@ ${kernel_declaration}
         %endfor
 
         #pragma unroll
-        for (int i = tid; i < ${transform.polynomial_length // conversion_multiplier}; i += ${local_size})
+        for (int i = tid; i < ${plength // conversion_multiplier}; i += ${local_size})
         {
             %for q in range(conversion_multiplier):
             int i${q} = i + ${transform.transform_length * q};
-            unsigned int cmp${q} = (unsigned int)(i${q} < (ai & 1023));
-            unsigned int neg${q} = -(cmp${q} ^ (ai >> 10));
-            unsigned int pos${q} = -((1 - cmp${q}) ^ (ai >> 10));
+            unsigned int cmp${q} = (unsigned int)(i${q} < (ai & ${plength - 1}));
+            unsigned int neg${q} = -(cmp${q} ^ (ai >> ${log2_plength}));
+            unsigned int pos${q} = -((1 - cmp${q}) ^ (ai >> ${log2_plength}));
             %endfor
 
             %for mask_id in range(mask_size + 1):
 
                 %for q in range(conversion_multiplier):
-                temp${q} = shared_accum[(${mask_id << 10}) | ((i${q} - ai) & 1023)];
+                temp${q} = shared_accum[(${mask_id * plength}) | ((i${q} - ai) & ${plength - 1})];
                 temp${q} = (temp${q} & pos${q}) + ((-temp${q}) & neg${q});
-                temp${q} -= shared_accum[(${mask_id << 10}) | i${q}];
+                temp${q} -= shared_accum[(${mask_id * plength}) | i${q}];
                 // decomp temp
-                temp${q} += decomp_offset;
+                temp${q} += ${decomp_offset};
                 %endfor
 
                 %for decomp_id in range(decomp_length):
                     sh[${(decomp_id * (mask_size + 1) + mask_id) * sh_length_tr} + i] =
                         ${transform.module}i32_to_elem(
                             %for q in range(conversion_multiplier):
-                            ((temp${q} >> (32 - ${decomp_id + 1} * decomp_bits)) & decomp_mask) - decomp_half
+                            ((temp${q} >> ${32 - (decomp_id + 1) * bs_log2_base})
+                                & ${decomp_mask}) - ${decomp_half}
                             %if q < conversion_multiplier - 1:
                             ,
                             %endif
@@ -193,7 +196,7 @@ ${kernel_declaration}
         int temp_id = mask_id == 0 ? 0 : ${(mask_size + 1) * decomp_length - 1} + mask_id;
 
         ${transform.module}inverse_i32_shared_add(
-            shared_accum + mask_id * ${transform.polynomial_length},
+            shared_accum + mask_id * ${plength},
             sh + temp_id * ${sh_length_tr},
             (LOCAL_MEM_ARG ${transform.temp_ctype}*)(sh + temp_id * ${sh_length_tr}),
             (${transform.module}CDATA_QUALIFIER ${transform.cdata_inv_ctype}*)${cdata_inverse},
