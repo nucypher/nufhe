@@ -210,7 +210,6 @@ ${kernel_declaration}
     LOCAL_BARRIER;
     }
 
-    ## TODO: may be faster with shared memory
     for (int i = tid; i <= ${input_size}; i += ${local_size})
     {
         if (i == ${input_size})

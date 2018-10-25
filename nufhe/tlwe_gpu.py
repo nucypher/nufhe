@@ -74,7 +74,6 @@ class TLweNoiselessTrivial(Computation):
         return plan
 
 
-# TODO: can be made faster by using local memory
 class TLweExtractLweSamples(Computation):
 
     def __init__(self, params: 'TLweParams', shape):
