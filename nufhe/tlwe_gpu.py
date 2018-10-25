@@ -33,7 +33,7 @@ class TLweNoiselessTrivial(Computation):
 
     def __init__(self, params: 'TLweParams', shape):
         a_type = Type(Torus32, shape + (params.mask_size + 1, params.polynomial_degree))
-        cv_type = Type(ErrorFloat, shape + (params.mask_size + 1,))
+        cv_type = Type(ErrorFloat, shape)
         mu_type = Type(Torus32, shape + (params.polynomial_degree,))
 
         self._mask_size = params.mask_size
@@ -62,9 +62,9 @@ class TLweNoiselessTrivial(Computation):
             }
             ${a.store_same}(a);
 
-            if (${idxs[-1]} == 0)
+            if (${idxs[-1]} == 0 && ${idxs[-2]} == 0)
             {
-                ${current_variances.store_idx}(${", ".join(idxs[:-1])}, 0);
+                ${current_variances.store_idx}(${", ".join(idxs[:-2])}, 0);
             }
             """,
             render_kwds=dict(mask_size=self._mask_size))
