@@ -76,6 +76,17 @@ class PerformanceParameters:
         If ``None``, the decision will be made based on the number of compute units the device has.
     """
 
+    __attributes__ = (
+        'nufhe_params',
+        'ntt_base_method',
+        'ntt_mul_method',
+        'ntt_lsh_method',
+        'use_constant_memory_multi_iter',
+        'use_constant_memory_single_iter',
+        'transforms_per_block',
+        'single_kernel_bootstrap',
+        )
+
     def __init__(
             self,
             nufhe_params, # TODO: type annotation here ('NuFHEParameters') triggers a Sphinx error.
@@ -107,20 +118,23 @@ class PerformanceParameters:
         return PerformanceParametersForDevice(self, device_params)
 
     def __hash__(self):
-        return hash((
-            self.__class__,
-            self.nufhe_params,
-            self.ntt_base_method,
-            self.ntt_mul_method,
-            self.ntt_lsh_method,
-            self.use_constant_memory_multi_iter,
-            self.use_constant_memory_single_iter,
-            self.transforms_per_block,
-            self.single_kernel_bootstrap,
-            ))
+        return hash((self.__class__,) + self.__attributes__)
+
+    def __eq__(self, other):
+        return all(getattr(self, attr) == getattr(other, attr) for attr in self.__attributes__)
 
 
 class PerformanceParametersForDevice:
+
+    __attributes__ = (
+        'ntt_base_method',
+        'ntt_mul_method',
+        'ntt_lsh_method',
+        'use_constant_memory_multi_iter',
+        'use_constant_memory_single_iter',
+        'transforms_per_block',
+        'single_kernel_bootstrap',
+        )
 
     def __init__(self, perf_params: PerformanceParameters, device_params):
 
@@ -206,13 +220,7 @@ class PerformanceParametersForDevice:
         self.single_kernel_bootstrap = single_kernel_bootstrap
 
     def __hash__(self):
-        return hash((
-            self.__class__,
-            self.ntt_base_method,
-            self.ntt_mul_method,
-            self.ntt_lsh_method,
-            self.use_constant_memory_multi_iter,
-            self.use_constant_memory_single_iter,
-            self.transforms_per_block,
-            self.single_kernel_bootstrap,
-            ))
+        return hash((self.__class__,) + self.__attributes__)
+
+    def __eq__(self, other):
+        return all(getattr(self, attr) == getattr(other, attr) for attr in self.__attributes__)

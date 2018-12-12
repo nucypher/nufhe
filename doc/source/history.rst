@@ -8,6 +8,8 @@ Version history
 
 * FIXED: a bug in ``tlwe_noiseless_trivial()`` occasionally leading to memory corruption.
 
+* FIXED: a bug where ``PerformanceParameters`` and ``PerformanceParametersForDevice`` objects did not have a correct equality implementation, leading to unnecessary re-compilation of kernels.
+
 
 0.0.1 (12 Oct 2018)
 ~~~~~~~~~~~~~~~~~~~
