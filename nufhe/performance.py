@@ -85,6 +85,7 @@ class PerformanceParameters:
         'use_constant_memory_single_iter',
         'transforms_per_block',
         'single_kernel_bootstrap',
+        'low_end_device',
         )
 
     def __init__(
