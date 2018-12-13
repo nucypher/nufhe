@@ -23,7 +23,7 @@ import reikna.helpers as helpers
 
 from .numeric_functions import Torus32, Int32, ErrorFloat
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters
+from .performance import PerformanceParametersForDevice
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -110,7 +110,8 @@ class TLweExtractLweSamples(Computation):
 class TLweEncryptZero(Computation):
 
     def __init__(
-            self, params: 'TLweParams', shape, noise: float, perf_params: PerformanceParameters):
+            self, params: 'TLweParams', shape, noise: float,
+            perf_params: PerformanceParametersForDevice):
 
         polynomial_degree = params.polynomial_degree
         mask_size = params.mask_size
@@ -144,7 +145,7 @@ class TLweEncryptZero(Computation):
         batch_shape = result_a.shape[:-2]
         batch_len = helpers.product(batch_shape)
 
-        perf_params = self._perf_params.for_device(device_params)
+        perf_params = self._perf_params
 
         transform = get_transform(self._transform_type)
 

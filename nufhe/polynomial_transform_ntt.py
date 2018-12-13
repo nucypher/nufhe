@@ -21,7 +21,7 @@ from .transform import ntt1024, ntt1024_requirements, Transform
 from .transform.arithmetic import add, mul, get_ff_elem
 from .transform.ntt import ntt_transform_ref
 from .transform import ntt_cpu
-from .performance import PerformanceParameters, PerformanceParametersForDevice
+from .performance import PerformanceParametersForDevice
 
 
 def transformed_dtype():
@@ -63,11 +63,11 @@ def transformed_space_mul_ref(data1, data2):
 ff_elem = get_ff_elem()
 
 
-def transformed_add(perf_params: PerformanceParameters):
+def transformed_add(perf_params: PerformanceParametersForDevice):
     return add(ff_elem=ff_elem, method=perf_params.ntt_base_method).module
 
 
-def transformed_mul(perf_params: PerformanceParameters):
+def transformed_mul(perf_params: PerformanceParametersForDevice):
     return mul(ff_elem=ff_elem, method=perf_params.ntt_mul_method).module
 
 
@@ -75,7 +75,7 @@ def transform_module_requirements():
     return ntt1024_requirements()
 
 
-def transform_module(perf_params: PerformanceParameters, multi_iter=False):
+def transform_module(perf_params: PerformanceParametersForDevice, multi_iter=False):
     use_constant_memory = (
         perf_params.use_constant_memory_multi_iter if multi_iter
         else perf_params.use_constant_memory_single_iter)

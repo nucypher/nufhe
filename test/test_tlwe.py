@@ -97,7 +97,7 @@ def test_tlwe_extract_lwe_samples(thread):
 def test_tlwe_encrypt_zero(thread):
 
     nufhe_params = NuFHEParameters()
-    perf_params = PerformanceParameters(nufhe_params)
+    perf_params = PerformanceParameters(nufhe_params).for_device(thread.device_params)
     params = nufhe_params.tgsw_params.tlwe_params
 
     mask_size = params.mask_size

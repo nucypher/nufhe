@@ -22,7 +22,7 @@ import reikna.helpers as helpers
 
 from .numeric_functions import Torus32, Int32
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters, PerformanceParametersForDevice
+from .performance import PerformanceParametersForDevice
 
 
 TEMPLATE = helpers.template_for(__file__)
@@ -109,7 +109,8 @@ def get_tlwe_transformed_add_mul_to_trf(
 
 class TGswTransformedExternalMul(Computation):
 
-    def __init__(self, params: 'TGswParams', shape, bk_len, perf_params: PerformanceParameters):
+    def __init__(
+            self, params: 'TGswParams', shape, bk_len, perf_params: PerformanceParametersForDevice):
 
         mask_size = params.tlwe_params.mask_size
         polynomial_degree = params.tlwe_params.polynomial_degree
@@ -135,7 +136,8 @@ class TGswTransformedExternalMul(Computation):
     def _build_plan(self, plan_factory, device_params, accum, bootstrap_key, bk_row_idx):
         plan = plan_factory()
 
-        perf_params = self._perf_params.for_device(device_params)
+        perf_params = self._perf_params
+
         params = self._params
 
         tlwe_params = params.tlwe_params

@@ -119,7 +119,7 @@ def test_tgsw_transformed_external_mul(thread):
 
     shape = (2, 3)
     params = NuFHEParameters(transform_type='NTT')
-    perf_params = PerformanceParameters(params)
+    perf_params = PerformanceParameters(params).for_device(thread.device_params)
     tgsw_params = params.tgsw_params
 
     decomp_length = tgsw_params.decomp_length

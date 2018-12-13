@@ -21,7 +21,7 @@ from reikna.cluda import functions, Module
 
 from .transform import fft512, fft512_requirements, Transform
 from .transform.fft import fft_transform_ref
-from .performance import PerformanceParameters, PerformanceParametersForDevice
+from .performance import PerformanceParametersForDevice
 
 
 def transformed_dtype():
@@ -79,7 +79,7 @@ def transform_module_requirements():
     return fft512_requirements()
 
 
-def transform_module(perf_params: PerformanceParameters, multi_iter=False):
+def transform_module(perf_params: PerformanceParametersForDevice, multi_iter=False):
     use_constant_memory = (
         perf_params.use_constant_memory_multi_iter if multi_iter
         else perf_params.use_constant_memory_single_iter)

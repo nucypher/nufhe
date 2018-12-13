@@ -79,3 +79,6 @@ Performance parameters
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: PerformanceParameters
+    :members: for_device
+
+.. autoclass:: nufhe.performance.PerformanceParametersForDevice

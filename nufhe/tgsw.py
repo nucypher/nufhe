@@ -37,7 +37,7 @@ from .tgsw_gpu import (
     TGswTransformedExternalMul,
     )
 from .computation_cache import get_computation
-from .performance import PerformanceParameters
+from .performance import PerformanceParametersForDevice
 
 
 class TGswParams:
@@ -127,7 +127,7 @@ class TransformedTGswSampleArray:
 # It computes the inverse FFT of the coefficients of the TLWE sample
 def tgsw_transform_samples(
         thr, result: TransformedTGswSampleArray, source: TGswSampleArray,
-        perf_params: PerformanceParameters):
+        perf_params: PerformanceParametersForDevice):
     tlwe_transform_samples(thr, result.samples, source.samples, perf_params)
 
 
@@ -140,14 +140,14 @@ def tgsw_add_message(thr, result: TGswSampleArray, messages):
 # Result = tGsw(0)
 def tgsw_encrypt_zero(
         thr, rng, result: TGswSampleArray, noise: float, key: TGswKey,
-        perf_params: PerformanceParameters):
+        perf_params: PerformanceParametersForDevice):
     tlwe_encrypt_zero(thr, rng, result.samples, noise, key.tlwe_key, perf_params)
 
 
 # encrypts a constant message
 def tgsw_encrypt_int(
         thr, rng, result: TGswSampleArray, messages, noise: float, key: TGswKey,
-        perf_params: PerformanceParameters):
+        perf_params: PerformanceParametersForDevice):
 
     # TYPING: messages::Array{Int32, 1}
     tgsw_encrypt_zero(thr, rng, result, noise, key, perf_params)
@@ -157,7 +157,7 @@ def tgsw_encrypt_int(
 # external product: accum = gsw (*) accum
 def tgsw_transformed_external_mul(
         thr, result: TLweSampleArray, bootstrap_key: TransformedTGswSampleArray, bk_row_idx: int,
-        perf_params: PerformanceParameters):
+        perf_params: PerformanceParametersForDevice):
     assert len(bootstrap_key.shape) == 1
     comp = get_computation(
         thr, TGswTransformedExternalMul,

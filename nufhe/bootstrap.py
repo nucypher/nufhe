@@ -38,7 +38,7 @@ from .tlwe import (
     tlwe_copy,
     )
 from .blind_rotate import BlindRotate_gpu
-from .performance import PerformanceParameters
+from .performance import PerformanceParametersForDevice
 
 
 class BootstrapKey:
@@ -58,7 +58,8 @@ class BootstrapKey:
 
     @classmethod
     def from_rng(
-            cls, thr, rng, lwe_key: LweKey, tgsw_key: TGswKey, perf_params: PerformanceParameters):
+            cls, thr, rng, lwe_key: LweKey, tgsw_key: TGswKey,
+            perf_params: PerformanceParametersForDevice):
 
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
@@ -94,7 +95,7 @@ class BootstrapKey:
 
 def mux_rotate(
         thr, result: TLweSampleArray, accum: TLweSampleArray, bki: TransformedTGswSampleArray,
-        bk_idx: int, barai, bk_params: TGswParams, perf_params: PerformanceParameters):
+        bk_idx: int, barai, bk_params: TGswParams, perf_params: PerformanceParametersForDevice):
 
     # TYPING: barai::Array{Int32}
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
@@ -117,7 +118,7 @@ def mux_rotate(
 """
 def blind_rotate(
         thr, accum: TLweSampleArray, bk: BootstrapKey,
-        bara, n: int, bk_params: TGswParams, perf_params: PerformanceParameters):
+        bara, n: int, bk_params: TGswParams, perf_params: PerformanceParametersForDevice):
 
     # TYPING: bara::Array{Int32}
     temp = TLweSampleArray(thr, bk_params.tlwe_params, accum.shape)
@@ -154,7 +155,7 @@ def blind_rotate_and_extract(
         thr, result: LweSampleArray,
         v: TorusPolynomialArray, bk: BootstrapKey, ks: LweKeyswitchKey,
         barb, bara,
-        perf_params: PerformanceParameters,
+        perf_params: PerformanceParametersForDevice,
         no_keyswitch=False):
 
     # TYPING: barb::Array{Int32},
@@ -183,7 +184,6 @@ def blind_rotate_and_extract(
     if perf_params.single_kernel_bootstrap:
         # includes blindrotate, extractlwesample and (optionally) keyswitch
         BlindRotate_gpu(result, acc, bk, ks, bara, perf_params, no_keyswitch=no_keyswitch)
-
     else:
         # Blind rotation
         blind_rotate(
@@ -205,7 +205,8 @@ def blind_rotate_and_extract(
 """
 def bootstrap(
         thr, result: LweSampleArray, bk: BootstrapKey, ks: LweKeyswitchKey,
-        mu: Torus32, x: LweSampleArray, perf_params: PerformanceParameters, no_keyswitch=False):
+        mu: Torus32, x: LweSampleArray, perf_params: PerformanceParametersForDevice,
+        no_keyswitch=False):
 
     accum_params = bk.accum_params
     N = accum_params.polynomial_degree

@@ -24,7 +24,7 @@ from .lwe import LweParams, LweKey, LweSampleArray, lwe_encrypt, lwe_decrypt, Lw
 from .tgsw import TGswParams, TGswKey
 from .tlwe import TLweParams
 from .bootstrap import BootstrapKey
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
 class NuFHEParameters:
@@ -156,7 +156,7 @@ class NuFHECloudKey:
     @classmethod
     def from_rng(
             cls, thr, params: NuFHEParameters, rng, secret_key: NuFHESecretKey,
-            perf_params: PerformanceParameters=None):
+            perf_params: PerformanceParametersForDevice=None):
         """
         Generate a new cloud key based on the given secret key.
 
@@ -168,7 +168,7 @@ class NuFHECloudKey:
         """
 
         if perf_params is None:
-            perf_params = PerformanceParameters(params)
+            perf_params = PerformanceParameters(params).for_device(thr.device_params)
 
         tgsw_key = TGswKey.from_rng(thr, params.tgsw_params, rng)
         bk = BootstrapKey.from_rng(thr, rng, secret_key.lwe_key, tgsw_key, perf_params)

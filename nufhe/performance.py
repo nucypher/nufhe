@@ -116,6 +116,12 @@ class PerformanceParameters:
         self.low_end_device = low_end_device
 
     def for_device(self, device_params):
+        """
+        Specialize performance parameters for the given device
+        (using a Reikna ``DeviceParams`` object).
+
+        :returns: a :py:class:`~nufhe.performance.PerformanceParametersForDevice` object.
+        """
         return PerformanceParametersForDevice(self, device_params)
 
     def __hash__(self):

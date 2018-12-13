@@ -27,7 +27,7 @@ from .tgsw import TGswParams, TransformedTGswSampleArray
 from .tlwe import TLweSampleArray
 from .computation_cache import get_computation
 from .polynomial_transform import get_transform
-from .performance import PerformanceParameters
+from .performance import PerformanceParametersForDevice
 from .numeric_functions import Torus32, ErrorFloat
 
 
@@ -82,7 +82,7 @@ class BlindRotate(Computation):
 
     def __init__(
             self, params: TGswParams, in_out_params: LweParams, shape,
-            perf_params: PerformanceParameters):
+            perf_params: PerformanceParametersForDevice):
 
         tlwe_params = params.tlwe_params
         decomp_length = params.decomp_length
@@ -123,7 +123,7 @@ class BlindRotate(Computation):
         decomp_length = params.decomp_length
         mask_size = tlwe_params.mask_size
 
-        perf_params = self._perf_params.for_device(device_params)
+        perf_params = self._perf_params
         transform_type = self._params.tlwe_params.transform_type
         transform = get_transform(transform_type)
 
@@ -182,7 +182,7 @@ class BlindRotateAndKeySwitch(Computation):
 
     def __init__(
             self, params: TGswParams, in_out_params: LweParams, result_shape_info,
-            ks_log2_base, ks_decomp_length, perf_params: PerformanceParameters):
+            ks_log2_base, ks_decomp_length, perf_params: PerformanceParametersForDevice):
 
         tlwe_params = params.tlwe_params
         bk_decomp_length = params.decomp_length
@@ -253,7 +253,7 @@ class BlindRotateAndKeySwitch(Computation):
 def BlindRotate_gpu(
         lwe_out: LweSampleArray, accum: TLweSampleArray,
         bk: 'BootstrapKey', ks: 'LweKeyswitchKey',
-        bara, perf_params: PerformanceParameters, no_keyswitch=False):
+        bara, perf_params: PerformanceParametersForDevice, no_keyswitch=False):
 
     thr = accum.a.coeffs.thread
 

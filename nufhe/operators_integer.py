@@ -18,7 +18,7 @@
 import numpy
 
 from .keys import empty_ciphertext
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, PerformanceParametersForDevice
 from .gates import (
     gate_constant,
     gate_xnor,
@@ -61,10 +61,10 @@ def bitarray_to_uintarray(xs):
     return numpy.array(ints).reshape(xs.shape[:-1])
 
 
-def uint_min(thread, cloud_key, answer, a, b, perf_params=None):
+def uint_min(thread, cloud_key, answer, a, b, perf_params: PerformanceParametersForDevice=None):
 
     if perf_params is None:
-        perf_params = PerformanceParameters(bk.params)
+        perf_params = PerformanceParameters(bk.params).for_device(thread.device_params)
 
     params = cloud_key.params
 

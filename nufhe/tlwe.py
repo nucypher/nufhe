@@ -36,7 +36,7 @@ from .polynomials import (
     shift_tp_minus_one_power_from_array,
     )
 from .random_numbers import rand_gaussian_torus32, rand_uniform_torus32
-from .performance import PerformanceParameters
+from .performance import PerformanceParametersForDevice
 from .tlwe_gpu import (
     TLweNoiselessTrivial,
     TLweExtractLweSamples,
@@ -177,7 +177,7 @@ def tlwe_copy(thr, result: TLweSampleArray, source: TLweSampleArray):
 # create an homogeneous tlwe sample
 def tlwe_encrypt_zero(
         thr, rng, result: TLweSampleArray, noise: float, key: TLweKey,
-        perf_params: PerformanceParameters):
+        perf_params: PerformanceParametersForDevice):
 
     polynomial_degree = key.params.polynomial_degree
     mask_size = key.params.mask_size
@@ -192,9 +192,7 @@ def tlwe_encrypt_zero(
 # Computes the inverse FFT of the coefficients of the TLWE sample
 def tlwe_transform_samples(
         thr, result: TransformedTLweSampleArray, source: TLweSampleArray,
-        perf_params: PerformanceParameters):
-
-    perf_params = perf_params.for_device(thr.device_params)
+        perf_params: PerformanceParametersForDevice):
 
     transform = get_transform(source.params.transform_type)
     comp = get_computation(

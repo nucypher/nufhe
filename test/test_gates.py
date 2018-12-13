@@ -47,7 +47,7 @@ def check_gate(
     secret_key, cloud_key = key_pair
 
     if perf_params is None:
-        perf_params = PerformanceParameters(secret_key.params)
+        perf_params = PerformanceParameters(secret_key.params).for_device(thread.device_params)
 
     rng = numpy.random.RandomState()
 
@@ -110,6 +110,7 @@ def test_single_kernel_bs_with_ks(thread, key_pair, single_kernel_bootstrap):
 
     perf_params = PerformanceParameters(
         secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = perf_params.for_device(thread.device_params)
     check_gate(thread, key_pair, 2, gate_nand, nand_ref, perf_params=perf_params)
 
 
@@ -123,6 +124,7 @@ def test_single_kernel_bs(thread, key_pair, single_kernel_bootstrap):
 
     perf_params = PerformanceParameters(
         secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = perf_params.for_device(thread.device_params)
     check_gate(thread, key_pair, 3, gate_mux, mux_ref, perf_params=perf_params)
 
 
@@ -343,6 +345,7 @@ def test_single_kernel_bs_performance(
 
     perf_params = PerformanceParameters(
         secret_key.params, single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = perf_params.for_device(thread.device_params)
 
     results = check_performance(
         thread, (secret_key, cloud_key), perf_params, shape=shape, test_function=test_function)
@@ -379,7 +382,7 @@ def test_constant_mem_performance(
             and not single_kernel_bootstrap_supported(secret_key.params, thread.device_params)):
         pytest.skip()
 
-    perf_params = PerformanceParameters(secret_key.params, **kwds)
+    perf_params = PerformanceParameters(secret_key.params, **kwds).for_device(thread.device_params)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -407,7 +410,7 @@ def test_transforms_per_block_performance(
     perf_params = PerformanceParameters(
         secret_key.params,
         single_kernel_bootstrap=False,
-        transforms_per_block=transforms_per_block)
+        transforms_per_block=transforms_per_block).for_device(thread.device_params)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -437,7 +440,7 @@ def test_ntt_base_method_performance(
     perf_params = PerformanceParameters(
         secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
-        ntt_base_method=ntt_base_method)
+        ntt_base_method=ntt_base_method).for_device(thread.device_params)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -469,7 +472,7 @@ def test_ntt_mul_method_performance(
     perf_params = PerformanceParameters(
         secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
-        ntt_mul_method=ntt_mul_method)
+        ntt_mul_method=ntt_mul_method).for_device(thread.device_params)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -501,7 +504,7 @@ def test_ntt_lsh_method_performance(
     perf_params = PerformanceParameters(
         secret_key.params,
         single_kernel_bootstrap=single_kernel_bootstrap,
-        ntt_lsh_method=ntt_lsh_method)
+        ntt_lsh_method=ntt_lsh_method).for_device(thread.device_params)
 
     results = check_performance(thread, (secret_key, cloud_key), perf_params, shape=size)
     print()
@@ -518,6 +521,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
         pytest.skip()
 
     perf_params = PerformanceParameters(params, single_kernel_bootstrap=single_kernel_bootstrap)
+    perf_params = perf_params.for_device(thread.device_params)
 
     nufhe_func = gate_nand
     reference_func = nand_ref

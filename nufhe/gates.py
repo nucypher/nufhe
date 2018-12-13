@@ -36,7 +36,7 @@ from .lwe import (
     )
 from .keys import NuFHECloudKey, bool_to_t32
 from .bootstrap import bootstrap
-from .performance import PerformanceParameters
+from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
 def result_shape(shape1, shape2):
@@ -53,7 +53,7 @@ def result_shape(shape1, shape2):
 
 def gate_nand(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped NAND gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -71,7 +71,7 @@ def gate_nand(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -96,7 +96,7 @@ def gate_nand(
 
 def gate_or(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped OR gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -114,7 +114,7 @@ def gate_or(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -138,7 +138,7 @@ def gate_or(
 
 def gate_and(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped AND gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -156,7 +156,7 @@ def gate_and(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -180,7 +180,7 @@ def gate_and(
 
 def gate_xor(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped XOR gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -198,7 +198,7 @@ def gate_xor(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -222,7 +222,7 @@ def gate_xor(
 
 def gate_xnor(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped XNOR gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -240,7 +240,7 @@ def gate_xnor(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -264,7 +264,7 @@ def gate_xnor(
 
 def gate_not(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray, a: LweSampleArray,
-        perf_params: PerformanceParameters=None):
+        perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic NOT gate.
     Applied elementwise on an encrypted array of bits.
@@ -289,7 +289,7 @@ def gate_not(
 
 def gate_copy(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray, a: LweSampleArray,
-        perf_params: PerformanceParameters=None):
+        perf_params: PerformanceParametersForDevice=None):
     """
     Copy the contents of the ciphertext ``a`` to ``result``.
 
@@ -318,7 +318,7 @@ def gate_copy(
 """
 def gate_constant(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray, vals,
-        perf_params: PerformanceParameters=None):
+        perf_params: PerformanceParametersForDevice=None):
     """
     Fill each bit of the ciphertext ``result`` with the plaintext values from ``vals``
     (which will be converted to ``bool``).
@@ -343,7 +343,7 @@ def gate_constant(
 
 def gate_nor(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped NOR gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -361,7 +361,7 @@ def gate_nor(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -385,7 +385,7 @@ def gate_nor(
 
 def gate_andny(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped ANDNY (`(not a) and b`) gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -403,7 +403,7 @@ def gate_andny(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -427,7 +427,7 @@ def gate_andny(
 
 def gate_andyn(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped ANDYN (`a and (not b)`) gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -445,7 +445,7 @@ def gate_andyn(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -469,7 +469,7 @@ def gate_andyn(
 
 def gate_orny(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped ORNY (`(not a) or b`) gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -487,7 +487,7 @@ def gate_orny(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -511,7 +511,7 @@ def gate_orny(
 
 def gate_oryn(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
-        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParameters=None):
+        a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
     """
     Homomorphic bootstrapped ORYN (`a or (not b)`) gate.
     Applied elementwise on two encrypted arrays of bits.
@@ -529,7 +529,7 @@ def gate_oryn(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, b.shape)
     assert rshape == result.shape
@@ -555,9 +555,10 @@ def gate_mux(
         thr,
         cloud_key: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, c: LweSampleArray,
-        perf_params: PerformanceParameters=None):
+        perf_params: PerformanceParametersForDevice=None):
     """
-    Homomorphic bootstrapped MUX (`b if a else c`, or, equivalently, `(a and b) or ((not a) and c)`) gate.
+    Homomorphic bootstrapped MUX (`b if a else c`, or, equivalently,
+    `(a and b) or ((not a) and c)`) gate.
     Applied elementwise on three encrypted arrays of bits.
 
     :param thr: a ``reikna`` ``Thread`` object.
@@ -574,7 +575,7 @@ def gate_mux(
     # * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 
     if perf_params is None:
-        perf_params = PerformanceParameters(cloud_key.params)
+        perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
     rshape = result_shape(a.shape, result_shape(b.shape, c.shape))
     assert rshape == result.shape
