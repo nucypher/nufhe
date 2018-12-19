@@ -92,7 +92,7 @@ class NuFHESecretKey:
 
         .. py:attribute:: params
 
-            A :py:class:`NuFHEParameters` object.
+            A :py:class:`~nufhe.NuFHEParameters` object.
     """
 
     def __init__(self, params: NuFHEParameters, lwe_key: LweKey):
@@ -142,7 +142,7 @@ class NuFHECloudKey:
 
         .. py:attribute:: params
 
-            A :py:class:`NuFHEParameters` object.
+            A :py:class:`~nufhe.NuFHEParameters` object.
     """
 
     def __init__(
@@ -207,7 +207,7 @@ class NuFHECloudKey:
 def make_key_pair(thr, rng, **params):
     """
     Creates a pair of :py:class:`NuFHESecretKey` and :py:class:`NuFHECloudKey`
-    corresponding to :py:class:`NuFHEParameters` created with keywords ``params``.
+    corresponding to :py:class:`~nufhe.NuFHEParameters` created with keywords ``params``.
     """
     nufhe_params = NuFHEParameters(**params)
     secret_key = NuFHESecretKey.from_rng(thr, nufhe_params, rng)
@@ -236,7 +236,7 @@ def encrypt(thr, rng, key: NuFHESecretKey, message):
     :param key: the secret key.
     :param message: a ``numpy`` array of bit values to encrypt;
         if the ``dtype`` is not ``numpy.bool``, it will be converted to ``numpy.bool``.
-    :returns: a :py:class:`LweSampleArray` object with the same `shape` as the given array.
+    :returns: an :py:class:`LweSampleArray` object with the same `shape` as the given array.
     """
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(bool_to_t32(message))

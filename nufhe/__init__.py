@@ -23,8 +23,9 @@ from .keys import (
     NuFHEParameters,
     NuFHESecretKey,
     NuFHECloudKey,
-    LweSampleArray,
     )
+
+from .lwe import LweSampleArray
 
 from .gates import (
     gate_nand,
