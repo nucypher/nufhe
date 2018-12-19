@@ -5,8 +5,18 @@ API reference
 .. module:: nufhe
 
 
-Keys
-~~~~
+High-level api
+~~~~~~~~~~~~~~
+
+.. autoclass:: Context
+    :members:
+
+.. autoclass:: nufhe.api_high_level.VirtualMachine
+    :members:
+
+
+Parameters and keys
+~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: NuFHEParameters
     :members:
@@ -33,6 +43,7 @@ Encryption/decryption
     :members:
     :special-members: __getitem__
 
+.. _logical-gates:
 
 Logical gates
 ~~~~~~~~~~~~~

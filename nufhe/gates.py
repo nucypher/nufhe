@@ -34,7 +34,7 @@ from .lwe import (
     lwe_negate,
     lwe_copy,
     )
-from .keys import NuFHECloudKey, bool_to_t32
+from .api_low_level import NuFHECloudKey, bool_to_t32
 from .bootstrap import bootstrap
 from .performance import PerformanceParameters, PerformanceParametersForDevice
 

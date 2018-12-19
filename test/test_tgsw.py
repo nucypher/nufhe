@@ -21,7 +21,7 @@ from reikna.algorithms import PureParallel
 
 from nufhe.tgsw import TGswParams, TGswSampleArray, TransformedTGswSampleArray
 from nufhe.tlwe import TLweSampleArray
-from nufhe.keys import NuFHEParameters
+from nufhe.api_low_level import NuFHEParameters
 from nufhe.numeric_functions import Torus32, Int32
 from nufhe.polynomial_transform import get_transform
 from nufhe.tgsw_gpu import (

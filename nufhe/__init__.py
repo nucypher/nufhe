@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .keys import (
+from .api_low_level import (
     make_key_pair,
     encrypt,
     decrypt,
@@ -45,3 +45,5 @@ from .gates import (
     )
 
 from .performance import PerformanceParameters
+
+from .api_high_level import Context

@@ -17,7 +17,7 @@
 
 import numpy
 
-from .keys import empty_ciphertext
+from .api_low_level import empty_ciphertext
 from .performance import PerformanceParameters, PerformanceParametersForDevice
 from .gates import (
     gate_constant,

@@ -18,7 +18,7 @@
 import pytest
 import numpy
 
-from nufhe.keys import NuFHEParameters
+from nufhe.api_low_level import NuFHEParameters
 from nufhe.lwe import LweSampleArrayShapeInfo
 from nufhe.lwe_gpu import (
     LweKeyswitch,

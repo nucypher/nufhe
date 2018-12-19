@@ -17,7 +17,7 @@
 
 import numpy
 
-from nufhe.keys import NuFHEParameters
+from nufhe.api_low_level import NuFHEParameters
 from nufhe.numeric_functions import Torus32, Int32, ErrorFloat
 from nufhe.tlwe import TLweParams
 from nufhe.tlwe_gpu import (
