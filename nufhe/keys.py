@@ -238,6 +238,7 @@ def encrypt(thr, rng, key: NuFHESecretKey, message):
         if the ``dtype`` is not ``numpy.bool``, it will be converted to ``numpy.bool``.
     :returns: an :py:class:`LweSampleArray` object with the same `shape` as the given array.
     """
+    message = numpy.asarray(message)
     result = empty_ciphertext(thr, key.params, message.shape)
     mus = thr.to_device(bool_to_t32(message))
     noise = key.params.in_out_params.min_noise
