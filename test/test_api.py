@@ -54,12 +54,10 @@ def test_serialize_ciphertext(thread, key_pair):
     bits = rng.randint(0, 2, size=size).astype(numpy.bool)
     ciphertext = encrypt(thread, rng, secret_key, bits)
 
-    ciphertext_view = ciphertext[::2]
-
     file_obj = io.BytesIO()
-    ciphertext_view.dump(file_obj)
+    ciphertext.dump(file_obj)
 
     file_obj.seek(0)
     ciphertext_loaded = LweSampleArray.load(file_obj, thread)
 
-    assert ciphertext_loaded == ciphertext_view
+    assert ciphertext_loaded == ciphertext
