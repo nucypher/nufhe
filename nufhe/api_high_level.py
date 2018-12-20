@@ -6,6 +6,7 @@ from .api_low_level import (
     NuFHEParameters, NuFHESecretKey, NuFHECloudKey, encrypt, decrypt, empty_ciphertext)
 from .performance import PerformanceParameters
 from . import gates
+from .random_numbers import DeterministicRNG
 
 
 class Context:
@@ -13,6 +14,8 @@ class Context:
     An object encapuslating an execution environment on a GPU.
 
     :param rng: a random number generator which will be used wherever randomness is required.
+        Can be an instance of one of the :ref:`random-number-generators`
+        (:py:class:`DeterministicRNG` by default).
     :param api: the GPGPU backend to use, one of ``None``, ``"CUDA"`` and ``"OpenCL"``.
         If ``None`` is given, an arbitrary available backend will be chosen.
     :param interactive: if ``True``, an interactive dialogue will be shown
@@ -35,7 +38,7 @@ class Context:
             include_platforms=None, exclude_platforms=None):
 
         if rng is None:
-            rng = numpy.random.RandomState()
+            rng = DeterministicRNG()
 
         api_funcs = {
             None: cluda.any_api,

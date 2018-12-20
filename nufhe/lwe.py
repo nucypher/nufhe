@@ -41,7 +41,7 @@ from .lwe_gpu import (
     LweNoiselessTrivialConstant,
     )
 from .random_numbers import (
-    rand_uniform_int32,
+    rand_uniform_bool,
     rand_uniform_torus32,
     rand_gaussian_torus32,
     )
@@ -74,7 +74,7 @@ class LweKey:
 
     @classmethod
     def from_rng(cls, thr: Thread, params: LweParams, rng):
-        return cls(params, rand_uniform_int32(thr, rng, (params.size,)))
+        return cls(params, rand_uniform_bool(thr, rng, (params.size,)))
 
     # extractions ring Lwe * Lwe
     @classmethod

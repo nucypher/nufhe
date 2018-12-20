@@ -46,4 +46,6 @@ from .gates import (
 
 from .performance import PerformanceParameters
 
+from .random_numbers import DeterministicRNG, SecureRNG
+
 from .api_high_level import Context

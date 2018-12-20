@@ -20,7 +20,7 @@ import pytest
 
 from reikna.cluda import cuda_api, ocl_api, get_api, supported_api_ids, find_devices
 
-from nufhe import make_key_pair
+from nufhe import make_key_pair, DeterministicRNG
 from nufhe.computation_cache import clear_computation_cache
 
 
@@ -116,6 +116,6 @@ def heavy_performance_load(request):
 
 @pytest.fixture(scope='session')
 def key_pair(thread):
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng)
     return secret_key, cloud_key

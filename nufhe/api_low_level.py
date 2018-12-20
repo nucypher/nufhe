@@ -107,7 +107,7 @@ class NuFHESecretKey:
 
         :param thr: a ``reikna`` ``Thread`` object.
         :param params: FHE scheme parameters.
-        :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+        :param rng: an RNG object, one of :ref:`random-number-generators`.
         """
         lwe_key = LweKey.from_rng(thr, params.in_out_params, rng)
         return cls(params, lwe_key)
@@ -162,7 +162,7 @@ class NuFHECloudKey:
 
         :param thr: a ``reikna`` ``Thread`` object.
         :param params: FHE scheme parameters.
-        :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+        :param rng: an RNG object, one of :ref:`random-number-generators`.
         :param secret_key: the secret key object.
         :param perf_params: an override for performance parameters.
         """
@@ -232,7 +232,7 @@ def encrypt(thr, rng, key: NuFHESecretKey, message):
     """
     Encrypts a message.
 
-    :param rng: an RNG object, with the same interface as ``numpy.random.RandomState``.
+    :param rng: an RNG object, one of :ref:`random-number-generators`.
     :param key: the secret key.
     :param message: a ``numpy`` array of bit values to encrypt;
         if the ``dtype`` is not ``numpy.bool``, it will be converted to ``numpy.bool``.

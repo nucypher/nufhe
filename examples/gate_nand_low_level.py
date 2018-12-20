@@ -10,7 +10,7 @@ reference = [not (b1 and b2) for b1, b2 in zip(bits1, bits2)]
 
 thr = any_api().Thread.create(interactive=True)
 
-rng = numpy.random.RandomState()
+rng = nufhe.DeterministicRNG()
 secret_key, cloud_key = nufhe.make_key_pair(thr, rng)
 
 ciphertext1 = nufhe.encrypt(thr, rng, secret_key, bits1)

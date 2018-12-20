@@ -16,6 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import io
+import random
 
 import numpy
 
@@ -50,8 +51,8 @@ def test_serialize_ciphertext(thread, key_pair):
 
     secret_key, cloud_key = key_pair
     size = 32
-    rng = numpy.random.RandomState()
-    bits = rng.randint(0, 2, size=size).astype(numpy.bool)
+    rng = DeterministicRNG()
+    bits = [random.choice([False, True]) for i in range(size)]
     ciphertext = encrypt(thread, rng, secret_key, bits)
 
     file_obj = io.BytesIO()

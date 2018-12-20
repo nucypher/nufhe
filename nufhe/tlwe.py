@@ -27,7 +27,7 @@ from .utils import arrays_equal
 from .polynomial_transform import get_transform
 from .computation_cache import get_computation
 from .numeric_functions import ErrorFloat
-from .random_numbers import rand_uniform_int32
+from .random_numbers import rand_uniform_bool
 from .lwe import LweParams, LweSampleArray
 from .polynomials import (
     TorusPolynomialArray,
@@ -85,7 +85,7 @@ class TLweKey:
         mask_size = params.mask_size
 
         # `mask_size` binary polynomials
-        key = IntPolynomialArray(rand_uniform_int32(thr, rng, (mask_size, polynomial_degree)))
+        key = IntPolynomialArray(rand_uniform_bool(thr, rng, (mask_size, polynomial_degree)))
 
         return cls(params, key)
 

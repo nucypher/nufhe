@@ -34,7 +34,7 @@ def single_kernel_bootstrap(request):
 
 
 def get_plaintexts(rng, num, shape=(32,)):
-    return [rng.randint(0, 2, size=shape).astype(numpy.bool) for i in range(num)]
+    return [rng.uniform_bool(shape).astype(numpy.bool) for i in range(num)]
 
 
 def check_gate(
@@ -49,7 +49,7 @@ def check_gate(
     if perf_params is None:
         perf_params = PerformanceParameters(secret_key.params).for_device(thread.device_params)
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
 
     plaintexts = get_plaintexts(rng, num_arguments, shape=shape)
     ciphertexts = [encrypt(thread, rng, secret_key, plaintext) for plaintext in plaintexts]
@@ -88,14 +88,14 @@ def check_gate(
 def test_transform_type(thread, transform_type):
     if not transform_supported(thread.device_params, transform_type):
         pytest.skip()
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     key_pair = make_key_pair(thread, rng, transform_type=transform_type)
     check_gate(thread, key_pair, 2, gate_nand, nand_ref)
 
 
 @pytest.mark.parametrize('tlwe_mask_size', [1, 2], ids=['mask_size=1', 'mask_size=2'])
 def test_tlwe_mask_size(thread, tlwe_mask_size):
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, tlwe_mask_size=tlwe_mask_size)
     check_gate(thread, (secret_key, cloud_key), 2, gate_nand, nand_ref)
 
@@ -233,7 +233,7 @@ def test_constant_gate(thread, key_pair):
     size = 32
 
     secret_key, cloud_key = key_pair
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
 
     params = cloud_key.params
     answer = empty_ciphertext(thread, params, (size,))
@@ -334,7 +334,7 @@ def test_single_kernel_bs_performance(
     else:
         shape = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
 
     # TODO: instead of creating a whole key and then checking if the parameters are supported,
@@ -373,7 +373,7 @@ def test_constant_mem_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
 
     # TODO: instead of creating a whole key and then checking if the parameters are supported,
@@ -404,7 +404,7 @@ def test_transforms_per_block_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type=transform_type)
 
     perf_params = PerformanceParameters(
@@ -428,7 +428,7 @@ def test_ntt_base_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
 
     # TODO: instead of creating a whole key and then checking if the parameters are supported,
@@ -460,7 +460,7 @@ def test_ntt_mul_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
 
     # TODO: instead of creating a whole key and then checking if the parameters are supported,
@@ -492,7 +492,7 @@ def test_ntt_lsh_method_performance(
 
     size = 4096 if heavy_performance_load else 64
 
-    rng = numpy.random.RandomState()
+    rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng, transform_type='NTT')
 
     # TODO: instead of creating a whole key and then checking if the parameters are supported,
@@ -527,7 +527,7 @@ def test_gate_over_view(thread, key_pair, single_kernel_bootstrap):
     reference_func = nand_ref
     num_arguments = 2
 
-    rng = numpy.random.RandomState(123)
+    rng = DeterministicRNG()
 
     shape = (5, 8)
 

@@ -30,6 +30,16 @@ Parameters and keys
 .. autofunction:: make_key_pair
 
 
+.. _random-number-generators:
+
+Random number generators
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: DeterministicRNG
+
+.. autoclass:: SecureRNG
+
+
 Encryption/decryption
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -42,6 +52,7 @@ Encryption/decryption
 .. autoclass:: LweSampleArray
     :members:
     :special-members: __getitem__
+
 
 .. _logical-gates:
 
