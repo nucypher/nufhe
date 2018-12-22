@@ -39,7 +39,7 @@ from .bootstrap import bootstrap
 from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
-def result_shape(shape1, shape2):
+def _result_shape_pair(shape1, shape2):
     if len(shape1) > len(shape2):
         shape2 = (1,) * (len(shape1) - len(shape2)) + shape2
     else:
@@ -51,6 +51,24 @@ def result_shape(shape1, shape2):
     return tuple((l1 if l1 > 1 else l2) for l1, l2 in zip(shape1, shape2))
 
 
+def result_shape(*shapes):
+    if len(shapes) == 1:
+        return shapes[0]
+    elif len(shapes) == 2:
+        return _result_shape_pair(*shapes)
+    else:
+        return _result_shape_pair(shapes[0], result_shape(*shapes[1:]))
+
+
+def check_shape(result, *args):
+    rshape = result_shape(*[arg.shape for arg in args])
+    if len(rshape) > len(result.shape) or rshape != result.shape[len(result.shape)-len(rshape):]:
+        raise ValueError(
+            ("The shape of the result derived from the arguments {derived_shape} "
+            "cannot be broadcasted to the shape of the destination {dest_shape}").format(
+            derived_shape=rshape, dest_shape=result.shape))
+
+
 def gate_nand(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray,
         a: LweSampleArray, b: LweSampleArray, perf_params: PerformanceParametersForDevice=None):
@@ -58,10 +76,11 @@ def gate_nand(
     Homomorphic bootstrapped NAND gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -73,12 +92,11 @@ def gate_nand(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
 
-    temp_result = LweSampleArray.empty(thr, in_out_params, rshape)
+    temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
 
     #compute: (0,1/8) - a - b
     NandConst = phase_to_t32(1, 8)
@@ -101,10 +119,11 @@ def gate_or(
     Homomorphic bootstrapped OR gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -116,8 +135,7 @@ def gate_or(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -143,10 +161,11 @@ def gate_and(
     Homomorphic bootstrapped AND gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -158,8 +177,7 @@ def gate_and(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -185,10 +203,11 @@ def gate_xor(
     Homomorphic bootstrapped XOR gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -200,8 +219,7 @@ def gate_xor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -227,10 +245,11 @@ def gate_xnor(
     Homomorphic bootstrapped XNOR gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -242,8 +261,7 @@ def gate_xnor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -272,16 +290,19 @@ def gate_not(
     Not bootstrapped; ``perf_params`` does not have any effect and is only present
     for the sake of API uniformity.
 
+    The shape of ``a`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a``.
     :param a: the source ciphertext.
     :param perf_params: an override for performance parameters.
     """
 
     # * Takes in input 1 LWE sample (with message space [-1/8,1/8], noise<1/16)
     # * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
+
+    check_shape(result, a)
 
     in_out_params = cloud_key.params.in_out_params
     lwe_negate(thr, result, a)
@@ -296,16 +317,19 @@ def gate_copy(
     Not bootstrapped; ``perf_params`` does not have any effect and is only present
     for the sake of API uniformity.
 
+    The shape of ``a`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a``.
     :param a: the source ciphertext.
     :param perf_params: an override for performance parameters.
     """
 
     # * Takes in input 1 LWE sample (with message space [-1/8,1/8], noise<1/16)
     # * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
+
+    check_shape(result, a)
 
     in_out_params = cloud_key.params.in_out_params
     lwe_copy(thr, result, a)
@@ -322,6 +346,9 @@ def gate_constant(
     """
     Fill each bit of the ciphertext ``result`` with the trivial encryption
     of the plaintext values from ``vals`` (which will be converted to ``bool``).
+
+    ``vals`` should be an array or a list with a shape broadcastable to the shape of ``result``,
+    or a scalar value.
 
     .. note::
 
@@ -343,8 +370,12 @@ def gate_constant(
     vals = numpy.asarray(vals)
     vals = bool_to_t32(vals)
 
-    in_out_params = cloud_key.params.in_out_params
-    lwe_noiseless_trivial(thr, result, thr.to_device(vals))
+    check_shape(result, vals)
+
+    if vals.ndim == 0:
+        lwe_noiseless_trivial_constant(thr, result, vals)
+    else:
+        lwe_noiseless_trivial(thr, result, thr.to_device(vals))
 
 
 def gate_nor(
@@ -354,10 +385,11 @@ def gate_nor(
     Homomorphic bootstrapped NOR gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -369,8 +401,7 @@ def gate_nor(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -396,10 +427,11 @@ def gate_andny(
     Homomorphic bootstrapped ANDNY (`(not a) and b`) gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -411,8 +443,7 @@ def gate_andny(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -438,10 +469,11 @@ def gate_andyn(
     Homomorphic bootstrapped ANDYN (`a and (not b)`) gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -453,8 +485,7 @@ def gate_andyn(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -480,10 +511,11 @@ def gate_orny(
     Homomorphic bootstrapped ORNY (`(not a) or b`) gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -495,8 +527,7 @@ def gate_orny(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -522,10 +553,11 @@ def gate_oryn(
     Homomorphic bootstrapped ORYN (`a or (not b)`) gate.
     Applied elementwise on two encrypted arrays of bits.
 
+    The shapes of ``a`` and ``b`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a`` and ``b``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param perf_params: an override for performance parameters.
@@ -537,8 +569,7 @@ def gate_oryn(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, b.shape)
-    assert rshape == result.shape
+    check_shape(result, a, b)
 
     in_out_params = cloud_key.params.in_out_params
     temp_result = LweSampleArray.empty(thr, in_out_params, result.shape)
@@ -567,10 +598,11 @@ def gate_mux(
     `(a and b) or ((not a) and c)`) gate.
     Applied elementwise on three encrypted arrays of bits.
 
+    The shapes of ``a``, ``b`` and ``c`` should be broadcastable to the shape of ``result``.
+
     :param thr: a ``reikna`` ``Thread`` object.
     :param cloud_key: the cloud key.
     :param result: an empty ciphertext where the result will be stored.
-        Should be the same shape as ``a``, ``b`` and ``c``.
     :param a: the ciphertext with the first argument.
     :param b: the ciphertext with the second argument.
     :param c: the ciphertext with the third argument.
@@ -583,8 +615,7 @@ def gate_mux(
     if perf_params is None:
         perf_params = PerformanceParameters(cloud_key.params).for_device(thr.device_params)
 
-    rshape = result_shape(a.shape, result_shape(b.shape, c.shape))
-    assert rshape == result.shape
+    check_shape(result, a, b, c)
 
     MU = phase_to_t32(1, 8)
     in_out_params = cloud_key.params.in_out_params
