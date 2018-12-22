@@ -296,8 +296,40 @@ def test_lwe_noiseless_trivial(thread):
 
     shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
 
-    test = LweNoiselessTrivial(shape_info).compile(thread)
-    ref = LweNoiselessTrivialReference(shape_info)
+    test = LweNoiselessTrivial(shape_info, shape).compile(thread)
+    ref = LweNoiselessTrivialReference(shape_info, shape)
+
+    res_a_dev = thread.empty_like(res_a)
+    res_b_dev = thread.empty_like(res_b)
+    res_cv_dev = thread.empty_like(res_cv)
+    mus_dev = thread.to_device(mus)
+
+    test(res_a_dev, res_b_dev, res_cv_dev, mus_dev)
+    ref(res_a, res_b, res_cv, mus)
+
+    assert (res_a_dev.get() == res_a).all()
+    assert (res_b_dev.get() == res_b).all()
+    assert errors_allclose(res_cv_dev.get(), res_cv)
+
+
+@pytest.mark.parametrize('src_len', [0, 1])
+def test_lwe_noiseless_trivial_broadcast(thread, src_len):
+
+    params = NuFHEParameters()
+    lwe_size = params.in_out_params.size
+
+    res_shape = (10, 20)
+    src_shape = res_shape[len(res_shape)-src_len:]
+
+    res_a = numpy.empty(res_shape + (lwe_size,), Torus32)
+    res_b = numpy.empty(res_shape, Torus32)
+    res_cv = numpy.empty(res_shape, ErrorFloat)
+    mus = get_test_array(src_shape, Torus32)
+
+    shape_info = LweSampleArrayShapeInfo(res_a, res_b, res_cv)
+
+    test = LweNoiselessTrivial(shape_info, src_shape).compile(thread)
+    ref = LweNoiselessTrivialReference(shape_info, src_shape)
 
     res_a_dev = thread.empty_like(res_a)
     res_b_dev = thread.empty_like(res_b)

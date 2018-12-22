@@ -295,7 +295,7 @@ def lwe_noiseless_trivial(thr: Thread, result: LweSampleArray, mus):
     """
     Initialize LWE samples with `(0, mu)` for each `mu` in `mus`.
     """
-    comp = get_computation(thr, LweNoiselessTrivial, result.shape_info)
+    comp = get_computation(thr, LweNoiselessTrivial, result.shape_info, mus.shape)
     comp(result.a, result.b, result.current_variances, mus)
 
 

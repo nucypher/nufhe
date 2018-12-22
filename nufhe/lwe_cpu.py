@@ -123,7 +123,7 @@ def LweLinearReference(result_shape_info, source_shape_info, add_result=False):
     return _kernel
 
 
-def LweNoiselessTrivialReference(result_shape_info):
+def LweNoiselessTrivialReference(result_shape_info, source_shape):
 
     def _kernel(result_a, result_b, result_cv, mus):
         result_a.fill(0)

@@ -318,29 +318,26 @@ class LweLinear(Computation):
 
 class LweNoiselessTrivial(Computation):
 
-    def __init__(self, shape_info):
+    def __init__(self, result_shape_info, source_shape):
         Computation.__init__(self, [
-            Parameter('result_a', Annotation(shape_info.a, 'o')),
-            Parameter('result_b', Annotation(shape_info.b, 'o')),
-            Parameter('result_cv', Annotation(shape_info.current_variances, 'o')),
-            Parameter('mus', Annotation(Type(Torus32, shape_info.shape), 'i'))])
+            Parameter('result_a', Annotation(result_shape_info.a, 'o')),
+            Parameter('result_b', Annotation(result_shape_info.b, 'o')),
+            Parameter('result_cv', Annotation(result_shape_info.current_variances, 'o')),
+            Parameter('mus', Annotation(Type(Torus32, source_shape), 'i'))])
 
     def _build_plan(self, plan_factory, device_params, result_a, result_b, result_cv, mus):
 
         plan = plan_factory()
-
-        batch_shape = result_a.shape[:-1]
-        lwe_size = result_a.shape[-1]
         plan.kernel_call(
             TEMPLATE.get_def("lwe_noiseless_trivial"),
             [result_a, result_b, result_cv, mus],
-            global_size=batch_shape + (lwe_size,))
+            global_size=result_a.shape)
 
         return plan
 
 
 def LweNoiselessTrivialConstant(shape_info):
-    comp = LweNoiselessTrivial(shape_info)
+    comp = LweNoiselessTrivial(shape_info, shape_info.shape)
     bc = transformations.broadcast_param(comp.parameter.mus)
     comp.parameter.mus.connect(bc, bc.output, mu=bc.param)
     return comp

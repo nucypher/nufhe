@@ -173,10 +173,14 @@ ${kernel_declaration}
     kernel_declaration, result_a, result_b, result_cv, mus)">
 
 <%
+    sshape = mus.shape
     rshape = result_b.shape
 
     batch_ids = ["batch_id_" + str(i) for i in range(len(rshape))]
     result_ids = ", ".join(batch_ids)
+    source_ids = ", ".join(
+        "0" if sshape[i - (len(rshape) - len(sshape))] == 1 else batch_ids[i]
+        for i in range(len(rshape) - len(sshape), len(rshape)))
 %>
 
 ${kernel_declaration}
@@ -191,7 +195,7 @@ ${kernel_declaration}
     ${result_a.store_idx}(${result_ids}, n_id, 0);
     if (n_id == 0)
     {
-        ${result_b.store_idx}(${result_ids}, ${mus.load_idx}(${result_ids}));
+        ${result_b.store_idx}(${result_ids}, ${mus.load_idx}(${source_ids}));
         ${result_cv.store_idx}(${result_ids}, 0);
     }
 }
