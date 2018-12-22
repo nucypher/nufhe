@@ -320,8 +320,14 @@ def gate_constant(
         thr, cloud_key: NuFHECloudKey, result: LweSampleArray, vals,
         perf_params: PerformanceParametersForDevice=None):
     """
-    Fill each bit of the ciphertext ``result`` with the plaintext values from ``vals``
-    (which will be converted to ``bool``).
+    Fill each bit of the ciphertext ``result`` with the trivial encryption
+    of the plaintext values from ``vals`` (which will be converted to ``bool``).
+
+    .. note::
+
+        "Trivial encryption" means that the result of this gate does not require
+        a secret key for decryption, and cannot be used to implement public key encryption.
+        Its intended purpose is to initialize constants in bootstrapped circuits.
 
     Not bootstrapped; ``perf_params`` does not have any effect and is only present
     for the sake of API uniformity.
