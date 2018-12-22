@@ -303,12 +303,10 @@ class LweLinear(Computation):
             result_a, result_b, result_cv, source_a, source_b, source_cv, coeff):
 
         plan = plan_factory()
-        batch_shape = result_a.shape[:-1]
-        lwe_size = result_a.shape[-1]
         plan.kernel_call(
             TEMPLATE.get_def("lwe_linear"),
             [result_a, result_b, result_cv, source_a, source_b, source_cv, coeff],
-            global_size=batch_shape + (lwe_size,),
+            global_size=result_a.shape,
             render_kwds=dict(
                 add_result=self._add_result,
                 ))
