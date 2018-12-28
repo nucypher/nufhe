@@ -18,7 +18,7 @@
 import numpy
 
 from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.cluda import OutOfResourcesError
+from reikna.cluda import OutOfResourcesError, ocl_id
 import reikna.cluda.dtypes as dtypes
 import reikna.helpers as helpers
 
@@ -35,6 +35,14 @@ TEMPLATE = helpers.template_for(__file__)
 
 
 def single_kernel_bootstrap_supported(nufhe_params, device_params, raise_exception=False):
+
+    if device_params.api_id == ocl_id():
+        # OpenCL uses some local memory for kernel arguments if there are many of them,
+        # and we need all the available local memory for internal buffers.
+        if raise_exception:
+            raise ValueError("Single-kernel bootstrap is not supported for OpenCL")
+        else:
+            return False
 
     transform_type = nufhe_params.tgsw_params.tlwe_params.transform_type
     reqs = get_transform(transform_type).transform_module_requirements()
