@@ -18,6 +18,8 @@ Version history
 
 * FIXED: a bug where ``PerformanceParameters`` and ``PerformanceParametersForDevice`` objects did not have a correct equality implementation, leading to unnecessary re-compilation of kernels.
 
+* FIXED: compilation failing when ``transforms_per_block`` in ``PerformanceParameters`` is set too high.
+
 
 0.0.1 (12 Oct 2018)
 ~~~~~~~~~~~~~~~~~~~

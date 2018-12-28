@@ -18,6 +18,7 @@
 import numpy
 
 import reikna.helpers as helpers
+from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 
 
@@ -58,7 +59,6 @@ class Transform(Computation):
         plan = plan_factory()
 
         batch_size = helpers.product(output.shape[:-1])
-        blocks_num = helpers.min_blocks(batch_size, self._transforms_per_block)
 
         cdata_arr = self._transform.cdata_inv if self._inverse else self._transform.cdata_fw
         if self._transform.use_constant_memory:
@@ -66,23 +66,33 @@ class Transform(Computation):
         else:
             cdata = plan.persistent_array(cdata_arr)
 
-        plan.kernel_call(
-            TEMPLATE.get_def('standalone_transform'),
-                [output, input_, cdata],
-                global_size=(
-                    blocks_num,
-                    self._transform.threads_per_transform * self._transforms_per_block),
-                local_size=(
-                    1,
-                    self._transform.threads_per_transform * self._transforms_per_block),
-                render_kwds=dict(
-                    inverse=self._inverse,
-                    i32_conversion=self._i32_conversion,
-                    kernel_repetitions=self._kernel_repetitions,
-                    transform=self._transform,
-                    transforms_per_block=self._transforms_per_block,
-                    batch_size=batch_size,
-                    blocks_num=blocks_num,
-                    slices=(len(output.shape) - 1, 1)))
+        tpb = self._transforms_per_block
+        while tpb >= 1:
+            blocks_num = helpers.min_blocks(batch_size, tpb)
+            try:
+                plan.kernel_call(
+                    TEMPLATE.get_def('standalone_transform'),
+                        [output, input_, cdata],
+                        global_size=(
+                            blocks_num,
+                            self._transform.threads_per_transform * tpb),
+                        local_size=(
+                            1,
+                            self._transform.threads_per_transform * tpb),
+                        render_kwds=dict(
+                            inverse=self._inverse,
+                            i32_conversion=self._i32_conversion,
+                            kernel_repetitions=self._kernel_repetitions,
+                            transform=self._transform,
+                            transforms_per_block=tpb,
+                            batch_size=batch_size,
+                            blocks_num=blocks_num,
+                            slices=(len(output.shape) - 1, 1)))
+                break
+            except OutOfResourcesError:
+                tpb -= 1
+        else:
+            raise Exception(
+                "The selected device does not have enough resources for the selected transform")
 
         return plan

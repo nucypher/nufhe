@@ -61,6 +61,9 @@ class PerformanceParameters:
         More transforms does not necessarily mean better performance, since parallel threads
         on the same compute unit compete for resources.
 
+        Since it is not trivial to determine the maximum in advance, if the requested number
+        is greater than that, it will be dynamically reduced to the maximum possible value.
+
     :param single_kernel_bootstrap: if ``True``, execute bootstrap in a single kernel,
         instead of many separate kernel calls in a loop.
 
