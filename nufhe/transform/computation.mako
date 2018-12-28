@@ -83,8 +83,6 @@ ${kernel_declaration}
     }
     %endif
 
-    LOCAL_BARRIER; // Wait for the constant data to finish loading
-
     %if kernel_repetitions > 1:
     for (int i = 0; i < ${kernel_repetitions}; i++)
     {
