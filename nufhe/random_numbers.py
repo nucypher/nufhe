@@ -26,11 +26,12 @@ and transfer the result to GPU. The reasons are:
 When it is necessary, the functions can be made to execute on GPU without changing the API.
 """
 
+import numpy
 import random
 
-import numpy
-
+from os import urandom
 from .numeric_functions import double_to_t32, Torus32, Int32
+
 
 
 class DeterministicRNG:
@@ -67,7 +68,7 @@ class SecureRNG:
 
     def uniform_bool(self, shape):
         length = numpy.prod(shape)
-        return numpy.array([self.rng.randrange(0, 2) for i in range(length)], Int32).reshape(shape)
+        return numpy.array([int.from_bytes(urandom(1), 'big') >> 7 for _ in range(length)], Int32).reshape(shape)
 
     def uniform_torus32(self, shape):
         length = numpy.prod(shape)
