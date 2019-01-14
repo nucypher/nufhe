@@ -66,7 +66,7 @@ class BootstrapKey:
         accum_params = bk_params.tlwe_params
 
         # Make a non-transformed bootstrap key
-        bk = TGswSampleArray(thr, bk_params, (in_out_params.size,))
+        bk = TGswSampleArray.empty(thr, bk_params, (in_out_params.size,))
         tgsw_encrypt_int(thr, rng, bk, lwe_key.key, accum_params.min_noise, tgsw_key, perf_params)
 
         # Convert it to transformed space, because that's where it will be used
@@ -121,7 +121,7 @@ def blind_rotate(
         bara, n: int, bk_params: TGswParams, perf_params: PerformanceParametersForDevice):
 
     # TYPING: bara::Array{Int32}
-    temp = TLweSampleArray(thr, bk_params.tlwe_params, accum.shape)
+    temp = TLweSampleArray.empty(thr, bk_params.tlwe_params, accum.shape)
 
     temp2 = temp
     temp3 = accum
@@ -178,7 +178,7 @@ def blind_rotate_and_extract(
     shift_tp_inverted_power(thr, testvectbis, barb, v)
 
     # Accumulator
-    acc = TLweSampleArray(thr, accum_params, extracted_result.shape_info.shape)
+    acc = TLweSampleArray.empty(thr, accum_params, extracted_result.shape_info.shape)
     tlwe_noiseless_trivial(thr, acc, testvectbis)
 
     if perf_params.single_kernel_bootstrap:

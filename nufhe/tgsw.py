@@ -80,13 +80,20 @@ class TGswKey:
 
 class TGswSampleArray:
 
-    def __init__(self, thr, params: TGswParams, shape):
+    def __init__(self, params: TGswParams, samples: TLweSampleArray):
         self.mask_size = params.tlwe_params.mask_size
         self.decomp_length = params.decomp_length
-        self.samples = TLweSampleArray(
-            thr, params.tlwe_params, shape + (self.mask_size + 1, self.decomp_length))
+        self.samples = samples
         self.params = params
-        self.shape = shape
+        self.shape = samples.shape[:-2]
+
+    @classmethod
+    def empty(cls, thr, params: TGswParams, shape):
+        mask_size = params.tlwe_params.mask_size
+        decomp_length = params.decomp_length
+        samples = TLweSampleArray.empty(
+            thr, params.tlwe_params, shape + (mask_size + 1, decomp_length))
+        return cls(params, samples)
 
 
 class TransformedTGswSampleArray:

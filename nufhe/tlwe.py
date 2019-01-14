@@ -92,17 +92,23 @@ class TLweKey:
 
 class TLweSampleArray:
 
-    def __init__(self, thr, params: TLweParams, shape):
+    def __init__(self, params: TLweParams, a, current_variances):
+        self.a = a
+        self.current_variances = current_variances
+        self.shape = current_variances.shape
+        self.params = params
+
+    @classmethod
+    def empty(cls, thr, params: TLweParams, shape):
 
         # array of length mask size + 1: mask + right term
-        self.a = TorusPolynomialArray.empty(
+        a = TorusPolynomialArray.empty(
             thr, params.polynomial_degree, shape + (params.mask_size + 1,))
 
         # avg variance of the sample
-        self.current_variances = thr.to_device(numpy.zeros(shape, ErrorFloat))
+        current_variances = thr.to_device(numpy.zeros(shape, ErrorFloat))
 
-        self.shape = shape
-        self.params = params
+        return cls(params, a, current_variances)
 
 
 class TransformedTLweSampleArray:
