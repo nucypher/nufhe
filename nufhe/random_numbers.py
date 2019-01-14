@@ -78,14 +78,14 @@ class SecureRNG:
     def uniform_bool(self, shape):
         length = numpy.prod(shape)
         nbytes = min_blocks(length, 8)
-        random_bytes = numpy.fromstring(urandom(nbytes), numpy.uint8)
+        random_bytes = numpy.frombuffer(urandom(nbytes), numpy.uint8)
         random_bits = numpy.unpackbits(random_bytes)[:length]
         return random_bits.reshape(shape).astype(Int32)
 
     def uniform_torus32(self, shape):
         length = numpy.prod(shape)
         nbytes = length * numpy.dtype(Int32).itemsize
-        return numpy.fromstring(urandom(nbytes), Int32).reshape(shape)
+        return numpy.frombuffer(urandom(nbytes), Int32).reshape(shape)
 
     def _uniform_float(self, length):
         """
@@ -98,12 +98,12 @@ class SecureRNG:
         # (and they are uniformly distributed).
 
         nbytes = length * MantissaInt.itemsize
-        mantissa_bits = numpy.fromstring(urandom(nbytes), MantissaInt)
+        mantissa_bits = numpy.frombuffer(urandom(nbytes), MantissaInt)
 
         # We want an open interval, so we want to exclude 0 without using rejection sampling.
         # To do that, we drop an additional bit from our generated integer,
         # and shift the range from [0, 2^(bpf-1)-1] to [2^(-bpf), 1 - 2^(-bpf)]
-        mantissa_bits >>= (MantissaInt.itemsize * 8 - (BPF - 1))
+        mantissa_bits = mantissa_bits >> (MantissaInt.itemsize * 8 - (BPF - 1))
         mantissa_bits = mantissa_bits * 2 + 1
 
         return mantissa_bits * RECIP_BPF
