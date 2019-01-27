@@ -115,14 +115,6 @@ def check_func(
 
     test(dest_dev, *arrays_dev, global_size=N)
 
-    """
-    print()
-    for arr in arrays:
-        print(arr)
-    print(dest_dev.get())
-    print(reference_func(*arrays))
-    """
-
     assert (dest_dev.get() == reference_func(*arrays)).all()
 
 
