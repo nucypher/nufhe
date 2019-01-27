@@ -20,6 +20,8 @@ Version history
 
 * ADDED: a ``find_devices()`` function to help with using multiple computation devices, and a corresponding keyword ``device_id`` for ``Context`` class constructor that uses its return values.
 
+* ADDED: an example of multi-threaded multi-GPU usage.
+
 * FIXED: a bug in ``tlwe_noiseless_trivial()`` occasionally leading to memory corruption.
 
 * FIXED: a bug where ``PerformanceParameters`` and ``PerformanceParametersForDevice`` objects did not have a correct equality implementation, leading to unnecessary re-compilation of kernels.
