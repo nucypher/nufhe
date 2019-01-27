@@ -11,6 +11,10 @@ High-level api
 .. autoclass:: Context
     :members:
 
+.. autofunction:: find_devices
+
+.. autoclass:: nufhe.api_high_level.DeviceID
+
 .. autoclass:: nufhe.api_high_level.VirtualMachine
     :members:
 
