@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import io
 import pickle
 
 import numpy
@@ -119,6 +120,14 @@ class NuFHESecretKey:
         pickle.dump(self.params, file_obj)
         self.lwe_key.dump(file_obj)
 
+    def dumps(self):
+        """
+        Serialize into a bytestring.
+        """
+        file_obj = io.BytesIO()
+        self.dump(file_obj)
+        return file_obj.getvalue()
+
     @classmethod
     def load(cls, file_obj, thr):
         """
@@ -128,6 +137,15 @@ class NuFHESecretKey:
         params = pickle.load(file_obj)
         lwe_key = LweKey.load(file_obj, thr)
         return cls(params, lwe_key)
+
+    @classmethod
+    def loads(cls, s: bytes, thr):
+        """
+        Deserialize from the given bytestring
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
+        file_obj = io.BytesIO(s)
+        return cls.load(file_obj, thr)
 
     def __eq__(self, other: 'NuFHESecretKey'):
         return (
@@ -185,6 +203,14 @@ class NuFHECloudKey:
         self.bootstrap_key.dump(file_obj)
         self.keyswitch_key.dump(file_obj)
 
+    def dumps(self):
+        """
+        Serialize into a bytestring.
+        """
+        file_obj = io.BytesIO()
+        self.dump(file_obj)
+        return file_obj.getvalue()
+
     @classmethod
     def load(cls, file_obj, thr):
         """
@@ -195,6 +221,15 @@ class NuFHECloudKey:
         bootstrap_key = BootstrapKey.load(file_obj, thr)
         keyswitch_key = LweKeyswitchKey.load(file_obj, thr)
         return cls(params, bootstrap_key, keyswitch_key)
+
+    @classmethod
+    def loads(cls, s: bytes, thr):
+        """
+        Deserialize from the given bytestring
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
+        file_obj = io.BytesIO(s)
+        return cls.load(file_obj, thr)
 
     def __eq__(self, other: 'NuFHECloudKey'):
         return (

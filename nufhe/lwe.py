@@ -19,6 +19,7 @@
 LWE (Learning With Errors) functions.
 """
 
+import io
 import pickle
 
 import numpy
@@ -178,6 +179,14 @@ class LweSampleArray:
         pickle.dump(self.b.get(), file_obj)
         pickle.dump(self.current_variances.get(), file_obj)
 
+    def dumps(self):
+        """
+        Serialize into a bytestring.
+        """
+        file_obj = io.BytesIO()
+        self.dump(file_obj)
+        return file_obj.getvalue()
+
     @classmethod
     def load(cls, file_obj, thr):
         """
@@ -189,6 +198,15 @@ class LweSampleArray:
         b = thr.to_device(pickle.load(file_obj))
         current_variances = thr.to_device(pickle.load(file_obj))
         return cls(params, a, b, current_variances)
+
+    @classmethod
+    def loads(cls, s, thr):
+        """
+        Deserialize from the given bytestring
+        using the ``reikna`` thread ``thr`` to store arrays.
+        """
+        file_obj = io.BytesIO(s)
+        return cls.load(file_obj, thr)
 
     def __eq__(self, other: 'LweSampleArray'):
         return (

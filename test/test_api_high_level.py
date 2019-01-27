@@ -50,35 +50,46 @@ def test_context(make_pair):
     assert all(result_bits == reference)
 
 
-def test_serialize_secret_key():
+@pytest.fixture(scope='module', params=[False, True], ids=['to_file', 'to_string'])
+def to_file(request):
+    return request.param
+
+
+def test_serialize_secret_key(to_file):
 
     ctx = nufhe.Context()
     secret_key = ctx.make_secret_key()
 
-    file_obj = io.BytesIO()
-    secret_key.dump(file_obj)
-
-    file_obj.seek(0)
-    secret_key_loaded = ctx.load_secret_key(file_obj)
+    if to_file:
+        file_obj = io.BytesIO()
+        secret_key.dump(file_obj)
+        file_obj.seek(0)
+        secret_key_loaded = ctx.load_secret_key(file_obj)
+    else:
+        s = secret_key.dumps()
+        secret_key_loaded = ctx.load_secret_key(s)
 
     assert secret_key_loaded == secret_key
 
 
-def test_serialize_cloud_key():
+def test_serialize_cloud_key(to_file):
 
     ctx = nufhe.Context()
     secret_key, cloud_key = ctx.make_key_pair()
 
-    file_obj = io.BytesIO()
-    cloud_key.dump(file_obj)
-
-    file_obj.seek(0)
-    cloud_key_loaded = ctx.load_cloud_key(file_obj)
+    if to_file:
+        file_obj = io.BytesIO()
+        cloud_key.dump(file_obj)
+        file_obj.seek(0)
+        cloud_key_loaded = ctx.load_cloud_key(file_obj)
+    else:
+        s = cloud_key.dumps()
+        cloud_key_loaded = ctx.load_cloud_key(s)
 
     assert cloud_key_loaded == cloud_key
 
 
-def test_serialize_ciphertext():
+def test_serialize_ciphertext(to_file):
 
     ctx = nufhe.Context()
     secret_key, cloud_key = ctx.make_key_pair()
@@ -87,11 +98,14 @@ def test_serialize_ciphertext():
     bits = [random.choice([False, True]) for i in range(size)]
     ciphertext = ctx.encrypt(secret_key, bits)
 
-    file_obj = io.BytesIO()
-    ciphertext.dump(file_obj)
-
-    file_obj.seek(0)
-    ciphertext_loaded = ctx.load_ciphertext(file_obj)
+    if to_file:
+        file_obj = io.BytesIO()
+        ciphertext.dump(file_obj)
+        file_obj.seek(0)
+        ciphertext_loaded = ctx.load_ciphertext(file_obj)
+    else:
+        s = ciphertext.dumps()
+        ciphertext_loaded = ctx.load_ciphertext(s)
 
     assert ciphertext_loaded == ciphertext
 

@@ -140,38 +140,50 @@ class Context:
         """
         return VirtualMachine(self.thread, cloud_key, perf_params=perf_params)
 
-    def load_ciphertext(self, file):
+    def load_ciphertext(self, file_or_bytestring):
         """
         Load a ciphertext (a :py:class:`LweSampleArray` object) serialized with
-        :py:meth:`LweSampleArray.dump` into the context memory space.
+        :py:meth:`LweSampleArray.dump` or :py:meth:`LweSampleArray.dumps`
+        into the context memory space.
 
-        The low-level analogue: :py:meth:`LweSampleArray.load`.
+        The low-level analogues: :py:meth:`LweSampleArray.load` and :py:meth:`LweSampleArray.loads`.
 
         :returns: an :py:class:`LweSampleArray` object
         """
-        return LweSampleArray.load(file, self.thread)
+        if isinstance(file_or_bytestring, bytes):
+            return LweSampleArray.loads(file_or_bytestring, self.thread)
+        else:
+            return LweSampleArray.load(file_or_bytestring, self.thread)
 
-    def load_secret_key(self, file):
+    def load_secret_key(self, file_or_bytestring):
         """
         Load a secret key (a :py:class:`NuFHESecretKey` object) serialized with
-        :py:meth:`NuFHESecretKey.dump` into the context memory space.
+        :py:meth:`NuFHESecretKey.dump` or :py:meth:`NuFHESecretKey.dumps`
+        into the context memory space.
 
-        The low-level analogue: :py:meth:`NuFHESecretKey.load`.
+        The low-level analogues: :py:meth:`NuFHESecretKey.load` and :py:meth:`NuFHESecretKey.loads`.
 
         :returns: a :py:class:`NuFHESecretKey` object
         """
-        return NuFHESecretKey.load(file, self.thread)
+        if isinstance(file_or_bytestring, bytes):
+            return NuFHESecretKey.loads(file_or_bytestring, self.thread)
+        else:
+            return NuFHESecretKey.load(file_or_bytestring, self.thread)
 
-    def load_cloud_key(self, file):
+    def load_cloud_key(self, file_or_bytestring):
         """
         Load a secret key (a :py:class:`NuFHECloudKey` object) serialized with
-        :py:meth:`NuFHECloudKey.dump` into the context memory space.
+        :py:meth:`NuFHECloudKey.dump` or :py:meth:`NuFHECloudKey.dumps`
+        into the context memory space.
 
-        The low-level analogue: :py:meth:`NuFHECloudKey.load`.
+        The low-level analogues: :py:meth:`NuFHECloudKey.load` and :py:meth:`NuFHECloudKey.loads`.
 
         :returns: a :py:class:`NuFHECloudKey` object
         """
-        return NuFHECloudKey.load(file, self.thread)
+        if isinstance(file_or_bytestring, bytes):
+            return NuFHECloudKey.loads(file_or_bytestring, self.thread)
+        else:
+            return NuFHECloudKey.load(file_or_bytestring, self.thread)
 
 
 class VirtualMachine:
