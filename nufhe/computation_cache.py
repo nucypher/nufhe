@@ -15,7 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-_computations = {}
+
+from collections import defaultdict
+
+
+_computations = defaultdict(lambda: dict())
 
 
 def clean_arg(arg):
@@ -25,18 +29,29 @@ def clean_arg(arg):
         return arg
 
 
-def clear_computation_cache():
-    _computations.clear()
+def clear_computation_cache(thr):
+    """
+    Clear the cache of computation objects compiled for the given ``reikna`` thread ``thr``.
+    This will help ensure a correct realease of the thread's resources when the other references
+    to it go out of scope
+    (which is especially important for multi-threading applications using CUDA).
+
+    .. note::
+
+        :py:class:`~nufhe.Context` objects call this function automatically on destruction.
+    """
+    if id(thr) in _computations:
+        del _computations[id(thr)]
 
 
 def get_computation(thr, cls, *args, **kwds):
     hashable_args = tuple(map(clean_arg, args))
     hashable_kwds = tuple((key, kwds[key]) for key in sorted(kwds))
-    key = (id(thr), id(cls), hashable_args, hashable_kwds)
-    if key in _computations:
-        return _computations[key]
+    key = (id(cls), hashable_args, hashable_kwds)
+    if key in _computations[id(thr)]:
+        return _computations[id(thr)][key]
     else:
         comp = cls(*args, **kwds)
         compiled_comp = comp.compile(thr)
-        _computations[key] = compiled_comp
+        _computations[id(thr)][key] = compiled_comp
         return compiled_comp

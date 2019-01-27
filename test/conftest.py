@@ -106,7 +106,7 @@ def thread(request):
     # as it goes out of scope.
     # CUDA is sensitive to the exact timing of the destruction
     # because of the stateful nature of its API.
-    clear_computation_cache()
+    clear_computation_cache(thread)
 
 
 @pytest.fixture(scope='session')

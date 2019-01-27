@@ -104,3 +104,9 @@ Performance parameters
     :members: for_device
 
 .. autoclass:: nufhe.performance.PerformanceParametersForDevice
+
+
+Utility functions
+~~~~~~~~~~~~~~~~~
+
+.. autofunction:: clear_computation_cache

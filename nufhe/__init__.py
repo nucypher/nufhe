@@ -49,3 +49,5 @@ from .performance import PerformanceParameters
 from .random_numbers import DeterministicRNG, SecureRNG
 
 from .api_high_level import Context
+from .computation_cache import clear_computation_cache
+

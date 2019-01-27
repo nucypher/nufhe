@@ -24,6 +24,7 @@ from .api_low_level import (
 from .performance import PerformanceParameters
 from . import gates
 from .random_numbers import DeterministicRNG
+from .computation_cache import clear_computation_cache
 
 
 class Context:
@@ -73,6 +74,13 @@ class Context:
 
         self.rng = rng
         self.thread = thread
+
+    def __del__(self):
+        # Comnputation cache retains some Thread-related objects,
+        # so it needs to be cleared before Thread is destroyed.
+        # This helps avoid CUDA errors in multi-thread usage.
+        if hasattr(self, 'thread'):
+            clear_computation_cache(self.thread)
 
     def make_secret_key(self, **params):
         """

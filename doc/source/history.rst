@@ -16,6 +16,8 @@ Version history
 
 * ADDED: ``dumps()`` and ``loads()`` methods for ``NuFHESecretKey``, ``NuFHECloudKey`` and ``LweSampleArray`` for serializing to/from bytestrings. The ``Context``'s ``load_secret_key``, ``load_cloud_key`` and ``load_ciphertext`` also take bytestrings as arguments.
 
+* ADDED: exposed ``clear_computation_cache()`` which helps release the resources associated with a GPU context (the NuFHE ``Context`` objects call it automatically on destruction).
+
 * FIXED: a bug in ``tlwe_noiseless_trivial()`` occasionally leading to memory corruption.
 
 * FIXED: a bug where ``PerformanceParameters`` and ``PerformanceParametersForDevice`` objects did not have a correct equality implementation, leading to unnecessary re-compilation of kernels.
