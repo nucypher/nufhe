@@ -3,8 +3,8 @@ Version history
 ---------------
 
 
-0.0.2 (current development version)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+0.0.2 (14 Feb 2019)
+~~~~~~~~~~~~~~~~~~~
 
 * **CHANGED:** a ``PerformanceParameters`` object needs to be specialized for the device used (by calling its ``for_device()`` method) before passing it to gates.
 
