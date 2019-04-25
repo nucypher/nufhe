@@ -340,3 +340,36 @@ def LweNoiselessTrivialConstant(shape_info):
     comp.parameter.mus.connect(bc, bc.output, mu=bc.param)
     return comp
 
+
+class LweRoll(Computation):
+
+    def __init__(self, shape_info, axis):
+        self._axis = axis
+        Computation.__init__(self, [
+            Parameter('a', Annotation(shape_info.a, 'o')),
+            Parameter('b', Annotation(shape_info.b, 'o')),
+            Parameter('cv', Annotation(shape_info.current_variances, 'o')),
+            Parameter('shift', Annotation(Type(numpy.int32)))])
+
+    def _build_plan(self, plan_factory, device_params, a, b, cv, shift):
+        plan = plan_factory()
+        temp_a = plan.temp_array_like(a)
+        temp_b = plan.temp_array_like(b)
+        temp_cv = plan.temp_array_like(cv)
+
+        # There are inplace shift algorithms, but their efficiency on a GPU
+        # will depend on the exact value of the shift.
+        # So we are just using a temporary array here.
+
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_roll"),
+            [temp_a, temp_b, temp_cv, a, b, cv, shift],
+            global_size=a.shape,
+            render_kwds=dict(axis=self._axis))
+        plan.kernel_call(
+            TEMPLATE.get_def("lwe_roll"),
+            [a, b, cv, temp_a, temp_b, temp_cv, numpy.int32(0)],
+            global_size=a.shape,
+            render_kwds=dict(axis=self._axis))
+
+        return plan

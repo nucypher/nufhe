@@ -200,3 +200,45 @@ ${kernel_declaration}
     }
 }
 </%def>
+
+
+<%def name="lwe_roll(
+    kernel_declaration, result_a, result_b, result_cv, source_a,  source_b, source_cv, shift)">
+<%
+    shape = result_b.shape
+
+    source_ids = ["source_id_" + str(i) for i in range(len(shape))]
+    all_source_ids = ", ".join(source_ids)
+
+    result_ids = ["dest_id_" + str(i) for i in range(len(shape))]
+    all_result_ids = ", ".join(result_ids)
+%>
+
+${kernel_declaration}
+{
+    VIRTUAL_SKIP_THREADS;
+
+    %for i in range(len(shape)):
+        int ${source_ids[i]} = virtual_global_id(${i});
+        int ${result_ids[i]} =
+            %if i == axis:
+            ${shift} == 0 ?
+                ${source_ids[i]} :
+                ## Since ``shift`` can be negative, and its absolute value greater than
+                ## ``shape[i]``, a double modulo division is necessary
+                ## (the ``%`` operator preserves the sign of the dividend in C).
+                (${source_ids[i]} + (${shape[i]} + ${shift} % ${shape[i]})) % ${shape[i]};
+            %else:
+            ${source_ids[i]};
+            %endif
+    %endfor
+    int n_id = virtual_global_id(${len(shape)});
+
+    ${result_a.store_idx}(${all_result_ids}, n_id, ${source_a.load_idx}(${all_source_ids}, n_id));
+    if (n_id == 0)
+    {
+        ${result_b.store_idx}(${all_result_ids}, ${source_b.load_idx}(${all_source_ids}));
+        ${result_cv.store_idx}(${all_result_ids}, ${source_cv.load_idx}(${all_source_ids}));
+    }
+}
+</%def>

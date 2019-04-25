@@ -8,6 +8,8 @@ Version history
 
 * ADDED: ``LweSampleArray.copy()`` for cloning a ciphertext.
 
+* ADDED: ``LweSampleArray.roll()`` that cyclically shifts encrypted bits if a ciphertext.
+
 
 0.0.2 (14 Feb 2019)
 ~~~~~~~~~~~~~~~~~~~

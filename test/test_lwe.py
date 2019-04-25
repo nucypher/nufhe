@@ -405,3 +405,37 @@ def test_lwe_copy(thread):
     assert ciphertext.a is not ciphertext_copy.a
     assert ciphertext.b is not ciphertext_copy.b
     assert ciphertext.current_variances is not ciphertext_copy.current_variances
+
+
+@pytest.mark.parametrize('shift', [7, -9, 0])
+@pytest.mark.parametrize('axis', [0, 1, -1, None])
+def test_lwe_roll(thread, shift, axis):
+
+    params = NuFHEParameters()
+    lwe_params = params.in_out_params
+
+    shape = (3, 4, 5)
+
+    # Mock an LWE sample. Contents do not matter, as long as we can detect an incorrect roll.
+    ciphertext = LweSampleArray.empty(thread, lwe_params, shape)
+    ciphertext.a = thread.to_device(get_test_array(ciphertext.a.shape, ciphertext.a.dtype))
+    ciphertext.b = thread.to_device(get_test_array(ciphertext.b.shape, ciphertext.b.dtype))
+    ciphertext.current_variances = thread.to_device(
+        get_test_array(ciphertext.current_variances.shape, ciphertext.current_variances.dtype))
+
+    ciphertext_rolled = ciphertext.copy()
+    ciphertext_rolled.roll(shift, axis=axis)
+
+    src_a = ciphertext.a.get()
+    src_b = ciphertext.b.get()
+    src_cv = ciphertext.current_variances.get()
+
+    res_a = ciphertext_rolled.a.get()
+    res_b = ciphertext_rolled.b.get()
+    res_cv = ciphertext_rolled.current_variances.get()
+
+    roll_axis = (len(shape) - 1) if axis is None else axis % len(shape)
+
+    assert (numpy.roll(src_a, shift, roll_axis) == res_a).all()
+    assert (numpy.roll(src_b, shift, roll_axis) == res_b).all()
+    assert numpy.allclose(numpy.roll(src_cv, shift, roll_axis), res_cv)
