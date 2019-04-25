@@ -170,6 +170,13 @@ class LweSampleArray:
         cv_view = self.current_variances[index]
         return LweSampleArray(self.params, a_view, b_view, cv_view)
 
+    def copy(self):
+        """
+        Returns a copy of the ciphertext.
+        """
+        return LweSampleArray(
+            self.params, self.a.copy(), self.b.copy(), self.current_variances.copy())
+
     def dump(self, file_obj):
         """
         Serialize into the given ``file_obj``, a writeable file-like object.

@@ -19,7 +19,7 @@ import pytest
 import numpy
 
 from nufhe.api_low_level import NuFHEParameters
-from nufhe.lwe import LweSampleArrayShapeInfo
+from nufhe.lwe import LweSampleArrayShapeInfo, LweSampleArray
 from nufhe.lwe_gpu import (
     LweKeyswitch,
     MakeLweKeyswitchKey,
@@ -383,3 +383,25 @@ def test_lwe_noiseless_trivial_broadcast(thread, src_len):
     assert (res_a_dev.get() == res_a).all()
     assert (res_b_dev.get() == res_b).all()
     assert errors_allclose(res_cv_dev.get(), res_cv)
+
+
+def test_lwe_copy(thread):
+
+    params = NuFHEParameters()
+    lwe_params = params.in_out_params
+
+    shape = (3, 4, 5)
+
+    # Mock an LWE sample. Contents do not matter, as long as we can detect an incorrect roll.
+    ciphertext = LweSampleArray.empty(thread, lwe_params, shape)
+    ciphertext.a = thread.to_device(get_test_array(ciphertext.a.shape, ciphertext.a.dtype))
+    ciphertext.b = thread.to_device(get_test_array(ciphertext.b.shape, ciphertext.b.dtype))
+    ciphertext.current_variances = thread.to_device(
+        get_test_array(ciphertext.current_variances.shape, ciphertext.current_variances.dtype))
+
+    ciphertext_copy = ciphertext.copy()
+
+    assert ciphertext == ciphertext_copy
+    assert ciphertext.a is not ciphertext_copy.a
+    assert ciphertext.b is not ciphertext_copy.b
+    assert ciphertext.current_variances is not ciphertext_copy.current_variances

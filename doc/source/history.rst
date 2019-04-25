@@ -3,6 +3,12 @@ Version history
 ---------------
 
 
+0.0.3 (current development version)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ADDED: ``LweSampleArray.copy()`` for cloning a ciphertext.
+
+
 0.0.2 (14 Feb 2019)
 ~~~~~~~~~~~~~~~~~~~
 
