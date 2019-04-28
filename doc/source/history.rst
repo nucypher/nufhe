@@ -12,6 +12,8 @@ Version history
 
 * ADDED: ``thread`` keyword parameter to ``Context``, allowing one to use an existing Reikna ``Thread`` object to create a context.
 
+* FIXED: result shape derivation in gate methods of ``VirtualMachine``, including ``vm.gate_constant()`` not accepting lists as arguments.
+
 
 0.0.2 (14 Feb 2019)
 ~~~~~~~~~~~~~~~~~~~

@@ -130,3 +130,43 @@ def test_rngs(rng_cls):
     result_bits = ctx.decrypt(secret_key, result)
 
     assert all(result_bits == reference)
+
+
+def test_vm_gate_constant(context_and_key_pair):
+    """
+    A regression for the result shape derivation in VM gate wrappers.
+    The low-level ``gate_constant()`` accepts lists as arguments,
+    but its VM wrapper did not.
+    """
+
+    ctx, secret_key, cloud_key = context_and_key_pair
+
+    bits = [True, False, False, True]
+
+    vm = ctx.make_virtual_machine(cloud_key)
+    result = vm.gate_constant(bits)
+    result_bits = ctx.decrypt(secret_key, result)
+
+    assert (result_bits == bits).all()
+
+
+def test_vm_gate_broadcasting(context_and_key_pair):
+    """
+    Check that VM gate wrapper chooses the correct shape of the resulting ciphertext to allocate,
+    taking into account shapes of all the arguments.
+    """
+
+    ctx, secret_key, cloud_key = context_and_key_pair
+
+    bits1 = numpy.random.randint(0, 2, size=(4,)).astype(numpy.bool)
+    bits2 = numpy.random.randint(0, 2, size=(2, 4)).astype(numpy.bool)
+    reference = numpy.logical_not(numpy.logical_and(bits1, bits2))
+
+    ciphertext1 = ctx.encrypt(secret_key, bits1)
+    ciphertext2 = ctx.encrypt(secret_key, bits2)
+
+    vm = ctx.make_virtual_machine(cloud_key)
+    result = vm.gate_nand(ciphertext1, ciphertext2)
+    result_bits = ctx.decrypt(secret_key, result)
+
+    assert (result_bits == reference).all()

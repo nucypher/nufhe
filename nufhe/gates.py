@@ -39,6 +39,15 @@ from .bootstrap import bootstrap
 from .performance import PerformanceParameters, PerformanceParametersForDevice
 
 
+def get_shape(obj):
+    if hasattr(obj, 'shape'):
+        return obj.shape
+    elif isinstance(obj, list):
+        return numpy.asarray(obj).shape
+    else:
+        raise ValueError("An object of type " + str(type(obj)) + " is not array-like")
+
+
 def _result_shape_pair(shape1, shape2):
     if len(shape1) > len(shape2):
         shape2 = (1,) * (len(shape1) - len(shape2)) + shape2

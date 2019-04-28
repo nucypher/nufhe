@@ -20,7 +20,7 @@ import pytest
 
 from reikna.cluda import cuda_api, ocl_api, get_api, supported_api_ids, find_devices
 
-from nufhe import make_key_pair, DeterministicRNG
+from nufhe import make_key_pair, DeterministicRNG, Context
 from nufhe.computation_cache import clear_computation_cache
 
 
@@ -119,3 +119,14 @@ def key_pair(thread):
     rng = DeterministicRNG()
     secret_key, cloud_key = make_key_pair(thread, rng)
     return secret_key, cloud_key
+
+
+@pytest.fixture(scope='session')
+def context(thread):
+    return Context(thread=thread)
+
+
+@pytest.fixture(scope='session')
+def context_and_key_pair(context):
+    secret_key, cloud_key = context.make_key_pair()
+    return context, secret_key, cloud_key

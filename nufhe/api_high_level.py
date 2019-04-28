@@ -25,6 +25,7 @@ from .performance import PerformanceParameters
 from . import gates
 from .random_numbers import DeterministicRNG
 from .computation_cache import clear_computation_cache
+from .gates import get_shape, result_shape
 
 
 def _get_api_object(api):
@@ -349,7 +350,8 @@ class VirtualMachine:
 
     def _gate(self, name, *args, dest: LweSampleArray=None):
         if dest is None:
-            dest = self.empty_ciphertext(args[0].shape)
+            shapes = [get_shape(arg) for arg in args]
+            dest = self.empty_ciphertext(result_shape(*shapes))
         gate_func = getattr(gates, name)
         gate_func(self.thread, self.cloud_key, dest, *args, perf_params=self.perf_params)
         return dest
