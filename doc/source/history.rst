@@ -10,6 +10,8 @@ Version history
 
 * ADDED: ``LweSampleArray.roll()`` that cyclically shifts encrypted bits if a ciphertext.
 
+* ADDED: ``thread`` keyword parameter to ``Context``, allowing one to use an existing Reikna ``Thread`` object to create a context.
+
 
 0.0.2 (14 Feb 2019)
 ~~~~~~~~~~~~~~~~~~~

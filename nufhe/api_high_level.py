@@ -130,10 +130,15 @@ class Context:
     """
     An object encapuslating an execution environment on a GPU.
 
+    If ``thread`` is given, it will be used to create the context;
+    otherwise, if ``device_id`` is given, it will be used;
+    if none of the above is given, the first device satisfying the given criteria will be used.
+
     :param rng: a random number generator which will be used wherever randomness is required.
         Can be an instance of one of the :ref:`random-number-generators`
         (:py:class:`DeterministicRNG` by default).
-    :param device_id: if provided, uses this GPGPU device (and API) to create the context.
+    :param thread: a Reikna ``Thread`` object to use internally for the context.
+    :param device_id: a GPGPU device (and API) to use for the context.
     :param interactive: if ``True``, an interactive dialogue will be shown
         allowing one to choose the GPGPU device to use.
         If ``False``, the first device satisfying the filters (see below) will be chosen.
@@ -146,6 +151,7 @@ class Context:
 
     def __init__(
             self, rng=None,
+            thread=None,
             device_id: DeviceID=None,
             api=None, interactive=False,
             include_devices=None, exclude_devices=None,
@@ -154,7 +160,13 @@ class Context:
         if rng is None:
             rng = DeterministicRNG()
 
-        if device_id is None:
+        if thread is not None:
+            # Use the given Thread object
+            pass
+        elif device_id is not None:
+            api_obj, device = device_id.get_api_and_device()
+            thread = api_obj.Thread(device)
+        else:
             api_obj = _get_api_object(api)
             thread = api_obj.Thread.create(
                 interactive=interactive,
@@ -163,9 +175,6 @@ class Context:
                     exclude_devices=exclude_devices,
                     include_platforms=include_platforms,
                     exclude_platforms=exclude_platforms))
-        else:
-            api_obj, device = device_id.get_api_and_device()
-            thread = api_obj.Thread(device)
 
         self.rng = rng
         self.thread = thread
