@@ -12,6 +12,8 @@ Version history
 
 * ADDED: ``thread`` keyword parameter to ``Context``, allowing one to use an existing Reikna ``Thread`` object to create a context.
 
+* ADDED: ``concatenate()`` for ``LweSampleArray`` objects.
+
 * FIXED: result shape derivation in gate methods of ``VirtualMachine``, including ``vm.gate_constant()`` not accepting lists as arguments.
 
 

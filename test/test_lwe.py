@@ -19,7 +19,7 @@ import pytest
 import numpy
 
 from nufhe.api_low_level import NuFHEParameters
-from nufhe.lwe import LweSampleArrayShapeInfo, LweSampleArray
+from nufhe.lwe import LweSampleArrayShapeInfo, LweSampleArray, concatenate
 from nufhe.lwe_gpu import (
     LweKeyswitch,
     MakeLweKeyswitchKey,
@@ -437,3 +437,34 @@ def test_lwe_roll(thread, shift, axis):
     assert (numpy.roll(src_a, shift, roll_axis) == res_a).all()
     assert (numpy.roll(src_b, shift, roll_axis) == res_b).all()
     assert numpy.allclose(numpy.roll(src_cv, shift, roll_axis), res_cv)
+
+
+@pytest.mark.parametrize('axis', [0, 1])
+@pytest.mark.parametrize('out_none', [False, True])
+def test_lwe_concatenate(thread, axis, out_none):
+
+    params = NuFHEParameters()
+    lwe_params = params.in_out_params
+
+    if axis == 0:
+        shapes = [(3, 4), (1, 4), (4, 4)]
+    elif axis == 1:
+        shapes = [(4, 3), (4, 1), (4, 4)]
+
+    ciphertexts = [mock_ciphertext(thread, lwe_params, shape) for shape in shapes]
+
+    if out_none:
+        out = None
+    else:
+        out = mock_ciphertext(thread, lwe_params, (8, 4) if axis == 0 else (4, 8))
+
+    out = concatenate(ciphertexts, axis=axis, out=out)
+
+    ref_a = numpy.concatenate([ciphertext.a.get() for ciphertext in ciphertexts], axis=axis)
+    ref_b = numpy.concatenate([ciphertext.b.get() for ciphertext in ciphertexts], axis=axis)
+    ref_cv = numpy.concatenate(
+        [ciphertext.current_variances.get() for ciphertext in ciphertexts], axis=axis)
+
+    assert (out.a.get() == ref_a).all()
+    assert (out.b.get() == ref_b).all()
+    assert numpy.allclose(out.current_variances.get(), ref_cv)

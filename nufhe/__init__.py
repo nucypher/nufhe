@@ -25,7 +25,10 @@ from .api_low_level import (
     NuFHECloudKey,
     )
 
-from .lwe import LweSampleArray
+from .lwe import (
+    LweSampleArray,
+    concatenate,
+    )
 
 from .gates import (
     gate_nand,

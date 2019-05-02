@@ -57,6 +57,7 @@ Encryption/decryption
     :members:
     :special-members: __getitem__
 
+.. autofunction:: concatenate
 
 .. _logical-gates:
 

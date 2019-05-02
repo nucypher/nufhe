@@ -26,6 +26,7 @@ import numpy
 
 from reikna.cluda.api import Thread
 from reikna.core import Type
+import reikna
 
 from .utils import arrays_equal
 from .numeric_functions import (
@@ -416,3 +417,28 @@ def lwe_sub_mul_to(thr: Thread, result: LweSampleArray, p: int, source: LweSampl
     comp(
         result.a, result.b, result.current_variances,
         source.a, source.b, source.current_variances, -p)
+
+
+def concatenate(lwe_sample_arrays, axis=0, out=None):
+    """
+    Concatenates several ciphertext arrays along ``axis``.
+    """
+    if len(lwe_sample_arrays) == 0:
+        raise ValueError("Need at least one ciphertext to concatenate")
+
+    params = lwe_sample_arrays[0].params
+    lwes_a = [lwe.a for lwe in lwe_sample_arrays]
+    lwes_b = [lwe.b for lwe in lwe_sample_arrays]
+    lwes_cv = [lwe.current_variances for lwe in lwe_sample_arrays]
+    if out is None:
+        out = LweSampleArray(
+            params,
+            reikna.concatenate(lwes_a, axis=axis),
+            reikna.concatenate(lwes_b, axis=axis),
+            reikna.concatenate(lwes_cv, axis=axis))
+    else:
+        reikna.concatenate(lwes_a, axis=axis, out=out.a)
+        reikna.concatenate(lwes_b, axis=axis, out=out.b)
+        reikna.concatenate(lwes_cv, axis=axis, out=out.current_variances)
+
+    return out
