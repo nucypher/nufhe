@@ -191,6 +191,8 @@ class LweSampleArray:
         if shift == 0:
             return
 
+        axis = axis % len(self.shape)
+
         self.a.roll(shift, axis=axis)
         self.b.roll(shift, axis=axis)
         self.current_variances.roll(shift, axis=axis)

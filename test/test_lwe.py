@@ -411,7 +411,7 @@ def test_lwe_copy(thread):
 
 
 @pytest.mark.parametrize('shift', [7, -9, 0])
-@pytest.mark.parametrize('axis', [0, 1, -1, None])
+@pytest.mark.parametrize('axis', [0, 1, -1])
 def test_lwe_roll(thread, shift, axis):
 
     params = NuFHEParameters()
@@ -432,7 +432,7 @@ def test_lwe_roll(thread, shift, axis):
     res_b = ciphertext_rolled.b.get()
     res_cv = ciphertext_rolled.current_variances.get()
 
-    roll_axis = (len(shape) - 1) if axis is None else axis % len(shape)
+    roll_axis = axis % len(shape)
 
     assert (numpy.roll(src_a, shift, roll_axis) == res_a).all()
     assert (numpy.roll(src_b, shift, roll_axis) == res_b).all()
