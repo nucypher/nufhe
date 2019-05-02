@@ -41,7 +41,6 @@ from .lwe_gpu import (
     LweLinear,
     LweNoiselessTrivial,
     LweNoiselessTrivialConstant,
-    LweRoll,
     )
 from .random_numbers import (
     rand_uniform_bool,
@@ -179,27 +178,22 @@ class LweSampleArray:
         return LweSampleArray(
             self.params, self.a.copy(), self.b.copy(), self.current_variances.copy())
 
-    def roll(self, shift, axis=None):
+    def roll(self, shift, axis=-1):
         """
         Cyclically shifts encrypted bits of the cyphertext **inplace**
         by ``shift`` positions to the right along ``axis``.
         ``shift`` can be negative (in which case the elements are shifted to the left).
         Elements that are shifted beyond the last position are re-introduced at the first
         (and vice versa).
-        If ``axis`` is ``None``, the last axis is used.
 
-        Works equivalently to ``numpy.roll``.
+        Works equivalently to ``numpy.roll`` (except ``axis=None`` is not supported).
         """
         if shift == 0:
             return
 
-        if axis is None:
-            axis = len(self.shape) - 1
-        else:
-            axis = axis % len(self.shape)
-
-        comp = get_computation(self.a.thread, LweRoll, self.shape_info, axis)
-        comp(self.a, self.b, self.current_variances, shift)
+        self.a.roll(shift, axis=axis)
+        self.b.roll(shift, axis=axis)
+        self.current_variances.roll(shift, axis=axis)
 
     def dump(self, file_obj):
         """
