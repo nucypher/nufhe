@@ -385,6 +385,15 @@ def test_lwe_noiseless_trivial_broadcast(thread, src_len):
     assert errors_allclose(res_cv_dev.get(), res_cv)
 
 
+def mock_ciphertext(thread, params, shape):
+    ciphertext = LweSampleArray.empty(thread, params, shape)
+    ciphertext.a = thread.to_device(get_test_array(ciphertext.a.shape, ciphertext.a.dtype))
+    ciphertext.b = thread.to_device(get_test_array(ciphertext.b.shape, ciphertext.b.dtype))
+    ciphertext.current_variances = thread.to_device(
+        get_test_array(ciphertext.current_variances.shape, ciphertext.current_variances.dtype))
+    return ciphertext
+
+
 def test_lwe_copy(thread):
 
     params = NuFHEParameters()
@@ -392,13 +401,7 @@ def test_lwe_copy(thread):
 
     shape = (3, 4, 5)
 
-    # Mock an LWE sample. Contents do not matter, as long as we can detect an incorrect roll.
-    ciphertext = LweSampleArray.empty(thread, lwe_params, shape)
-    ciphertext.a = thread.to_device(get_test_array(ciphertext.a.shape, ciphertext.a.dtype))
-    ciphertext.b = thread.to_device(get_test_array(ciphertext.b.shape, ciphertext.b.dtype))
-    ciphertext.current_variances = thread.to_device(
-        get_test_array(ciphertext.current_variances.shape, ciphertext.current_variances.dtype))
-
+    ciphertext = mock_ciphertext(thread, lwe_params, shape)
     ciphertext_copy = ciphertext.copy()
 
     assert ciphertext == ciphertext_copy
@@ -416,12 +419,7 @@ def test_lwe_roll(thread, shift, axis):
 
     shape = (3, 4, 5)
 
-    # Mock an LWE sample. Contents do not matter, as long as we can detect an incorrect roll.
-    ciphertext = LweSampleArray.empty(thread, lwe_params, shape)
-    ciphertext.a = thread.to_device(get_test_array(ciphertext.a.shape, ciphertext.a.dtype))
-    ciphertext.b = thread.to_device(get_test_array(ciphertext.b.shape, ciphertext.b.dtype))
-    ciphertext.current_variances = thread.to_device(
-        get_test_array(ciphertext.current_variances.shape, ciphertext.current_variances.dtype))
+    ciphertext = mock_ciphertext(thread, lwe_params, shape)
 
     ciphertext_rolled = ciphertext.copy()
     ciphertext_rolled.roll(shift, axis=axis)
