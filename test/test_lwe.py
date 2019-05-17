@@ -468,3 +468,44 @@ def test_lwe_concatenate(thread, axis, out_none):
     assert (out.a.get() == ref_a).all()
     assert (out.b.get() == ref_b).all()
     assert numpy.allclose(out.current_variances.get(), ref_cv)
+
+
+class _GetSlices:
+    def __getitem__(self, index):
+        return index
+
+_get_slices = _GetSlices()
+
+_lwe_assign_tests = [
+    ((3, 4), _get_slices[1:], (3, 4), _get_slices[:-1], "[contig]=[contig]"),
+    ((10,), _get_slices[1:10:2], (10,), _get_slices[:10:2], "[discontig]=[discontig]"),
+    ((5,), _get_slices[1], (5,), _get_slices[2], "[scalar]=[scalar]"),
+]
+
+@pytest.mark.parametrize(
+    'lwe_assign_test',
+    [test[:-1] for test in _lwe_assign_tests],
+    ids=[test[-1] for test in _lwe_assign_tests])
+def test_lwe_assign(thread, lwe_assign_test):
+
+    src_shape, src_slice, dst_shape, dst_slice = lwe_assign_test
+
+    params = NuFHEParameters()
+    lwe_params = params.in_out_params
+
+    ct_src = mock_ciphertext(thread, lwe_params, src_shape)
+    ct_dst = mock_ciphertext(thread, lwe_params, dst_shape)
+
+    ref_a = ct_dst.a.get()
+    ref_b = ct_dst.b.get()
+    ref_cv = ct_dst.current_variances.get()
+
+    ct_dst[dst_slice] = ct_src[src_slice]
+
+    ref_a[dst_slice] = ct_src.a.get()[src_slice]
+    ref_b[dst_slice] = ct_src.b.get()[src_slice]
+    ref_cv[dst_slice] = ct_src.current_variances.get()[src_slice]
+
+    assert (ct_dst.a.get() == ref_a).all()
+    assert (ct_dst.b.get() == ref_b).all()
+    assert numpy.allclose(ct_dst.current_variances.get(), ref_cv)

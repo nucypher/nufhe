@@ -14,6 +14,8 @@ Version history
 
 * ADDED: ``concatenate()`` for ``LweSampleArray`` objects.
 
+* ADDED: ``__setitem__()`` functionality for ``LweSampleArray`` objects (the source must be another ``LweSampleArray``).
+
 * FIXED: result shape derivation in gate methods of ``VirtualMachine``, including ``vm.gate_constant()`` not accepting lists as arguments.
 
 

@@ -33,7 +33,7 @@ setup(
         'nufhe': ['*.mako'],
         'nufhe/transform': ['*.mako'],
         },
-    install_requires=['numpy', 'reikna>=0.7.3'],
+    install_requires=['numpy', 'reikna>=0.7.4'],
     python_requires='>=3.5',
     extras_require={
         'dev': ['pytest', 'pytest-cov', 'sphinx', 'sphinx_autodoc_typehints'],

@@ -171,6 +171,13 @@ class LweSampleArray:
         cv_view = self.current_variances[index]
         return LweSampleArray(self.params, a_view, b_view, cv_view)
 
+    def __setitem__(self, index, value):
+        if not isinstance(value, LweSampleArray):
+            raise ValueError("Only assignment of ciphertexts is supported")
+        self.a[index] = value.a
+        self.b[index] = value.b
+        self.current_variances[index] = value.current_variances
+
     def copy(self):
         """
         Returns a copy of the ciphertext.
