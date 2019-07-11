@@ -109,8 +109,10 @@ class SecureRNG:
         return mantissa_bits * RECIP_BPF
 
     def gauss(self, shape, std_dev):
-        length = numpy.prod(shape)
-        assert length % 2 == 0
+        orig_length = numpy.prod(shape)
+
+        # Make the length even since Box-Muller transform generates pairs of randoms
+        length = orig_length + orig_length % 2
 
         # Box-Muller transform
 
@@ -123,7 +125,9 @@ class SecureRNG:
         z0 = r * numpy.cos(theta)
         z1 = r * numpy.sin(theta)
 
-        return numpy.concatenate([z0, z1]).reshape(shape) * std_dev
+        result = numpy.concatenate([z0, z1])[:orig_length]
+
+        return result.reshape(shape) * std_dev
 
 
 # Gaussian sample centered in message, with standard deviation sigma
