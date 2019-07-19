@@ -287,7 +287,7 @@ WITHIN_KERNEL INLINE void ${prefix}_forward(
     ptr = &s[t1d];
     #pragma unroll
     for (unsigned int i = 0; i < 8; i ++)
-        r[i] = ${mul}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
+        r[i] = ${mul_prepared}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
     ${prefix}NTT8(r);
     #pragma unroll
     for (unsigned int i = 0; i < 8; i ++)
@@ -338,7 +338,7 @@ WITHIN_KERNEL INLINE void ${prefix}_inverse(
     ptr = &s[t1d];
     #pragma unroll
     for (unsigned int i = 0; i < 8; i ++)
-        r[i] = ${mul}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
+        r[i] = ${mul_prepared}(ptr[i << 7], twd[i << 7 | t1d]); // mult twiddle
     ${prefix}NTTInv8(r);
     #pragma unroll
     for (unsigned int i = 0; i < 8; i ++)
@@ -363,7 +363,7 @@ WITHIN_KERNEL INLINE void ${prefix}forward(
 {
     // Preprocess
     %for i in range(8):
-    r_out[${i}] = ${mul}(
+    r_out[${i}] = ${mul_prepared}(
         r_in[${i}],
         cdata[1024 + ${i * 128} + thread_in_xform]
         );
@@ -384,7 +384,7 @@ WITHIN_KERNEL INLINE void ${prefix}inverse(
 
     // Postprocess
     %for i in range(8):
-    r_out[${i}] = ${mul}(
+    r_out[${i}] = ${mul_prepared}(
         r_in[${i}],
         cdata[1024 + ${i * 128} + thread_in_xform]
         );

@@ -116,8 +116,9 @@ class NTT1024:
 
         twd, twd_inv, twd_sqrt, twd_sqrt_inv = gen_twiddle_ref()
 
-        self.cdata_fw = numpy.concatenate([twd, twd_sqrt])
-        self.cdata_inv = numpy.concatenate([twd_inv, twd_sqrt_inv])
+        self.cdata_fw = arithmetic.prepare_for_mul_cpu(numpy.concatenate([twd, twd_sqrt]))
+        self.cdata_inv = arithmetic.prepare_for_mul_cpu(numpy.concatenate([twd_inv, twd_sqrt_inv]))
+
         self.cdata_fw_ctype = ff_elem.module
         self.cdata_inv_ctype = ff_elem.module
 
@@ -133,7 +134,7 @@ def ntt1024(
         ff_elem = arithmetic.get_ff_elem()
 
     base_kwds = dict(ff_elem=ff_elem, method=base_method)
-    mul_kwds = dict(ff_elem=ff_elem, method=mul_method, nested_method=base_method)
+    mul_prepared_kwds = dict(ff_elem=ff_elem, nested_method=base_method)
     lsh_kwds = dict(ff_elem=ff_elem, method=lsh_method, nested_method=base_method)
 
     module = Module(
@@ -149,7 +150,7 @@ def ntt1024(
             lsh192=arithmetic.lsh(192, numpy.uint32, **lsh_kwds).module,
             add=arithmetic.add(**base_kwds).module,
             sub=arithmetic.sub(**base_kwds).module,
-            mul=arithmetic.mul(**mul_kwds).module,
+            mul_prepared=arithmetic.mul_prepared(**mul_prepared_kwds).module,
             use_constant_memory=use_constant_memory,
             ))
     return NTT1024(ff_elem, module, use_constant_memory)
