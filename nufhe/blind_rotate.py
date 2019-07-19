@@ -154,8 +154,9 @@ class BlindRotate(Computation):
 
             try:
                 plan.kernel_call(
-                    TEMPLATE.get_def("BlindRotate"),
+                    TEMPLATE.get_def("blind_rotate"),
                     [lwe_a, lwe_b, accum_a, gsw, bara, cdata_forward, cdata_inverse],
+                    kernel_name="blind_rotate",
                     global_size=(
                         helpers.product(batch_shape),
                         local_size),

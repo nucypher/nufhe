@@ -98,6 +98,7 @@ class TLweExtractLweSamples(Computation):
         plan.kernel_call(
             TEMPLATE.get_def('tlwe_extract_lwe_samples'),
             [result_a, result_b, tlwe_a],
+            kernel_name="tlwe_extract_lwe_samples",
             global_size=(batch_len, self._mask_size, self._polynomial_degree),
             render_kwds=dict(
                 slices=(len(result_b.shape), 1, 1),
@@ -183,6 +184,7 @@ class TLweEncryptZero(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("tlwe_encrypt_zero_fill_result"),
             [result_a, result_cv, noises1, noises2, ift_res],
+            kernel_name="tlwe_encrypt_zero_fill_result",
             global_size=(batch_len, self._mask_size + 1, polynomial_degree),
             render_kwds=dict(
                 noise=self._noise, mask_size=self._mask_size,

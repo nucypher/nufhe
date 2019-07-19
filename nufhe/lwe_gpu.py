@@ -170,6 +170,7 @@ class LweKeyswitch(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("lwe_keyswitch"),
             [result_a, result_b, result_cv, ks_a, ks_b, ks_cv, source_a, source_b],
+            kernel_name="lwe_keyswitch",
             global_size=(helpers.product(batch_shape), self._output_size),
             render_kwds=dict(
                 slices=(len(batch_shape), 1),
@@ -306,6 +307,7 @@ class LweLinear(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("lwe_linear"),
             [result_a, result_b, result_cv, source_a, source_b, source_cv, coeff],
+            kernel_name="lwe_linear",
             global_size=result_a.shape,
             render_kwds=dict(
                 add_result=self._add_result,
@@ -329,6 +331,7 @@ class LweNoiselessTrivial(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("lwe_noiseless_trivial"),
             [result_a, result_b, result_cv, mus],
+            kernel_name="lwe_noiseless_trivial",
             global_size=result_a.shape)
 
         return plan

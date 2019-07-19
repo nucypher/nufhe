@@ -70,6 +70,7 @@ class ShiftTorusPolynomial(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("shift_torus_polynomial"),
             [result, source, powers, powers_idx],
+            kernel_name="shift_torus_polynomial",
             global_size=(
                 helpers.product(self._batch_shape),
                 helpers.product(poly_batch_shape),

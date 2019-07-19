@@ -73,6 +73,7 @@ class Transform(Computation):
                 plan.kernel_call(
                     TEMPLATE.get_def('standalone_transform'),
                         [output, input_, cdata],
+                        kernel_name="standalone_transform",
                         global_size=(
                             blocks_num,
                             self._transform.threads_per_transform * tpb),

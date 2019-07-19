@@ -194,6 +194,7 @@ class TGswAddMessage(Computation):
         plan.kernel_call(
             TEMPLATE.get_def("tgsw_add_message"),
             [result_a, messages],
+            kernel_name="tgsw_add_message",
             global_size=(batch_len,),
             render_kwds=dict(
                 slices=(len(messages.shape), 1, 1, 1, 1),

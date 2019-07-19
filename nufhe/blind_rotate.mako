@@ -15,7 +15,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-<%def name="BlindRotate(
+<%def name="blind_rotate(
     kernel_declaration, extracted_a, extracted_b, accum_a, gsw, bara, cdata_forward, cdata_inverse)">
 <%
     tpt = transform.threads_per_transform
