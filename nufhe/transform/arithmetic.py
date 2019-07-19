@@ -119,9 +119,80 @@ def mul(ff_elem=None, method="c", nested_method="c"):
             method=method,
             ff=ff_elem, ff_elem=ff_elem.module,
             add=add(ff_elem=ff_elem, method=nested_method).module, # used for "c" method
+            sub=sub(ff_elem=ff_elem, method=nested_method).module,
             mod=mod(ff_elem=ff_elem, method=nested_method).module, # used for "c_from_asm" method
             ))
     return FiniteFieldMul(ff_elem, module)
+
+
+class FiniteFieldMulPrepared:
+
+    def __init__(self, ff_elem, module):
+        self.ff = ff_elem
+        self.module = module
+
+    def __process_modules__(self, process):
+        return FiniteFieldMulPrepared(process(self.ff), process(self.module))
+
+
+def mul_prepared(ff_elem=None, method="c", nested_method="c"):
+    if ff_elem is None:
+        ff_elem = get_ff_elem()
+    module = Module(
+        TEMPLATE.get_def('mul_prepared_def'),
+        render_kwds=dict(
+            method=method,
+            ff=ff_elem, ff_elem=ff_elem.module,
+            sub=sub(ff_elem=ff_elem, method=nested_method).module,
+            ))
+    return FiniteFieldMulPrepared(ff_elem, module)
+
+
+class FiniteFieldPrepareForMul:
+
+    def __init__(self, ff_elem, module):
+        self.ff = ff_elem
+        self.module = module
+
+    def __process_modules__(self, process):
+        return FiniteFieldPrepareForMul(process(self.ff), process(self.module))
+
+
+def prepare_for_mul(ff_elem=None):
+    if ff_elem is None:
+        ff_elem = get_ff_elem()
+    module = Module(
+        TEMPLATE.get_def('prepare_for_mul_def'),
+        render_kwds=dict(
+            ff=ff_elem, ff_elem=ff_elem.module, sub=sub(ff_elem=ff_elem).module,
+            ))
+    return FiniteFieldPrepareForMul(ff_elem, module)
+
+
+def prepare_for_mul_cpu(x):
+    """
+    Converts a numpy array `x` of type `uint64` into Montgomery represenation
+    for modulus `M = 2**64-2**32+1` and word size `R = 2**64`.
+    That is, returns `x * R mod M`.
+    """
+
+    # This is the CPU analogue of prepare_for_mul()
+
+    # Using the known form of modulus, we are rewriting multiplications and modulo operations
+    # as shifts to make it faster.
+    #
+    # The idea is as follows: `let r = 2**32` (so `r**2 = R`).
+    # Then `(a + b * r) * r**2 mod (r**2 - r + 1) = a * r - a - b mod (r**2 - r + 1)`.
+    # `a * r - a` is always in range `[0, m)`, so we just need to check if it is
+    # smaller than `b` and, in that case, add `m` (which is equivalent to subtracting `r - 1`
+    # with modulo `r**2` applied automatically since we're working with `uint64`).
+
+    x_lo = x & numpy.uint64(0xffffffff)
+    x_hi = x >> 32
+    y = (x_lo << 32) - x_lo
+    adjust = (y < x_hi).astype(numpy.uint64)
+    adjust = (adjust << 32) - adjust
+    return y - x_hi - adjust
 
 
 class FiniteFieldPow:

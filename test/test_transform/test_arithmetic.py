@@ -174,6 +174,40 @@ def test_mul(thread, method):
         )
 
 
+def ref_mul_prepared(data1, data2):
+    coeff = ntt_cpu.gnum(0xfffffffe00000001) # Inverse of 2**64 modulo (2**64-2**32+1)
+    data1 = ntt_cpu.gnum(data1)
+    data2 = ntt_cpu.gnum(data2)
+    return ntt_cpu.gnum_to_u64(data1 * data2 * coeff)
+
+
+def test_mul_prepared(thread, method):
+    if method == "cuda_asm" and thread.api.get_id() != cluda.cuda_id():
+        pytest.skip()
+    check_func(
+        thread, ntt.mul_prepared(method=method), ref_mul_prepared,
+        'ff_number', ['ff_number', 'ff_number'])
+
+
+def ref_prepare_for_mul(data1):
+    coeff = ntt_cpu.gnum(0xffffffff) # 2**64 modulo (2**64-2**32+1)
+    data1 = ntt_cpu.gnum(data1)
+    return ntt_cpu.gnum_to_u64(data1 * coeff)
+
+
+def test_prepare_for_mul(thread):
+    check_func(
+        thread, ntt.prepare_for_mul(), ref_prepare_for_mul,
+        'ff_number', ['ff_number'])
+
+
+def test_prepare_for_mul_cpu():
+    array = get_test_array(1024, 'ff_number')
+    res = ntt.prepare_for_mul_cpu(array)
+    ref = ref_prepare_for_mul(array)
+    assert (res == ref).all()
+
+
 def ref_pow(data1, data2):
     data1 = ntt_cpu.gnum(data1)
     return ntt_cpu.gnum_to_u64(data1**data2)

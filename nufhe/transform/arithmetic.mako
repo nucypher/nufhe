@@ -333,6 +333,92 @@ WITHIN_KERNEL INLINE ${ff_elem} ${prefix}(${ff_elem} a, ${ff_elem} b)
 </%def>
 
 
+<%def name="prepare_for_mul_def(prefix)">
+WITHIN_KERNEL INLINE ${ff_elem} ${prefix}(${ff_elem} a)
+{
+    /*
+    Convert the given number to Montgomery representation with the fixed modulus (M=2**64-2**32+1)
+    and fixed word size (R=2**64), for later use with `mul_prepared()`.
+    The result is `a * R mod M`.
+    */
+
+    ${ff.u64} lo = a.val & 0xffffffff;
+    ${ff.u64} hi = a.val >> 32;
+    ${ff.u64} y = (lo << 32) - lo;
+    ${ff_elem} y_ff = { y };
+    ${ff_elem} hi_ff = { hi };
+    return ${sub}(y_ff, hi_ff);
+}
+</%def>
+
+
+<%def name="mul_prepared_def(prefix)">
+WITHIN_KERNEL INLINE ${ff_elem} ${prefix}(${ff_elem} a, ${ff_elem} b)
+{
+    /*
+    This function performs Montgomery multiplication with the fixed modulus (M=2**64-2**32+1)
+    and fixed word size (R=2**64), which helps simplify the algorithm.
+    The result is `a * b * R**(-1) mod M`.
+
+    Note that if you multiply two numbers `a` and `b` in Montgomery representation
+    (a' = a * R mod M, b' = b * R mod M), the result is the Montgomery representation of their
+    product (a' * b' * R**(-1) mod M = a * b * R mod M).
+    But if one of the numbers is in Montgomery representation and the other is not, you
+    get the normal product back (a * b' * R**(-1) mod M = a * b mod M).
+
+    This way if one of the factors is precalculated, you can convert it
+    into Montgomery representation, and use this function instead of the general
+    multiplication function (which is slower).
+    */
+
+    %if method == "cuda_asm":
+
+    ${ff.u64} hi = 0;
+    ${ff.u64} p2 = 0;
+    asm("{\n\t"
+        ".reg .u64  lo, hi, t1, t2, t3; \n\t"
+        "mul.lo.u64 lo, %2, %3;         \n\t"
+        "mul.hi.u64 hi, %2, %3;         \n\t"
+        "shl.b64    t1, lo, 32;         \n\t" // t1 = lo << 32
+        "add.u64    lo, lo, t1;         \n\t" // (u) lo = (lo << 32) + lo
+        "shr.b64    t1, lo, 32;         \n\t" // t1 = lo >> 32
+        "shl.b64    t2, lo, 32;         \n\t" // (uu) t2 = lo << 32
+        "sub.cc.u64 t3, lo, t2;         \n\t"
+        "sub.u64    lo, lo, t1;         \n\t" // (p2) lo = u - (u >> 32)
+        "subc.u64   lo, lo, 0;          \n\t"
+        "mov.b64    %0, hi;             \n\t"
+        "mov.b64    %1, lo;             \n\t"
+        "}"
+        : "+l"(hi), "+l"(p2)
+        : "l"(a.val), "l"(b.val));
+
+    %elif method == "c" or method == "c_from_asm":
+
+    #ifdef CUDA
+    ${ff.u64} hi = __umul64hi(a.val, b.val);
+    #else
+    ${ff.u64} hi = mul_hi(a.val, b.val);
+    #endif
+    ${ff.u64} lo = a.val * b.val;
+
+    ${ff.u64} u = (lo << 32) + lo;
+    ${ff.u64} p2 = u - (u >> 32);
+    ${ff.u64} uu = u << 32;
+    if (uu > u)
+    {
+        p2 -= 1;
+    }
+
+    %endif
+
+    ${ff_elem} hi_ff = { hi };
+    ${ff_elem} p2_ff = { p2 };
+
+    return ${sub}(hi_ff, p2_ff);
+}
+</%def>
+
+
 <%def name="pow_def(prefix)">
 // Exponentiation in FF(P): val_ = val_ ^ e mod P.
 WITHIN_KERNEL INLINE ${ff_elem} ${prefix}(${ff_elem} x, ${dtypes.ctype(exp_dtype)} e)

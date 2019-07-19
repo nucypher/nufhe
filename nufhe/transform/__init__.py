@@ -15,7 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .arithmetic import add, sub, mod, mul, pow, inv_pow2, lsh
+from .arithmetic import (
+    add, sub, mod, mul, mul_prepared, prepare_for_mul, prepare_for_mul_cpu, pow, inv_pow2, lsh)
 from .ntt import ntt1024, ntt1024_requirements
 from .fft import fft512, fft512_requirements
 from .computation import Transform
