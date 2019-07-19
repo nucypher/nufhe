@@ -171,7 +171,7 @@ class BlindRotate(Computation):
                         output_size=self._in_out_params.size,
                         input_size=tlwe_params.extracted_lweparams.size,
                         bs_log2_base=self._params.bs_log2_base,
-                        mul=transform.transformed_mul(perf_params),
+                        mul_prepared=transform.transformed_mul_prepared(perf_params),
                         add=transform.transformed_add(perf_params),
                         tr_ctype=transform.transformed_internal_ctype(),
                         min_blocks=helpers.min_blocks,

@@ -170,7 +170,7 @@ ${kernel_declaration}
             a = sh[${(decomp_id * (mask_size + 1) + mask_in_id) * sh_length_tr} + idx];
             b = ${tr_ctype}pack(
                     ${gsw.load_idx}(bk_idx, ${mask_in_id}, ${decomp_id}, ${mask_out_id}, idx));
-            t = ${add}(t, ${mul}(a, b));
+            t = ${add}(t, ${mul_prepared}(a, b));
             %endfor
             %endfor
 

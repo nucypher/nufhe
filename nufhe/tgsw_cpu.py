@@ -72,7 +72,7 @@ def tlwe_transformed_add_mul_to_trf_reference(
                     result_view,
                     transform.transformed_space_add_ref(
                         result_view,
-                        transform.transformed_space_mul_ref(
+                        transform.transformed_space_mul_prepared_ref(
                             sample_view[:, mask_idx, decomp_idx, :, :],
                             bootstrap_key[bk_row_idx, mask_idx, decomp_idx, :, :])))
 

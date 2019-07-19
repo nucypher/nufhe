@@ -192,3 +192,43 @@ class TLweEncryptZero(Computation):
                 ))
 
         return plan
+
+
+class TLweTransformSamples(Computation):
+    """
+    Convert given Torus32 values to the transformed space and prepare them for fast multiplication
+    (converting to Montgomery for NTT and doing nothing for FFT).
+    """
+
+    def __init__(
+            self, params: 'TLweParams', shape, perf_params: PerformanceParametersForDevice):
+
+        self._transform_type = params.transform_type
+        self._perf_params = perf_params
+
+        batch_shape = shape[:-1]
+        polynomial_degree = params.polynomial_degree
+        transform = get_transform(self._transform_type)
+        tlength = transform.transformed_length(polynomial_degree)
+        tdtype = transform.transformed_dtype()
+
+        prepared_values = Type(tdtype, batch_shape + (tlength,))
+        values = Type(Torus32, shape)
+
+        Computation.__init__(self, [
+            Parameter('prepared_samples', Annotation(prepared_values, 'o')),
+            Parameter('values', Annotation(values, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, prepared_values, values):
+
+        plan = plan_factory()
+
+        transform = get_transform(self._transform_type)
+
+        comp = transform.ForwardTransform(values.shape[:-1], values.shape[-1], self._perf_params)
+        prepare = transform.get_prepare_for_mul_trf(prepared_values.shape)
+        comp.parameter.output.connect(prepare, prepare.input, prepared=prepare.output)
+
+        plan.computation_call(comp, prepared_values, values)
+
+        return plan

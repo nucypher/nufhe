@@ -91,7 +91,7 @@ def get_tlwe_transformed_add_mul_to_trf(
                 ${bootstrap_key.load_idx}(
                     ${bk_row_idx}, ${mask_idx}, ${decomp_idx}, ${idxs[-2]}, ${idxs[-1]})
                 );
-            result = ${add}(result, ${mul}(a, b));
+            result = ${add}(result, ${mul_prepared}(a, b));
         }
         %endfor
         %endfor
@@ -103,7 +103,7 @@ def get_tlwe_transformed_add_mul_to_trf(
             mask_size=mask_size,
             decomp_length=decomp_length,
             add=transform.transformed_add(perf_params),
-            mul=transform.transformed_mul(perf_params),
+            mul_prepared=transform.transformed_mul_prepared(perf_params),
             tr_ctype=tr_ctype))
 
 

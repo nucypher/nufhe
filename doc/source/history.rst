@@ -16,6 +16,8 @@ Version history
 
 * ADDED: ``__setitem__()`` functionality for ``LweSampleArray`` objects (the source must be another ``LweSampleArray``).
 
+* ADDED: NTT transform now uses Montgomery multiplication for the cases where one of the factors can be prepared in advance, increasing performance (mostly for the multi-kernel bootstrap).
+
 * FIXED: result shape derivation in gate methods of ``VirtualMachine``, including ``vm.gate_constant()`` not accepting lists as arguments.
 
 

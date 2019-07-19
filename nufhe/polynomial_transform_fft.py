@@ -18,6 +18,7 @@
 import numpy
 
 from reikna.cluda import functions, Module
+from reikna.core import Transformation, Parameter, Annotation, Type
 
 from .transform import fft512, fft512_requirements, Transform
 from .transform.fft import fft_transform_ref
@@ -67,6 +68,10 @@ def transformed_space_mul_ref(data1, data2):
     return data1 * data2
 
 
+def transformed_space_mul_prepared_ref(data1, data2):
+    return transformed_space_mul_ref(data1, data2)
+
+
 def transformed_add(perf_params):
     return functions.add(transformed_dtype(), transformed_dtype())
 
@@ -75,8 +80,24 @@ def transformed_mul(perf_params):
     return functions.mul(transformed_dtype(), transformed_dtype())
 
 
+def transformed_mul_prepared(perf_params):
+    return transformed_mul(perf_params)
+
+
 def transform_module_requirements():
     return fft512_requirements()
+
+
+def get_prepare_for_mul_trf(shape):
+    # Preparation for FFT is just an identity
+    dtype = transformed_dtype()
+    return Transformation([
+        Parameter('output', Annotation(Type(dtype, shape), 'o')),
+        Parameter('input', Annotation(Type(dtype, shape), 'i'))],
+        """
+        ${output.store_same}(${input.load_same});
+        """,
+        connectors=['input', 'output'])
 
 
 def transform_module(perf_params: PerformanceParametersForDevice, multi_iter=False):

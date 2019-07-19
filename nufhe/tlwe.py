@@ -41,6 +41,7 @@ from .tlwe_gpu import (
     TLweNoiselessTrivial,
     TLweExtractLweSamples,
     TLweEncryptZero,
+    TLweTransformSamples,
     )
 
 
@@ -200,9 +201,7 @@ def tlwe_transform_samples(
         thr, result: TransformedTLweSampleArray, source: TLweSampleArray,
         perf_params: PerformanceParametersForDevice):
 
-    transform = get_transform(source.params.transform_type)
     comp = get_computation(
-        thr, transform.ForwardTransform, source.a.coeffs.shape[:-1], source.a.coeffs.shape[-1],
-        perf_params)
+        thr, TLweTransformSamples, source.params, source.a.coeffs.shape, perf_params)
     comp(result.a.coeffs, source.a.coeffs)
     thr.copy_array(source.current_variances, dest=result.current_variances)
