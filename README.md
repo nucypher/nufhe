@@ -4,7 +4,7 @@ This library implements the fully homomorphic encryption algorithm from [`TFHE`]
 
 
 ## Usage example
-
+```python
     import random
     import nufhe
 
@@ -24,7 +24,7 @@ This library implements the fully homomorphic encryption algorithm from [`TFHE`]
     result_bits = ctx.decrypt(secret_key, result)
 
     assert all(result_bits == reference)
-
+```
 
 ## Performance
 
